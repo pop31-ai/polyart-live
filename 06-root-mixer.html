@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Root Mixer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#06060f;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#title{position:absolute;top:16px;left:50%;transform:translateX(-50%);color:#fff;font-size:20px;letter-spacing:6px;text-transform:uppercase;text-shadow:0 0 20px #ff0,0 0 40px #a80;z-index:10}
+#info{position:absolute;top:52px;left:50%;transform:translateX(-50%);color:#888;font-size:11px;letter-spacing:1px;z-index:10}
+#ui{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:3px}
+.ctrl label{color:#ff8;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;text-shadow:0 0 4px #a80}
+.ctrl input[type=range]{width:100px;accent-color:#ff0;cursor:pointer}
+.ctrl .val{color:#ff0;font-size:12px;font-weight:bold;text-shadow:0 0 6px #ff0}
+#presets{position:absolute;top:16px;right:16px;z-index:10;display:flex;gap:6px;flex-wrap:wrap;max-width:220px;justify-content:flex-end}
+.pb{padding:4px 10px;background:rgba(255,255,0,0.06);border:1px solid #ff03;color:#ff0;font-size:9px;cursor:pointer;border-radius:3px;text-transform:uppercase;letter-spacing:1px;transition:all .2s}
+.pb:hover{background:rgba(255,255,0,0.2);text-shadow:0 0 6px #ff0}
+#mode{position:absolute;top:16px;left:16px;z-index:10;display:flex;gap:6px}
+.mb{padding:4px 10px;background:rgba(255,255,255,0.04);border:1px solid #fff3;color:#aaa;font-size:9px;cursor:pointer;border-radius:3px;text-transform:uppercase;letter-spacing:1px;transition:all .2s}
+.mb:hover,.mb.active{background:rgba(255,255,255,0.15);color:#fff;text-shadow:0 0 6px #fff}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Root Mixer</div>
+<div id="info">Перетаскивай корни по комплексной плоскости — картина меняется мгновенно</div>
+<div id="mode">
+<button class="mb active" onclick="setMode(0)">Density</button>
+<button class="mb" onclick="setMode(1)">Iterate</button>
+<button class="mb" onclick="setMode(2)">Phase</button>
+</div>
+<div id="presets">
+<button class="pb" onclick="lp(0)">Круг</button>
+<button class="pb" onclick="lp(1)">Треугольник</button>
+<button class="pb" onclick="lp(2)">Звезда</button>
+<button class="pb" onclick="lp(3)">Случай</button>
+</div>
+<div id="ui">
+<div class="ctrl"><label>Размер</label><input type="range" id="sz" min="1" max="10" value="4"><span class="val" id="szV">4</span></div>
+<div class="ctrl"><label>Деталь</label><input type="range" id="det" min="1" max="8" value="4"><span class="val" id="detV">4</span></div>
+<div class="ctrl"><label>Яркость</label><input type="range" id="br" min="10" max="100" value="60"><span class="val" id="brV">60</span></div>
+<div class="ctrl"><label>Палитра</label><input type="range" id="pal" min="0" max="4" value="0"><span class="val" id="palV">0</span></div>
+</div>
+<script>
+const C=document.getElementById('c'),X=C.getContext('2d');
+let W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight;needsRedraw=true;}
+resize();addEventListener('resize',resize);
+
+const S={sz:'szV',det:'detV',br:'brV',pal:'palV'};
+Object.keys(S).forEach(k=>{
+  document.getElementById(k).addEventListener('input',()=>{
+    const v=parseFloat(document.getElementById(k).value);
+    document.getElementById(S[k]).textContent=v;
+    needsRedraw=true;
+  });
+});
+
+let mode=0;
+function setMode(m){
+  mode=m;
+  document.querySelectorAll('.mb').forEach((b,i)=>{b.classList.toggle('active',i===m);});
+  needsRedraw=true;
+}
+
+let roots=[];
+function initRoots(n){
+  roots=[];
+  for(let i=0;i<n;i++){
+    const a=i*Math.PI*2/n;
+    roots.push({x:Math.cos(a)*2.5,y:Math.sin(a)*2.5,vx:0,vy:0});
+  }
+}
+initRoots(6);
+
+const presets=[
+  ()=>initRoots(6),
+  ()=>{initRoots(3);roots.forEach((r,i)=>{const a=i*Math.PI*2/3-Math.PI/2;r.x=Math.cos(a)*3;r.y=Math.sin(a)*3;});},
+  ()=>{initRoots(8);roots.forEach((r,i)=>{const a=i*Math.PI*2/8;const d=i%2===0?3:1.5;r.x=Math.cos(a)*d;r.y=Math.sin(a)*d;});},
+  ()=>{initRoots(7);roots.forEach(r=>{r.x=(Math.random()-0.5)*6;r.y=(Math.random()-0.5)*6;});},
+];
+function lp(i){presets[i]();needsRedraw=true;}
+
+function gv(id){return parseFloat(document.getElementById(id).value)}
+
+let dragging=-1,mx=0,my=0,needsRedraw=true,t=0;
+let imgData=null;
+
+C.addEventListener('mousedown',e=>{
+  const rect=C.getBoundingClientRect();
+  const ex=e.clientX-rect.left,ey=e.clientY-rect.top;
+  const cx=W/2,cy=H/2,sc=Math.min(W,H)/10;
+  for(let i=0;i<roots.length;i++){
+    const px=cx+roots[i].x*sc,py=cy-roots[i].y*sc;
+    if(Math.hypot(ex-px,ey-py)<20){dragging=i;break;}
+  }
+});
+C.addEventListener('mousemove',e=>{
+  if(dragging<0)return;
+  const rect=C.getBoundingClientRect();
+  const cx=W/2,cy=H/2,sc=Math.min(W,H)/10;
+  roots[dragging].x=(e.clientX-rect.left-cx)/sc;
+  roots[dragging].y=-(e.clientY-rect.top-cy)/sc;
+  needsRedraw=true;
+});
+C.addEventListener('mouseup',()=>{dragging=-1;});
+C.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const touch=e.touches[0];
+  const rect=C.getBoundingClientRect();
+  const ex=touch.clientX-rect.left,ey=touch.clientY-rect.top;
+  const cx=W/2,cy=H/2,sc=Math.min(W,H)/10;
+  for(let i=0;i<roots.length;i++){
+    const px=cx+roots[i].x*sc,py=cy-roots[i].y*sc;
+    if(Math.hypot(ex-px,ey-py)<30){dragging=i;break;}
+  }
+},{passive:false});
+C.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(dragging<0)return;
+  const touch=e.touches[0];
+  const rect=C.getBoundingClientRect();
+  const cx=W/2,cy=H/2,sc=Math.min(W,H)/10;
+  roots[dragging].x=(touch.clientX-rect.left-cx)/sc;
+  roots[dragging].y=-(touch.clientY-rect.top-cy)/sc;
+  needsRedraw=true;
+},{passive:false});
+C.addEventListener('touchend',()=>{dragging=-1;});
+
+const palettes=[
+  (v)=>`hsl(${v*360},90%,${50+v*30}%)`,
+  (v)=>`hsl(${180+v*120},90%,${40+v*40}%)`,
+  (v)=>`hsl(${v*60+200},80%,${30+v*50}%)`,
+  (v)=>`rgb(${v*255|0},${v*v*255|0},${Math.sqrt(v)*255|0})`,
+  (v)=>`rgb(${v*200|0},${(1-Math.abs(v-0.5)*2)*200|0},${(1-v)*255|0})`,
+];
+
+function renderDensity(){
+  const sz=gv('sz'),det=Math.round(gv('det')),br=gv('br')/100,palIdx=Math.round(gv('pal'))%5;
+  const pal=palettes[palIdx];
+  const sc=Math.min(W,H)/10;
+  const step=Math.pow(2,5-det);
+  const limit=50;
+
+  imgData=X.createImageData(W,H);
+  const data=imgData.data;
+
+  for(let py=0;py<H;py+=step){
+    for(let px=0;px<W;px+=step){
+      const zx=(px-W/2)/sc;
+      const zy=-(py-H/2)/sc;
+
+      let zr=zx,zi=zy;
+      let iter=0;
+      while(iter<limit&&zr*zr+zi*zi<sz*sz){
+        const nr=zr*zr-zi*zi+zx;
+        const ni=2*zr*zi+zy;
+        zr=nr;zi=ni;
+        iter++;
+      }
+
+      let v=iter/limit;
+      if(iter<limit)v=1-Math.sqrt(zr*zr+zi*zi)/(sz*2);
+      else v=0;
+
+      const color=pal(v);
+      const m=color.match(/\d+/g);
+      if(!m)continue;
+      const r=parseInt(m[0]),g=parseInt(m[1]),b=parseInt(m[2]);
+
+      for(let dy=0;dy<step&&py+dy<H;dy++){
+        for(let dx=0;dx<step&&px+dx<W;dx++){
+          const idx=((py+dy)*W+(px+dx))*4;
+          data[idx]=r*br*2.5|0;
+          data[idx+1]=g*br*2.5|0;
+          data[idx+2]=b*br*2.5|0;
+          data[idx+3]=255;
+        }
+      }
+    }
+  }
+  X.putImageData(imgData,0,0);
+}
+
+function renderIterate(){
+  const sz=gv('sz'),det=Math.round(gv('det')),br=gv('br')/100;
+  const sc=Math.min(W,H)/10;
+  const step=Math.pow(2,6-det);
+  const limit=40;
+
+  imgData=X.createImageData(W,H);
+  const data=imgData.data;
+
+  for(let py=0;py<H;py+=step){
+    for(let px=0;px<W;px+=step){
+      let zr=(px-W/2)/sc,zi=-(py-H/2)/sc;
+      let iter=0;
+      while(iter<limit&&zr*zr+zi*zi<sz*sz*2){
+        let sumR=0,sumI=0;
+        for(const root of roots){
+          const dr=zr-root.x,di=zi-root.y;
+          const d=dr*dr+di*di+0.01;
+          sumR+=dr/d;sumI+=di/d;
+        }
+        const nr=zr+sumR*0.1;
+        const ni=zi+sumI*0.1;
+        zr=nr;zi=ni;
+        iter++;
+      }
+
+      const v=iter/limit;
+      const h=(v*300+iter*5)%360;
+      const s=0.7+v*0.3;
+      const l=(0.1+v*0.6)*br*2;
+
+      for(let dy=0;dy<step&&py+dy<H;dy++){
+        for(let dx=0;dx<step&&px+dx<W;dx++){
+          const idx=((py+dy)*W+(px+dx))*4;
+          const c=hslToRgb(h/360,s,l);
+          data[idx]=c[0];data[idx+1]=c[1];data[idx+2]=c[2];data[idx+3]=255;
+        }
+      }
+    }
+  }
+  X.putImageData(imgData,0,0);
+}
+
+function renderPhase(){
+  const sz=gv('sz'),det=Math.round(gv('det')),br=gv('br')/100;
+  const sc=Math.min(W,H)/10;
+  const step=Math.pow(2,6-det);
+
+  imgData=X.createImageData(W,H);
+  const data=imgData.data;
+
+  for(let py=0;py<H;py+=step){
+    for(let px=0;px<W;px+=step){
+      const zx=(px-W/2)/sc,zy=-(py-H/2)/sc;
+      let totalAngle=0;
+      for(const root of roots){
+        const dx=zx-root.x,dy=zy-root.y;
+        totalAngle+=Math.atan2(dy,dx);
+      }
+      totalAngle=((totalAngle%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+      const h=totalAngle/(Math.PI*2);
+      const dist=Math.hypot(zx,zy);
+      const l=(0.2+0.5*Math.exp(-dist*0.15))*br*2;
+
+      for(let dy=0;dy<step&&py+dy<H;dy++){
+        for(let dx=0;dx<step&&px+dx<W;dx++){
+          const idx=((py+dy)*W+(px+dx))*4;
+          const c=hslToRgb(h,0.85,l);
+          data[idx]=c[0];data[idx+1]=c[1];data[idx+2]=c[2];data[idx+3]=255;
+        }
+      }
+    }
+  }
+  X.putImageData(imgData,0,0);
+}
+
+function hslToRgb(h,s,l){
+  let r,g,b;
+  if(s===0){r=g=b=l;}else{
+    const hue2rgb=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};
+    const q=l<0.5?l*(1+s):l+s-l*s;const p=2*l-q;
+    r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3);
+  }
+  return[r*255|0,g*255|0,b*255|0];
+}
+
+function drawFrame(){
+  t+=0.016;
+
+  if(needsRedraw){
+    if(mode===0)renderDensity();
+    else if(mode===1)renderIterate();
+    else renderPhase();
+    needsRedraw=false;
+
+    const cx=W/2,cy=H/2,sc=Math.min(W,H)/10;
+    roots.forEach((r,i)=>{
+      const px=cx+r.x*sc,py=cy-r.y*sc;
+      const pulse=1+0.2*Math.sin(t*3+i);
+      const grad=X.createRadialGradient(px,py,0,px,py,12*pulse);
+      grad.addColorStop(0,'rgba(255,255,100,0.9)');
+      grad.addColorStop(0.5,'rgba(255,200,50,0.3)');
+      grad.addColorStop(1,'rgba(255,150,0,0)');
+      X.fillStyle=grad;X.beginPath();X.arc(px,py,12*pulse,0,Math.PI*2);X.fill();
+      X.fillStyle='#fff';X.beginPath();X.arc(px,py,3,0,Math.PI*2);X.fill();
+    });
+  }
+
+  requestAnimationFrame(drawFrame);
+}
+
+lp(0);drawFrame();
+</script>
+</body>
+</html>

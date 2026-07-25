@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PolyArt Gallery — Живые Полиномиальные Иллюстрации</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#080810;color:#ccc;font-family:'Segoe UI',sans-serif}
+.hero{text-align:center;padding:60px 20px 40px;background:linear-gradient(180deg,rgba(255,200,0,0.05) 0%,transparent 100%)}
+.hero h1{font-size:42px;letter-spacing:12px;text-transform:uppercase;color:#fff;text-shadow:0 0 30px #ff0,0 0 60px #fa0,0 0 100px #f60;margin-bottom:8px}
+.hero .sub{color:#aa8;font-size:13px;letter-spacing:4px;margin-bottom:20px}
+.hero .desc{color:#666;font-size:12px;max-width:600px;margin:0 auto;line-height:1.8}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;padding:20px 40px;max-width:1200px;margin:0 auto}
+.card{background:rgba(255,255,255,0.02);border:1px solid #1a1a2a;border-radius:8px;overflow:hidden;transition:all .3s;cursor:pointer;text-decoration:none;color:inherit}
+.card:hover{border-color:#ff03;transform:translateY(-4px);box-shadow:0 8px 30px rgba(255,200,0,0.08)}
+.card .preview{height:180px;position:relative;overflow:hidden}
+.card .preview canvas{width:100%;height:100%}
+.card .info{padding:16px}
+.card .info h3{color:#ff0;font-size:14px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px}
+.card .info p{color:#888;font-size:11px;line-height:1.6}
+.card .tags{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.card .tag{padding:2px 6px;background:rgba(255,200,0,0.06);border:1px solid #ff02;color:#aa8;font-size:8px;text-transform:uppercase;letter-spacing:1px;border-radius:2px}
+.footer{text-align:center;padding:40px;color:#444;font-size:10px;letter-spacing:2px}
+</style>
+</head>
+<body>
+
+<div class="hero">
+<h1>PolyArt</h1>
+<div class="sub">Живые полиномиальные иллюстрации</div>
+<div class="desc">
+Коллекция интерактивных HTML5-визуализаций, основанных на полиномиальной математике.<br>
+Каждая иллюстрация генерируется в реальном времени из коэффициентов полиномов.<br>
+Перетаскивайте слайдеры — меняйте вселенную.
+</div>
+</div>
+
+<div class="grid">
+
+<div class="card" onclick="open('01-polynomial-nebula.html')">
+<div class="preview"><canvas id="p1"></canvas></div>
+<div class="info">
+<h3>Polynomial Nebula</h3>
+<p>Корни полинома как звёзды туманности. Настраиваемая степень, вращение, палитра.</p>
+<div class="tags"><span class="tag">корни</span><span class="tag">анимация</span><span class="tag">6 пресетов</span></div>
+</div>
+</div>
+
+<div class="card" onclick="open('02-coefficient-symphony.html')">
+<div class="preview"><canvas id="p2"></canvas></div>
+<div class="info">
+<h3>Coefficient Symphony</h3>
+<p>9 слайдеров — 9 коэффициентов. Каждый меняет форму ландшафта в реальном времени.</p>
+<div class="tags"><span class="tag">интерактив</span><span class="tag">ландшафт</span><span class="tag">4 пресета</span></div>
+</div>
+</div>
+
+<div class="card" onclick="open('03-root-garden.html')">
+<div class="preview"><canvas id="p3"></canvas></div>
+<div class="info">
+<h3>Root Garden</h3>
+<p>Корни расцветают лепестками. Анимированный сад из полиномиальных цветов.</p>
+<div class="tags"><span class="tag">цветы</span><span class="tag">ветер</span><span class="tag">рост</span></div>
+</div>
+</div>
+
+<div class="card" onclick="open('04-complex-terrain.html')">
+<div class="preview"><canvas id="p4"></canvas></div>
+<div class="info">
+<h3>Complex Terrain</h3>
+<p>3D-поверхность из полиномиальной функции. Горы, океан, кристалл, пустыня.</p>
+<div class="tags"><span class="tag">3D</span><span class="tag">поверхность</span><span class="tag">5 палитр</span></div>
+</div>
+</div>
+
+<div class="card" onclick="open('05-polynomial-aurora.html')">
+<div class="preview"><canvas id="p5"></canvas></div>
+<div class="info">
+<h3>Polynomial Aurora</h3>
+<p>Северное сияние из полиномиальных кривых. Многополосная анимация.</p>
+<div class="tags"><span class="tag">аврора</span><span class="tag">полосы</span><span class="tag">4 пресета</span></div>
+</div>
+</div>
+
+<div class="card" onclick="open('06-root-mixer.html')">
+<div class="preview"><canvas id="p6"></canvas></div>
+<div class="info">
+<h3>Root Mixer</h3>
+<p>Перетаскивай корни мышью — плотность, итерации, фаза меняются мгновенно.</p>
+<div class="tags"><span class="tag">drag&drop</span><span class="tag">密度</span><span class="tag">3 режима</span></div>
+</div>
+</div>
+
+<div class="card" onclick="open('07-polynomial-mandala.html')">
+<div class="preview"><canvas id="p7"></canvas></div>
+<div class="info">
+<h3>Polynomial Mandala</h3>
+<p>Симметрическая мандала из полиномиальных корней. Коронная работа коллекции.</p>
+<div class="tags"><span class="tag">мандала</span><span class="tag">симметрия</span><span class="tag">6 пресетов</span></div>
+</div>
+</div>
+
+<div class="card" onclick="open('08-polynomial-symphony.html')">
+<div class="preview"><canvas id="p8"></canvas></div>
+<div class="info">
+<h3>Polynomial Symphony</h3>
+<p>Финальная сцена. Частицы, вихри и шифрование сообщений в полиномах.</p>
+<div class="tags"><span class="tag">частицы</span><span class="tag">шифрование</span><span class="tag">вихри</span></div>
+</div>
+</div>
+
+<div class="card" onclick="open('09-polycrypt.html')">
+<div class="preview"><canvas id="p9"></canvas></div>
+<div class="info">
+<h3>PolyCrypt</h3>
+<p>Полиномиальный шифр. Кодирует текст в коэффициенты, дешифрует по корням.</p>
+<div class="tags"><span class="tag">шифр</span><span class="tag">B-уровень</span><span class="tag">визуализация</span></div>
+</div>
+</div>
+
+</div>
+
+<div class="footer">
+POLYART COLLECTION — MATHEMATICS AS ART<br>
+All illustrations are self-contained HTML5 — no dependencies
+</div>
+
+<script>
+const previews=[
+  {id:'p1',fn:(ctx,w,h,t)=>{ctx.fillStyle='#020008';ctx.fillRect(0,0,w,h);for(let i=0;i<6;i++){const a=i*Math.PI/3+t*0.3;const r=30+10*Math.sin(t+i);const x=w/2+Math.cos(a)*r,y=h/2+Math.sin(a)*r;const g=ctx.createRadialGradient(x,y,0,x,y,20);g.addColorStop(0,`hsla(${i*60},90%,70%,0.6)`);g.addColorStop(1,`hsla(${i*60},80%,30%,0)`);ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,20,0,Math.PI*2);ctx.fill();}}},
+  {id:'p2',fn:(ctx,w,h,t)=>{ctx.fillStyle='#0a0612';ctx.fillRect(0,0,w,h);for(let l=0;l<5;l++){ctx.beginPath();ctx.moveTo(0,h);for(let x=0;x<=w;x+=3){const nx=(x/w-0.5)*8;const y=Math.sin(nx*0.5+t+l)*20+l*15+Math.cos(nx*0.3+t*0.7)*10;ctx.lineTo(x,h*0.3+y+l*15);}ctx.lineTo(w,h);ctx.closePath();ctx.fillStyle=`hsla(${l*50+200},70%,40%,${0.15})`;ctx.fill();}}},
+  {id:'p3',fn:(ctx,w,h,t)=>{ctx.fillStyle='#050a05';ctx.fillRect(0,0,w,h);for(let i=0;i<5;i++){const cx=w/2+Math.cos(i*1.2)*30,cy=h/2+Math.sin(i*1.5)*20;for(let p=0;p<6;p++){const a=p*Math.PI/3+t*0.3+i;ctx.beginPath();ctx.moveTo(cx,cy);ctx.quadraticCurveTo(cx+Math.cos(a)*25,cy+Math.sin(a)*25,cx+Math.cos(a)*35,cy+Math.sin(a)*35);ctx.strokeStyle=`hsla(${120+i*30},70%,50%,0.4)`;ctx.lineWidth=2;ctx.stroke();}ctx.fillStyle=`hsla(${150+i*20},90%,70%,0.8)`;ctx.beginPath();ctx.arc(cx,cy,3,0,Math.PI*2);ctx.fill();}}},
+  {id:'p4',fn:(ctx,w,h,t)=>{ctx.fillStyle='#080410';ctx.fillRect(0,0,w,h);for(let y=0;y<8;y++){ctx.beginPath();ctx.moveTo(0,y*25+20);for(let x=0;x<=w;x+=4){const nx=(x/w-0.5)*6;const v=Math.sin(nx+t*0.5)*Math.cos(y*0.3)*15+Math.sin(nx*2+t)*5;ctx.lineTo(x,y*25+20+v);}ctx.strokeStyle=`hsla(${y*30+250},70%,50%,${0.3})`;ctx.lineWidth=1.5;ctx.stroke();}}},
+  {id:'p5',fn:(ctx,w,h,t)=>{ctx.fillStyle='#020408';ctx.fillRect(0,0,w,h);for(let b=0;b<5;b++){ctx.beginPath();ctx.moveTo(0,h*0.3+b*20);for(let x=0;x<=w;x+=3){const y=h*0.3+b*20+Math.sin(x*0.01+t+b)*20+Math.sin(x*0.005+t*1.3)*10;ctx.lineTo(x,y);}ctx.strokeStyle=`hsla(${b*50+160},80%,60%,0.25)`;ctx.lineWidth=3;ctx.stroke();}}},
+  {id:'p6',fn:(ctx,w,h,t)=>{ctx.fillStyle='#06060f';ctx.fillRect(0,0,w,h);const sc=Math.min(w,h)/3;for(let i=0;i<5;i++){const a=i*Math.PI*2/5+t*0.2;const x=w/2+Math.cos(a)*sc*0.4,y=h/2+Math.sin(a)*sc*0.4;const g=ctx.createRadialGradient(x,y,0,x,y,15);g.addColorStop(0,`hsla(${i*72},90%,70%,0.8)`);g.addColorStop(1,`hsla(${i*72},80%,40%,0)`);ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,15,0,Math.PI*2);ctx.fill();}}},
+  {id:'p7',fn:(ctx,w,h,t)=>{ctx.fillStyle='#050510';ctx.fillRect(0,0,w,h);const cx=w/2,cy=h/2;for(let s=0;s<8;s++){const a=s*Math.PI/4+t*0.2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*60,cy+Math.sin(a)*60);ctx.strokeStyle=`hsla(${s*45},80%,60%,0.3)`;ctx.lineWidth=2;ctx.stroke();}for(let r=0;r<3;r++){ctx.beginPath();for(let a=0;a<=Math.PI*2;a+=0.05){const rr=20+r*20+Math.sin(a*8+t)*5;ctx.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr);}ctx.closePath();ctx.strokeStyle=`hsla(${r*60+300},70%,50%,0.2)`;ctx.lineWidth=1;ctx.stroke();}}},
+  {id:'p8',fn:(ctx,w,h,t)=>{ctx.fillStyle='rgba(8,4,14,0.15)';ctx.fillRect(0,0,w,h);for(let i=0;i<30;i++){const x=(Math.sin(t*0.3+i*2.1)*0.3+0.5)*w;const y=(Math.cos(t*0.2+i*1.7)*0.3+0.5)*h;const s=1+Math.sin(t+i)*0.5;ctx.fillStyle=`hsla(${(t*20+i*12)%360},80%,60%,0.4)`;ctx.beginPath();ctx.arc(x,y,s,0,Math.PI*2);ctx.fill();}}},
+  {id:'p9',fn:(ctx,w,h,t)=>{ctx.fillStyle='#0a0a14';ctx.fillRect(0,0,w,h);const cx=w/2,cy=h/2;for(let i=0;i<8;i++){const a=i*Math.PI/4+t*0.4;const r=30+15*Math.sin(t+i);const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;ctx.fillStyle=`hsla(${i*45+50},90%,70%,0.7)`;ctx.beginPath();ctx.arc(x,y,2+Math.sin(t*2+i),0,Math.PI*2);ctx.fill();if(i>0){const pa=(i-1)*Math.PI/4+t*0.4;const pr=30+15*Math.sin(t+i-1);ctx.strokeStyle=`hsla(${i*45+50},60%,50%,0.2)`;ctx.beginPath();ctx.moveTo(cx+Math.cos(pa)*pr,cy+Math.sin(pa)*pr);ctx.lineTo(x,y);ctx.stroke();}}}},
+];
+
+let t=0;
+function animate(){
+  t+=0.02;
+  previews.forEach(p=>{
+    const canvas=document.getElementById(p.id);
+    if(!canvas)return;
+    const ctx=canvas.getContext('2d');
+    canvas.width=canvas.parentElement.clientWidth*2;
+    canvas.height=canvas.parentElement.clientHeight*2;
+    ctx.scale(2,2);
+    p.fn(ctx,canvas.width/2,canvas.height/2,t);
+  });
+  requestAnimationFrame(animate);
+}
+animate();
+
+function open(url){window.open(url,'_blank');}
+</script>
+</body>
+</html>

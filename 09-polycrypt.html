@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PolyCrypt — Полиномиальный Шифр</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a14;color:#ccc;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:30px 20px}
+h1{font-size:28px;letter-spacing:6px;text-transform:uppercase;color:#ff0;text-shadow:0 0 20px #fa0;margin-bottom:6px}
+.sub{color:#887744;font-size:11px;letter-spacing:2px;margin-bottom:30px}
+.panel{background:rgba(255,255,255,0.03);border:1px solid #333;border-radius:8px;padding:20px;width:100%;max-width:700px;margin-bottom:16px}
+.panel h2{color:#ff0;font-size:13px;letter-spacing:3px;text-transform:uppercase;margin-bottom:12px;text-shadow:0 0 8px #a80}
+.row{display:flex;gap:10px;margin-bottom:10px;align-items:center;flex-wrap:wrap}
+.row label{color:#aa9;font-size:10px;text-transform:uppercase;letter-spacing:1px;min-width:70px}
+input[type=text],textarea{background:rgba(255,255,255,0.05);border:1px solid #444;color:#ff0;padding:8px 12px;font-size:13px;border-radius:4px;width:100%;font-family:monospace;letter-spacing:1px}
+input[type=text]:focus,textarea:focus{outline:none;border-color:#ff0;box-shadow:0 0 10px rgba(255,255,0,0.15)}
+textarea{height:80px;resize:vertical}
+.btn{padding:8px 20px;background:rgba(255,200,0,0.08);border:1px solid #ff03;color:#ff0;font-size:11px;cursor:pointer;border-radius:4px;text-transform:uppercase;letter-spacing:2px;transition:all .2s;font-family:inherit}
+.btn:hover{background:rgba(255,200,0,0.2);text-shadow:0 0 8px #ff0}
+.result{background:rgba(0,0,0,0.3);border:1px solid #222;border-radius:4px;padding:12px;font-family:monospace;font-size:12px;color:#0f0;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;line-height:1.6}
+.visual{width:100%;height:200px;border:1px solid #222;border-radius:4px;margin-top:10px;position:relative;overflow:hidden;background:#050510}
+.visual canvas{width:100%;height:100%}
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:9px;text-transform:uppercase;letter-spacing:1px;margin-left:8px}
+.b-conf{background:rgba(255,200,0,0.15);color:#ff0;border:1px solid #ff03}
+.info{color:#666;font-size:10px;margin-top:8px;line-height:1.5}
+.steps{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.step{background:rgba(255,255,255,0.03);border:1px solid #222;border-radius:4px;padding:8px;flex:1;min-width:120px;text-align:center}
+.step .num{color:#ff0;font-size:18px;font-weight:bold}
+.step .lbl{color:#888;font-size:9px;text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+</style>
+</head>
+<body>
+
+<h1>PolyCrypt</h1>
+<div class="sub">Полиномиальный шифр уровня B <span class="badge b-conf">Confidential</span></div>
+
+<div class="panel">
+<h2>Шифрование</h2>
+<div class="row">
+<label>Сообщение</label>
+<input type="text" id="plain" placeholder="Введите секретное сообщение..." value="HELLO POLYART">
+</div>
+<div class="row">
+<label>Ключ-полином</label>
+<input type="text" id="key" placeholder="Ключ (слово/число)" value="POLY">
+</div>
+<div class="row">
+<button class="btn" onclick="encrypt()">Зашифровать</button>
+<button class="btn" onclick="decrypt()">Дешифровать</button>
+<button class="btn" onclick="visualize()">Визуализировать</button>
+</div>
+<div class="info">Шифр: каждый символ → коэффициент полинома P(x). Ключ задаёт перестановку степеней. Зашифрованное сообщение — это корни полинома.</div>
+</div>
+
+<div class="panel">
+<h2>Результат</h2>
+<div class="steps" id="steps"></div>
+<div class="result" id="output">Готово к работе. Введите сообщение и нажмите "Зашифровать".</div>
+</div>
+
+<div class="panel">
+<h2>Визуализация корней</h2>
+<div class="visual"><canvas id="vc"></canvas></div>
+</div>
+
+<script>
+function charToVal(c){
+  const code=c.toUpperCase().charCodeAt(0);
+  if(code>=65&&code<=90)return(code-64)/26;
+  if(code>=48&&code<=57)return(code-48+27)/36;
+  return 0.5;
+}
+function valToChar(v){
+  const idx=Math.round(v*26-1);
+  if(idx>=0&&idx<26)return String.fromCharCode(65+idx);
+  const didx=Math.round(v*36-27);
+  if(didx>=0&&didx<10)return String.fromCharCode(48+didx);
+  return '?';
+}
+function keyToPermutation(key){
+  const arr=[];
+  for(let i=0;i<key.length;i++)arr.push({ch:key[i].toUpperCase(),idx:i});
+  arr.sort((a,b)=>a.ch.localeCompare(b.ch));
+  const perm=[];
+  arr.forEach((a,i)=>perm[a.idx]=i);
+  return perm;
+}
+function permExtend(perm,n){
+  const ext=[];
+  for(let i=0;i<n;i++)ext.push(perm[i%perm.length]+Math.floor(i/perm.length)*perm.length);
+  return ext;
+}
+
+function encrypt(){
+  const text=document.getElementById('plain').value;
+  const key=document.getElementById('key').value;
+  if(!text||!key)return;
+
+  const perm=keyToPermutation(key);
+  const coeffs=[];
+  for(let i=0;i<text.length;i++){
+    const v=charToVal(text[i]);
+    const shifted=v+perm[i%perm.length]*0.01;
+    coeffs.push(shifted);
+  }
+
+  const polyStr=coeffs.map((c,i)=>{
+    if(i===0)return c.toFixed(4);
+    return`+(${c.toFixed(4)})x^${i}`;
+  }).join(' ');
+
+  const hex=coeffs.map(c=>(c*255|0).toString(16).padStart(2,'0')).join('');
+  const b64=btoa(coeffs.map(c=>c.toFixed(6)).join(','));
+
+  document.getElementById('steps').innerHTML=`
+    <div class="step"><div class="num">${text.length}</div><div class="lbl">Символов</div></div>
+    <div class="step"><div class="num">${coeffs.length}</div><div class="lbl">Коэффициентов</div></div>
+    <div class="step"><div class="num">x^${coeffs.length-1}</div><div class="lbl">Степень</div></div>
+    <div class="step"><div class="num">${key.length}</div><div class="lbl">Длина ключа</div></div>
+  `;
+
+  document.getElementById('output').textContent=
+`POLYNOMIAL ENCRYPTION — Level B (Confidential)
+${'═'.repeat(50)}
+
+Polynomial:
+P(x) = ${polyStr}
+
+Coefficients (hex):
+${hex}
+
+Encoded (Base64):
+${b64}
+
+Roots (approximate):
+${coeffs.map((c,i)=>`  x${i+1} ≈ ${(c*Math.PI).toFixed(4)}i`).join('\n')}
+
+${'═'.repeat(50)}
+Classification: CONFIDENTIAL — Level B
+Standard: Yellow — CIA B-Scale`;
+
+  document._lastCoeffs=coeffs;
+}
+
+function decrypt(){
+  const out=document.getElementById('output').textContent;
+  const b64Match=out.match(/Encoded \(Base64\):\n(.+)/);
+  if(!b64Match){document.getElementById('output').textContent='Сначала зашифруйте сообщение.';return;}
+
+  try{
+    const decoded=atob(b64Match[1].trim());
+    const coeffs=decoded.split(',').map(Number);
+    const key=document.getElementById('key').value;
+    const perm=keyToPermutation(key);
+
+    const invPerm=[];
+    perm.forEach((v,i)=>invPerm[v]=i);
+
+    let text='';
+    coeffs.forEach((c,i)=>{
+      const v=c-invPerm[i%perm.length]*0.01;
+      text+=valToChar(v);
+    });
+
+    document.getElementById('output').textContent=
+`DECRYPTION COMPLETE
+${'═'.repeat(50)}
+
+Recovered: "${text}"
+Coefficients: ${coeffs.length}
+Key: ${key}
+
+${'═'.repeat(50)}
+Classification: CONFIDENTIAL — Level B`;
+  }catch(e){
+    document.getElementById('output').textContent='Ошибка дешифрования: '+e.message;
+  }
+}
+
+const vc=document.getElementById('vc');
+const vx=vc.getContext('2d');
+let vw,vh;
+function resizeV(){vw=vc.width=vc.parentElement.clientWidth;vh=vc.height=vc.parentElement.clientHeight;}
+resizeV();addEventListener('resize',resizeV);
+
+let vTime=0;
+let rootParticles=[];
+function initRoots(coeffs){
+  rootParticles=coeffs.map((c,i)=>{
+    const a=i*Math.PI*2/coeffs.length;
+    const r=c*Math.min(vw,vh)*0.3;
+    return{
+      x:vw/2+Math.cos(a)*r,
+      y:vh/2+Math.sin(a)*r,
+      tx:vw/2+Math.cos(a)*r,
+      ty:vh/2+Math.sin(a)*r,
+      hue:i*360/coeffs.length,
+      size:3+Math.abs(c)*5,
+      phase:Math.random()*Math.PI*2
+    };
+  });
+}
+initRoots([0.3,0.5,0.7,0.4,0.6,0.8,0.2,0.9,0.35,0.65]);
+
+function visualize(){
+  const coeffs=document._lastCoeffs;
+  if(!coeffs){
+    document.getElementById('output').textContent='Сначала зашифруйте сообщение для визуализации.';
+    return;
+  }
+  initRoots(coeffs);
+}
+
+function drawV(){
+  vTime+=0.016;
+  vx.fillStyle='rgba(5,5,16,0.12)';
+  vx.fillRect(0,0,vw,vh);
+
+  rootParticles.forEach((p,i)=>{
+    p.x+=(p.tx-p.x)*0.02;
+    p.y+=(p.ty-p.y)*0.02;
+    p.tx=vw/2+Math.cos(vTime*0.5+i*0.8)*vw*0.3;
+    p.ty=vh/2+Math.sin(vTime*0.4+i*1.1)*vh*0.3;
+
+    const pulse=1+0.3*Math.sin(vTime*2+p.phase);
+    const h=(p.hue+vTime*20)%360;
+
+    for(let g=3;g>0;g--){
+      const r=p.size*pulse*g*2;
+      const grad=vx.createRadialGradient(p.x,p.y,0,p.x,p.y,r);
+      grad.addColorStop(0,`hsla(${h},90%,70%,${0.15/g})`);
+      grad.addColorStop(1,`hsla(${h},80%,40%,0)`);
+      vx.fillStyle=grad;vx.beginPath();vx.arc(p.x,p.y,r,0,Math.PI*2);vx.fill();
+    }
+
+    vx.fillStyle=`hsla(${h},100%,85%,0.9)`;
+    vx.beginPath();vx.arc(p.x,p.y,p.size*pulse*0.5,0,Math.PI*2);vx.fill();
+
+    if(i>0){
+      const prev=rootParticles[i-1];
+      vx.strokeStyle=`hsla(${h},60%,50%,0.15)`;
+      vx.lineWidth=1;
+      vx.beginPath();vx.moveTo(prev.x,prev.y);vx.lineTo(p.x,p.y);vx.stroke();
+    }
+  });
+
+  if(rootParticles.length>1){
+    const last=rootParticles[rootParticles.length-1];
+    const first=rootParticles[0];
+    vx.strokeStyle=`hsla(${(vTime*20)%360},60%,50%,0.1)`;
+    vx.lineWidth=1;
+    vx.beginPath();vx.moveTo(last.x,last.y);vx.lineTo(first.x,first.y);vx.stroke();
+  }
+
+  requestAnimationFrame(drawV);
+}
+
+drawV();
+</script>
+</body>
+</html>
