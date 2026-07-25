@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>25 — Строительство Моста — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0812;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:10}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl input[type=range]{width:90px;accent-color:#fc0;cursor:pointer}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fc05;z-index:10;opacity:0.4}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Строительство Моста</div>
+<div id="ui">
+<div class="ctrl"><label>Прогресс</label><input type="range" id="prog" min="0" max="1" value="0.5" step="0.01"><span class="val" id="progV">50%</span></div>
+<div class="ctrl"><label>Рабочие</label><input type="range" id="workers" min="2" max="10" value="6" step="1"><span class="val" id="workersV">6</span></div>
+<div class="ctrl"><label>Время суток</label><input type="range" id="time" min="0" max="2" value="1" step="1"><span class="val" id="timeV">День</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+var timeNames=['Рассвет','День','Закат'];
+document.getElementById('prog').oninput=function(){document.getElementById('progV').textContent=Math.round(this.value*100)+'%';};
+document.getElementById('workers').oninput=function(){document.getElementById('workersV').textContent=this.value;};
+document.getElementById('time').oninput=function(){document.getElementById('timeV').textContent=timeNames[this.value];};
+
+var t=0;
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
+
+// River water
+function drawRiver(waterY,t2){
+  // Water body
+  F([0,waterY,W,waterY,W,H,0,H],'rgba(20,40,60,0.2)');
+  
+  // Water waves
+  for(var wv=0;wv<5;wv++){
+    var wvy=waterY+5+wv*8;
+    X.strokeStyle='rgba(40,80,120,'+(0.06-wv*0.01)+')';
+    X.lineWidth=0.5;
+    X.beginPath();
+    for(var wx=0;wx<W;wx+=4){
+      var wy2=wvy+Math.sin(wx*0.015+t2*0.8+wv*0.5)*3+Math.sin(wx*0.008+t2*0.5)*2;
+      if(wx===0)X.moveTo(wx,wy2);else X.lineTo(wx,wy2);
+    }
+    X.stroke();
+  }
+  
+  // Reflections
+  X.globalAlpha=0.02;
+  for(var rf=0;rf<8;rf++){
+    var rfx=Math.sin(rf*2.7)*W*0.4+W*0.5;
+    var rfy=waterY+10+Math.sin(t2+rf)*5;
+    X.fillStyle='rgba(255,200,100,0.5)';
+    X.beginPath();X.ellipse(rfx,rfy,8,1.5,0,0,Math.PI*2);X.fill();
+  }
+  X.globalAlpha=1;
+}
+
+// Bridge pier/foundation
+function drawPier(px,py,height,t2,progress){
+  var built=height*Math.min(progress*1.5,1);
+  
+  // Stone blocks
+  var blockH=6;
+  var blocks=Math.floor(built/blockH);
+  for(var bl=0;bl<blocks;bl++){
+    var by=py-bl*blockH;
+    var bw=30-Math.sin(bl*0.5)*2;
+    F([px-bw,by,px+bw,by,px+bw-1,by-blockH,px-bw+1,by-blockH],'rgba(160,150,130,0.06)');
+    S([px-bw,by,px+bw,by,px+bw-1,by-blockH,px-bw+1,by-blockH],'rgba(160,150,130,0.2)',0.5);
+    // Mortar lines
+    if(bl%2===0){
+      S([[px-bw+5,by-blockH*0.5],[px+bw-5,by-blockH*0.5]],'rgba(140,130,110,0.08)',0.3);
+    }
+  }
+  
+  // Top platform
+  if(progress>0.3){
+    var topY=py-built;
+    F([px-35,topY,px+35,topY,px+33,topY-4,px-33,topY-4],'rgba(170,160,140,0.08)');
+    S([px-35,topY,px+35,topY,px+33,topY-4,px-33,topY-4],'rgba(170,160,140,0.2)',0.5);
+  }
+}
+
+// Arch construction
+function drawArch(startX,endX,baseY,archHeight,progress,t2){
+  var archProgress=Math.min((progress-0.3)*2,1);
+  if(archProgress<=0)return;
+  
+  // Arch curve
+  var archPts=[];
+  var archW=endX-startX;
+  for(var ap=0;ap<=20;ap++){
+    var frac=ap/20;
+    if(frac>archProgress)break;
+    var ax=startX+frac*archW;
+    var ay=baseY-Math.sin(frac*Math.PI)*archHeight;
+    archPts.push([ax,ay]);
+  }
+  
+  if(archPts.length>1){
+    S(archPts,'rgba(180,170,150,0.3)',1.2);
+  }
+  
+  // Voussoirs (wedge stones)
+  if(archProgress>0.5){
+    var stoneCount=Math.floor(archProgress*12);
+    for(var vs=0;vs<stoneCount;vs++){
+      var vsFrac=(vs+1)/13;
+      var vsx=startX+vsFrac*archW;
+      var vsy=baseY-Math.sin(vsFrac*Math.PI)*archHeight;
+      var vsSize=4;
+      F([vsx-vsy*0.1,vsy-vsSize,vsx+vsy*0.1,vsy-vsSize,vsx+vsy*0.1+1,vsy+vsSize,vsx-vsy*0.1-1,vsy+vsSize],'rgba(170,160,140,0.06)');
+      S([vsx-vsy*0.1,vsy-vsSize,vsx+vsy*0.1,vsy-vsSize,vsx+vsy*0.1+1,vsy+vsSize,vsx-vsy*0.1-1,vsy+vsSize],'rgba(170,160,140,0.15)',0.4);
+    }
+  }
+  
+  // Keystone
+  if(archProgress>0.9){
+    var kx=startX+archW*0.5;
+    var ky=baseY-archHeight;
+    F([kx-5,ky-6,kx+5,ky-6,kx+6,ky+6,kx-6,ky+6],'rgba(200,190,170,0.1)');
+    S([kx-5,ky-6,kx+5,ky-6,kx+6,ky+6,kx-6,ky+6],'rgba(200,190,170,0.3)',0.6);
+  }
+}
+
+// Scaffolding
+function drawScaffolding(sx,sy,sw,sh,progress,t2){
+  if(progress<0.2)return;
+  var scaffoldProgress=Math.min((progress-0.2)*2,1);
+  
+  // Vertical poles
+  var poleCount=Math.floor(scaffoldProgress*5);
+  for(var sp=0;sp<poleCount;sp++){
+    var px2=sx+sp*(sw/4);
+    S([[px2,sy],[px2,sy-sh]],'rgba(140,120,80,0.15)',0.5);
+  }
+  
+  // Horizontal beams
+  var beamCount=Math.floor(scaffoldProgress*4);
+  for(var sb=0;sb<beamCount;sb++){
+    var by2=sy-sb*(sh/3);
+    S([[sx,by2],[sx+sw,by2]],'rgba(140,120,80,0.12)',0.4);
+  }
+  
+  // Diagonal braces
+  if(scaffoldProgress>0.5){
+    for(var sd=0;sd<Math.floor(scaffoldProgress*3);sd++){
+      var dx1=sx+sd*(sw/3);
+      var dy1=sy;
+      var dx2=sx+(sd+1)*(sw/3);
+      var dy2=sy-sh/2;
+      S([[dx1,dy1],[dx2,dy2]],'rgba(140,120,80,0.08)',0.3);
+    }
+  }
+}
+
+// Crane/hoist
+function drawCrane(cx,cy,height,t2){
+  // Main mast
+  S([[cx,cy],[cx,cy-height]],'rgba(160,140,100,0.2)',1);
+  
+  // Boom
+  var boomAngle=Math.sin(t2*0.3)*0.2;
+  var boomLen=50;
+  var boomEndX=cx+Math.cos(boomAngle)*boomLen;
+  var boomEndY=cy-height+Math.sin(boomAngle)*boomLen*0.3;
+  S([[cx,cy-height],[boomEndX,boomEndY]],'rgba(160,140,100,0.18)',0.8);
+  
+  // Counterweight
+  S([[cx,cy-height],[cx-20,cy-height+10]],'rgba(140,120,80,0.12)',0.5);
+  F([cx-25,cy-height+8,cx-15,cy-height+8,cx-15,cy-height+15,cx-25,cy-height+15],'rgba(140,120,80,0.08)');
+  
+  // Cable
+  var cableSwing=Math.sin(t2*0.5)*3;
+  S([[boomEndX,boomEndY],[boomEndX+cableSwing,cy-height+30]],'rgba(180,170,150,0.1)',0.3);
+  
+  // Hook
+  var hookX=boomEndX+cableSwing;
+  var hookY=cy-height+30;
+  X.strokeStyle='rgba(180,170,150,0.15)';X.lineWidth=0.5;
+  X.beginPath();X.arc(hookX,hookY,3,0,Math.PI);X.stroke();
+  
+  // Load being lifted
+  if(Math.sin(t2*0.3)>0){
+    var loadY=hookY+5+Math.sin(t2*0.3)*10;
+    F([hookX-4,loadY,hookX+4,loadY,hookX+3,loadY+6,hookX-3,loadY+6],'rgba(160,150,130,0.08)');
+    S([hookX-4,loadY,hookX+4,loadY,hookX+3,loadY+6,hookX-3,loadY+6],'rgba(160,150,130,0.15)',0.4);
+  }
+}
+
+// Worker figure
+function drawWorker(wx,wy,phase,activity,t2){
+  var action=Math.sin(t2*0.8+phase)*0.3;
+  
+  // Body
+  S([[wx,wy],[wx,wy-18]],'rgba(180,160,140,0.25)',0.7);
+  
+  // Arms working
+  if(activity===0){
+    // Hammering
+    var armAngle=action*0.8;
+    S([[wx,wy-14],[wx-10+armAngle*5,wy-20+Math.abs(armAngle)*3]],'rgba(180,160,140,0.2)',0.5);
+    S([[wx,wy-14],[wx+10,wy-18]],'rgba(180,160,140,0.2)',0.5);
+    // Hammer
+    var hx=wx-10+armAngle*5;
+    var hy=wy-20+Math.abs(armAngle)*3;
+    S([[hx,hy],[hx+armAngle*3,hy-8]],'rgba(160,140,100,0.15)',0.4);
+  }else if(activity===1){
+    // Carrying
+    S([[wx,wy-14],[wx-12,wy-20]],'rgba(180,160,140,0.2)',0.5);
+    S([[wx,wy-14],[wx+12,wy-20]],'rgba(180,160,140,0.2)',0.5);
+    // Load on shoulders
+    F([wx-15,wy-22,wx+15,wy-22,wx+13,wy-18,wx-13,wy-18],'rgba(160,150,130,0.06)');
+  }else{
+    // Directing/pointing
+    S([[wx,wy-14],[wx+15+action*5,wy-22]],'rgba(180,160,140,0.2)',0.5);
+    S([[wx,wy-14],[wx-8,wy-18]],'rgba(180,160,140,0.2)',0.5);
+  }
+  
+  // Legs
+  var legSwing=Math.sin(t2+phase)*3;
+  S([[wx,wy],[wx-legSwing,wy+8]],'rgba(180,160,140,0.2)',0.5);
+  S([[wx,wy],[wx+legSwing,wy+8]],'rgba(180,160,140,0.2)',0.5);
+  
+  // Head
+  X.fillStyle='rgba(200,180,160,0.1)';X.beginPath();X.arc(wx,wy-21,3,0,Math.PI*2);X.fill();
+  X.strokeStyle='rgba(200,180,160,0.15)';X.lineWidth=0.4;
+  X.beginPath();X.arc(wx,wy-21,3,0,Math.PI*2);X.stroke();
+  
+  // Cap
+  S([[wx-4,wy-22],[wx+4,wy-22]],'rgba(140,120,80,0.12)',0.5);
+}
+
+// Materials pile
+function drawMaterials(mx,my,t2){
+  // Stone blocks
+  for(var mb=0;mb<5;mb++){
+    var mbx=mx+mb*8-Math.sin(mb)*3;
+    var mby=my-Math.floor(mb/3)*5;
+    var mbw=6+Math.sin(mb*1.3)*2;
+    var mbh=4+Math.cos(mb*1.7);
+    F([mbx,mby,mbx+mbw,mby,mbx+mbw-1,mby-mbh,mbx+1,mby-mbh],'rgba(160,150,130,0.06)');
+    S([mbx,mby,mbx+mbw,mby,mbx+mbw-1,mby-mbh,mbx+1,mby-mbh],'rgba(160,150,130,0.15)',0.4);
+  }
+  
+  // Timber beams
+  for(var tb=0;tb<3;tb++){
+    var tbx=mx+20+tb*4;
+    var tby=my-tb*3;
+    S([[tbx,tby],[tbx+25,tby-2]],'rgba(140,120,80,0.12)',0.5);
+  }
+}
+
+// Dust/debris particles
+function drawDebris(t2){
+  for(var dp=0;dp<20;dp++){
+    var dpx=Math.sin(t2*0.3+dp*2.1)*W*0.3+W*0.5;
+    var dpy=(t2*15+dp*30)%H*0.7+H*0.15;
+    var dps=0.3+Math.sin(dp)*0.2;
+    X.fillStyle='rgba(180,170,150,'+(0.02+0.01*Math.sin(t2+dp))+')';
+    X.beginPath();X.arc(dpx,dpy,dps,0,Math.PI*2);X.fill();
+  }
+}
+
+function draw(){
+  var progress=parseFloat(document.getElementById('prog').value);
+  var workerCount=parseInt(document.getElementById('workers').value);
+  var timeOfDay=parseInt(document.getElementById('time').value);
+  t+=0.016;
+  
+  // Sky based on time
+  if(timeOfDay===0){
+    X.fillStyle='#12101a';X.fillRect(0,0,W,H);
+    var sg=X.createRadialGradient(W*0.2,H*0.1,0,W*0.2,H*0.1,W*0.5);
+    sg.addColorStop(0,'rgba(255,150,80,0.06)');sg.addColorStop(1,'rgba(255,130,60,0)');
+    X.fillStyle=sg;X.fillRect(0,0,W,H);
+  }else if(timeOfDay===1){
+    X.fillStyle='#0e0c16';X.fillRect(0,0,W,H);
+    var sg2=X.createRadialGradient(W*0.5,H*0.05,0,W*0.5,H*0.05,W*0.5);
+    sg2.addColorStop(0,'rgba(255,220,150,0.05)');sg2.addColorStop(1,'rgba(255,200,120,0)');
+    X.fillStyle=sg2;X.fillRect(0,0,W,H);
+  }else{
+    X.fillStyle='#140a08';X.fillRect(0,0,W,H);
+    var sg3=X.createRadialGradient(W*0.8,H*0.2,0,W*0.8,H*0.2,W*0.5);
+    sg3.addColorStop(0,'rgba(255,100,50,0.06)');sg3.addColorStop(1,'rgba(255,80,40,0)');
+    X.fillStyle=sg3;X.fillRect(0,0,W,H);
+  }
+  
+  var cx=W/2;
+  var s=Math.min(W,H)/600;
+  var waterY=H*0.65;
+  var bridgeY=H*0.4;
+  
+  // River
+  drawRiver(waterY,t);
+  
+  // Bridge piers
+  var pierCount=4;
+  var pierSpacing=W/(pierCount+1);
+  for(var pi=0;pi<pierCount;pi++){
+    var pierX=pierSpacing*(pi+1);
+    drawPier(pierX,waterY,80*s,t,progress);
+  }
+  
+  // Arches between piers
+  if(progress>0.3){
+    for(var ai=0;ai<pierCount-1;ai++){
+      var archStartX=pierSpacing*(ai+1)+20;
+      var archEndX=pierSpacing*(ai+2)-20;
+      drawArch(archStartX,archEndX,waterY-80*s*Math.min(progress*1.5,1),40*s,progress,t);
+    }
+  }
+  
+  // Scaffolding on piers
+  for(var si=0;si<pierCount;si++){
+    var scaffX=pierSpacing*(si+1)-25;
+    drawScaffolding(scaffX,waterY-10,50,60*s,progress,t);
+  }
+  
+  // Crane
+  if(progress>0.4){
+    drawCrane(W*0.3,waterY-80*s*Math.min(progress*1.5,1),60*s,t);
+  }
+  
+  // Workers
+  for(var wi=0;wi<workerCount;wi++){
+    var workerX=W*0.15+wi*(W*0.7/(workerCount-1));
+    var workerY=waterY-80*s*Math.min(progress*1.5,1)-5;
+    var activity=wi%3;
+    drawWorker(workerX,workerY,wi*1.2,activity,t);
+  }
+  
+  // Materials
+  drawMaterials(W*0.1,waterY-5,t);
+  drawMaterials(W*0.85,waterY-5,t);
+  
+  // Debris/dust
+  drawDebris(t);
+  
+  // Progress label
+  X.globalAlpha=0.06;X.font=(10*s)+'px serif';X.fillStyle='rgba(255,220,180,0.6)';X.textAlign='center';
+  X.fillText(Math.round(progress*100)+'% построено',cx,H-15*s);
+  X.textAlign='left';X.globalAlpha=1;
+  
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
