@@ -1,0 +1,379 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>43 — Покраска Здания — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060608;overflow:hidden;font-family:sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #0af;color:#0af;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(0,170,255,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #0af5;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#0af;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:600px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Покраска Здания</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">&#9664;</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">&#9654;</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="speed" min="0" max="100" value="0" style="width:70px;accent-color:#0af"><span class="val" id="speedV">0</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+var stage=0,autoMode=false,autoTimer=0,maxStage=12,t=0;
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ'};
+document.getElementById('speed').oninput=function(){document.getElementById('speedV').textContent=this.value};
+
+var pts=['Осмотр · дефекты · трещины · плесень · осыпь · отчёт','Подготовка · костры · леса · мешки · плёнка · 3 дня','Очистка · мойка高压 · пескоструй · щётка · 200кв.м/день','Шпатлёвка · трещины · ямы · грунт · 2 слоя · сушка 4ч','Грунтовка · антисептик · глубокий · проникающий · валик','Маскировка · окна · двери · лента · плёнка · газеты','Цвет · фасадный · силиконовый · 15 лет · UV · мороз','Краскопульт · HVLP · давление 2.5 бар · расход 0.3л/м2','Валик · стыки · углы · кромка · 200мм · ворс 12мм','Кисть · детали · карнизы · откосы · подоконники · аккурат','Сушка · 24ч · +15°С · влажность 60% · без ветра','Финал · 1200кв.м · 12 рабочих · 5 дней · результат'];
+
+function building(bx,by,bw,bh,col){
+  X.fillStyle=col;X.fillRect(bx,by,bw,bh);
+  X.strokeStyle='rgba(0,0,0,0.03)';X.lineWidth=0.5;X.strokeRect(bx,by,bw,bh);
+  // Windows
+  var winRows=Math.floor(bh/(12*s));
+  var winCols=Math.floor(bw/(10*s));
+  for(var wr=0;wr<winRows;wr++){
+    for(var wc=0;wc<winCols;wc++){
+      var winX=bx+5*s+wc*(bw-10*s)/winCols;
+      var winY=by+8*s+wr*(bh-16*s)/winRows;
+      X.fillStyle='rgba(150,200,255,0.04)';X.fillRect(winX,winY,6*s,8*s);
+      X.strokeStyle='rgba(100,150,200,0.05)';X.lineWidth=0.3;X.strokeRect(winX,winY,6*s,8*s);
+    }
+  }
+}
+
+function scaffolding(sx,sy,sw,sh){
+  X.strokeStyle='rgba(150,150,160,0.06)';X.lineWidth=0.8;
+  // Vertical poles
+  for(var vp=0;vp<4;vp++){
+    var vpx=sx+vp*(sw/3);
+    X.beginPath();X.moveTo(vpx,sy);X.lineTo(vpx,sy+sh);X.stroke();
+  }
+  // Horizontal bars
+  var platforms=Math.floor(sh/(15*s));
+  for(var ph=0;ph<platforms;ph++){
+    var phy=sy+ph*15*s;
+    X.beginPath();X.moveTo(sx,phy);X.lineTo(sx+sw,phy);X.stroke();
+    // Platform planks
+    X.strokeStyle='rgba(120,100,60,0.04)';X.lineWidth=0.5;
+    for(var pl=0;pl<sw/(3*s);pl++){
+      X.beginPath();X.moveTo(sx+pl*3*s,phy);X.lineTo(sx+pl*3*s,phy+1*s);X.stroke();
+    }
+    X.strokeStyle='rgba(150,150,160,0.06)';X.lineWidth=0.8;
+  }
+  // Diagonal braces
+  for(var db=0;db<3;db++){
+    var dbx=sx+db*(sw/3);
+    X.strokeStyle='rgba(150,150,160,0.04)';X.lineWidth=0.5;
+    X.beginPath();X.moveTo(dbx,sy);X.lineTo(dbx+sw/3,sy+15*s);X.stroke();
+  }
+}
+
+function painter(px,py,p2,armAngle){
+  // Legs
+  X.strokeStyle='rgba(50,100,200,0.07)';X.lineWidth=1.5*p2;
+  X.beginPath();X.moveTo(px-2*p2,py);X.lineTo(px-3*p2,py+10*p2);X.stroke();
+  X.beginPath();X.moveTo(px+2*p2,py);X.lineTo(px+3*p2,py+10*p2);X.stroke();
+  // Body
+  X.fillStyle='rgba(50,100,200,0.06)';X.fillRect(px-4*p2,py-10*p2,8*p2,10*p2);
+  // Head
+  X.fillStyle='rgba(255,200,150,0.06)';X.beginPath();X.arc(px,py-14*p2,4*p2,0,Math.PI*2);X.fill();
+  // Helmet
+  X.fillStyle='rgba(255,220,50,0.06)';X.beginPath();X.arc(px,py-16*p2,4*p2,Math.PI,0);X.fill();
+  // Arm with tool
+  var shoulderX=px+4*p2,shoulderY=py-8*p2;
+  var handX=shoulderX+Math.cos(armAngle)*15*p2;
+  var handY=shoulderY+Math.sin(armAngle)*15*p2;
+  X.strokeStyle='rgba(255,200,150,0.06)';X.lineWidth=1.5*p2;
+  X.beginPath();X.moveTo(shoulderX,shoulderY);X.lineTo(handX,handY);X.stroke();
+}
+
+function paintRoller(rx,ry,rw,rh,col,angle){
+  X.save();X.translate(rx,ry);X.rotate(angle);
+  X.fillStyle=col;X.fillRect(-rw/2,-rh/2,rw,rh);
+  X.strokeStyle='rgba(0,0,0,0.03)';X.lineWidth=0.3;X.strokeRect(-rw/2,-rh/2,rw,rh);
+  // Handle
+  X.strokeStyle='rgba(100,100,110,0.06)';X.lineWidth=0.8;
+  X.beginPath();X.moveTo(0,rh/2);X.lineTo(0,rh/2+8);X.stroke();
+  X.restore();
+}
+
+function lbl(t2,x,y,c,sz){X.globalAlpha=0.55;X.font=(sz||6)+'px monospace';X.fillStyle=c||'rgba(200,200,220,0.8)';X.textAlign='center';X.fillText(t2,x,y);X.textAlign='left';X.globalAlpha=1}
+
+function draw(){
+  var spd=parseInt(document.getElementById('speed').value);
+  if(autoMode){autoTimer+=0.016;if(autoTimer>2.5){autoTimer=0;if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ'}}}
+  t+=0.016;
+  X.fillStyle='#060608';X.fillRect(0,0,W,H);
+  var cx=W/2,gy=H*0.78,s=Math.min(W,H)/650;
+
+  // Sky
+  X.fillStyle='rgba(180,220,255,0.02)';X.fillRect(0,0,W,gy);
+
+  // Ground
+  X.fillStyle='rgba(60,60,65,0.03)';X.fillRect(0,gy,W,H-gy);
+
+  // Building outline
+  var bx=W*0.2,by=gy-150*s,bw=W*0.6,bh=150*s;
+  building(bx,by,bw,bh,'rgba(180,170,160,0.04)');
+
+  // === STAGE 0: Inspection ===
+  if(stage>=0){
+    // Defects on building
+    var defects=[[0.3,0.2,'треск'],[0.7,0.4,'плесень'],[0.5,0.7,'осыпь'],[0.2,0.5,'пятно']];
+    for(var d=0;d<defects.length;d++){
+      var dx=bx+defects[d][0]*bw;
+      var dy=by+defects[d][1]*bh;
+      X.fillStyle='rgba(255,50,50,0.04)';X.beginPath();X.arc(dx,dy,5*s,0,Math.PI*2);X.fill();
+      X.strokeStyle='rgba(255,50,50,0.06)';X.lineWidth=0.3;X.beginPath();X.arc(dx,dy,5*s,0,Math.PI*2);X.stroke();
+      // Magnifying glass
+      X.strokeStyle='rgba(255,255,255,0.06)';X.lineWidth=0.5;
+      X.beginPath();X.arc(dx+8*s,dy-5*s,4*s,0,Math.PI*2);X.stroke();
+      X.beginPath();X.moveTo(dx+11*s,dy-2*s);X.lineTo(dx+14*s,dy+1*s);X.stroke();
+      // Label
+      X.font=(2.5*s)+'px monospace';X.fillStyle='rgba(255,100,100,0.12)';X.textAlign='center';
+      X.fillText(defects[d][2],dx,dy+10*s);
+    }
+    X.textAlign='left';
+    lbl('осмотр · дефекты · трещины · плесень · отчёт',cx,by-15*s,'rgba(255,100,100,0.5)',6);
+  }
+
+  // === STAGE 1: Preparation ===
+  if(stage>=1){
+    scaffolding(bx-10*s,by-5*s,bw+20*s,bh+5*s);
+    // Safety nets
+    for(var sn=0;sn<3;sn++){
+      var sny=by+sn*50*s;
+      X.strokeStyle='rgba(100,200,100,0.03)';X.lineWidth=0.3;
+      for(var snx=0;snx<10;snx++){
+        X.beginPath();X.moveTo(bx-8*s+snx*(bw+16*s)/10,sny);X.lineTo(bx-8*s+snx*(bw+16*s)/10,sny+50*s);X.stroke();
+      }
+    }
+    // Material bags
+    for(var mb=0;mb<4;mb++){
+      var mbx=W*0.05+mb*12*s;
+      X.fillStyle='rgba(160,140,100,0.04)';X.fillRect(mbx,gy-8*s,8*s,8*s);
+      X.strokeStyle='rgba(180,160,120,0.06)';X.lineWidth=0.3;X.strokeRect(mbx,gy-8*s,8*s,8*s);
+    }
+    // Plastic sheeting
+    X.fillStyle='rgba(200,200,210,0.02)';X.fillRect(bx,gy-2*s,bw,2*s);
+    lbl('подготовка · леса · мешки · плёнка · 3 дня',cx,by-15*s,'rgba(150,200,150,0.5)',6);
+  }
+
+  // === STAGE 2: Cleaning ===
+  if(stage>=2){
+    // Pressure washer
+    var pwX=W*0.85,pwY=gy-30*s;
+    X.fillStyle='rgba(80,80,90,0.04)';X.fillRect(pwX-8*s,pwY-5*s,16*s,10*s);
+    X.strokeStyle='rgba(100,100,110,0.06)';X.lineWidth=0.4;X.strokeRect(pwX-8*s,pwY-5*s,16*s,10*s);
+    // Water jet
+    X.strokeStyle='rgba(100,200,255,0.05)';X.lineWidth=1.5;
+    X.beginPath();X.moveTo(pwX-8*s,pwY);X.lineTo(bx+bw*0.7,by+bh*0.4);X.stroke();
+    // Spray particles
+    for(var sp=0;sp<8;sp++){
+      var spX2=bx+bw*0.7+Math.sin(t*3+sp)*10*s;
+      var spY2=by+bh*0.4+Math.cos(t*4+sp)*8*s;
+      X.fillStyle='rgba(100,200,255,'+(0.03+Math.sin(t+sp)*0.01)+')';
+      X.beginPath();X.arc(spX2,spY2,1.5,0,Math.PI*2);X.fill();
+    }
+    // Painter
+    painter(pwX,pwY-15*s,s,Math.PI*0.8);
+    // Clean area
+    X.fillStyle='rgba(200,220,240,0.02)';X.fillRect(bx+bw*0.5,by+bh*0.3,bw*0.3,bh*0.3);
+    lbl('очистка · мойка高压 · пескоструй · 200кв.м/день',cx,by-15*s,'rgba(100,200,255,0.5)',6);
+  }
+
+  // === STAGE 3: Putty ===
+  if(stage>=3){
+    // Filled cracks
+    for(var fc=0;fc<5;fc++){
+      var fcx=bx+bw*0.2+fc*bw*0.15;
+      var fcy=by+bh*0.3+Math.sin(fc*2.1)*bh*0.2;
+      X.strokeStyle='rgba(220,210,190,0.06)';X.lineWidth=1;
+      X.beginPath();X.moveTo(fcx-5*s,fcy);X.lineTo(fcx+5*s,fcy);X.stroke();
+      // Putty smear
+      X.fillStyle='rgba(220,210,190,0.04)';X.fillRect(fcx-8*s,fcy-2*s,16*s,4*s);
+    }
+    // Painter with putty knife
+    painter(bx+bw*0.3,by+bh*0.5,s,Math.PI*1.5);
+    // Putty knife
+    X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.8;
+    X.beginPath();X.moveTo(bx+bw*0.3+4*s,by+bh*0.5-8*s);X.lineTo(bx+bw*0.3+12*s,by+bh*0.5-12*s);X.stroke();
+    lbl('шпатлёвка · трещины · 2 слоя · сушка 4ч',cx,by-15*s,'rgba(220,210,190,0.5)',6);
+  }
+
+  // === STAGE 4: Primer ===
+  if(stage>=4){
+    // Primer coverage
+    X.fillStyle='rgba(200,200,210,0.03)';X.fillRect(bx,by,bw*0.4,bh);
+    // Primer droplets
+    for(var pd=0;pd<15;pd++){
+      var pdx=bx+Math.random()*bw*0.4;
+      var pdy=by+Math.random()*bh;
+      X.fillStyle='rgba(200,200,210,0.02)';X.beginPath();X.arc(pdx,pdy,2*s,0,Math.PI*2);X.fill();
+    }
+    // Roller
+    paintRoller(bx+bw*0.2,by+bh*0.3,15*s,8*s,'rgba(200,200,210,0.06)',0);
+    // Painter
+    painter(bx+bw*0.2,by+bh*0.5,s,Math.PI*1.25);
+    lbl('грунтовка · антисептик · глубокий · валик',cx,by-15*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 5: Masking ===
+  if(stage>=5){
+    // Tape on windows
+    for(var tw=0;tw<8;tw++){
+      var twx=bx+8*s+tw*((bw-16*s)/8);
+      var twy=by+15*s;
+      X.strokeStyle='rgba(255,200,100,0.06)';X.lineWidth=1;
+      X.beginPath();X.moveTo(twx-3*s,twy);X.lineTo(twx+3*s,twy);X.stroke();
+      X.beginPath();X.moveTo(twx-3*s,twy+8*s);X.lineTo(twx+3*s,twy+8*s);X.stroke();
+    }
+    // Plastic on doors
+    X.fillStyle='rgba(200,200,210,0.03)';X.fillRect(bx+bw*0.4,by+bh-20*s,bw*0.2,20*s);
+    // Newspaper
+    X.fillStyle='rgba(200,190,170,0.02)';X.fillRect(bx+bw*0.1,by+bh-15*s,bw*0.15,12*s);
+    X.fillStyle='rgba(200,190,170,0.02)';X.fillRect(bx+bw*0.75,by+bh-15*s,bw*0.15,12*s);
+    lbl('маскировка · окна · лента · плёнка · газеты',cx,by-15*s,'rgba(255,200,100,0.5)',6);
+  }
+
+  // === STAGE 6: Paint color ===
+  if(stage>=6){
+    // Paint cans
+    var canColors=['rgba(80,120,180,0.06)','rgba(180,80,80,0.06)','rgba(80,160,80,0.06)','rgba(200,180,80,0.06)'];
+    for(var cn=0;cn<4;cn++){
+      var cnX=W*0.05+cn*12*s;
+      X.fillStyle=canColors[cn];X.fillRect(cnX,gy-10*s,8*s,10*s);
+      X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.3;X.strokeRect(cnX,gy-10*s,8*s,10*s);
+      // Handle
+      X.beginPath();X.arc(cnX+4*s,gy-12*s,3*s,Math.PI,0);X.stroke();
+    }
+    // Color swatches on building
+    var swatchColors=['rgba(80,120,180,0.05)','rgba(180,80,80,0.05)','rgba(80,160,80,0.05)'];
+    for(var sw=0;sw<3;sw++){
+      X.fillStyle=swatchColors[sw];X.fillRect(bx+bw*0.1+sw*bw*0.15,by+bh*0.1,bw*0.12,bh*0.15);
+      X.strokeStyle='rgba(0,0,0,0.03)';X.lineWidth=0.3;X.strokeRect(bx+bw*0.1+sw*bw*0.15,by+bh*0.1,bw*0.12,bh*0.15);
+    }
+    lbl('цвет · фасадный · силиконовый · 15 лет · UV',cx,by-15*s,'rgba(150,200,255,0.5)',6);
+  }
+
+  // === STAGE 7: Spray gun ===
+  if(stage>=7){
+    // Spray gun
+    var sgX=W*0.8,sgY=by+bh*0.3;
+    X.fillStyle='rgba(100,100,110,0.05)';X.fillRect(sgX-5*s,sgY-3*s,10*s,6*s);
+    X.strokeStyle='rgba(120,120,130,0.08)';X.lineWidth=0.4;X.strokeRect(sgX-5*s,sgY-3*s,10*s,6*s);
+    // Nozzle
+    X.beginPath();X.moveTo(sgX-5*s,sgY);X.lineTo(sgX-10*s,sgY);X.stroke();
+    // Paint spray
+    for(var ps=0;ps<12;ps++){
+      var psX2=sgX-10*s-Math.random()*30*s;
+      var psY2=sgY+Math.sin(t*3+ps)*15*s;
+      X.fillStyle='rgba(80,120,180,'+(0.02+Math.random()*0.02)+')';
+      X.beginPath();X.arc(psX2,psY2,2+Math.random()*2,0,Math.PI*2);X.fill();
+    }
+    // Pressure gauge
+    X.strokeStyle='rgba(100,100,110,0.06)';X.lineWidth=0.3;
+    X.beginPath();X.arc(sgX+8*s,sgY-5*s,3*s,0,Math.PI*2);X.stroke();
+    var needleA=-Math.PI*0.3+Math.sin(t)*0.05;
+    X.beginPath();X.moveTo(sgX+8*s,sgY-5*s);X.lineTo(sgX+8*s+Math.cos(needleA)*2.5*s,sgY-5*s+Math.sin(needleA)*2.5*s);X.stroke();
+    // Painter
+    painter(sgX+5*s,sgY+15*s,s,Math.PI*0.8);
+    lbl('краскопульт · HVLP · 2.5 бар · 0.3л/м2',cx,by-15*s,'rgba(100,200,255,0.5)',6);
+  }
+
+  // === STAGE 8: Roller ===
+  if(stage>=8){
+    // Painted area
+    X.fillStyle='rgba(80,120,180,0.04)';X.fillRect(bx,by,bw,bh*0.6);
+    // Roller tracks
+    for(var rt=0;rt<6;rt++){
+      var rtx=bx+rt*(bw/6)+Math.sin(t+rt)*3;
+      X.fillStyle='rgba(80,120,180,'+(0.03+Math.sin(t*2+rt)*0.01)+')';
+      X.fillRect(rtx,by,8*s,bh*0.6);
+    }
+    // Painter with roller
+    painter(bx+bw*0.5,by+bh*0.7,s,Math.PI*1.25);
+    // Roller
+    paintRoller(bx+bw*0.5+10*s,by+bh*0.5,15*s,8*s,'rgba(80,120,180,0.08)',Math.PI*0.1+Math.sin(t*2)*0.1);
+    lbl('валик · стыки · углы · 200мм · ворс 12мм',cx,by-15*s,'rgba(80,120,180,0.5)',6);
+  }
+
+  // === STAGE 9: Brush details ===
+  if(stage>=9){
+    // Fully painted
+    X.fillStyle='rgba(80,120,180,0.05)';X.fillRect(bx,by,bw,bh);
+    // Detail work on cornices
+    for(var cd=0;cd<3;cd++){
+      var cdx=bx+cd*(bw/2);
+      X.strokeStyle='rgba(200,200,210,0.05)';X.lineWidth=1;
+      X.beginPath();X.moveTo(cdx,by+5*s);X.lineTo(cdx+bw*0.15,by+5*s);X.stroke();
+      // Brush
+      X.strokeStyle='rgba(180,140,80,0.06)';X.lineWidth=0.8;
+      X.beginPath();X.moveTo(cdx+bw*0.07,by+5*s);X.lineTo(cdx+bw*0.07,by+12*s);X.stroke();
+    }
+    // Painter on scaffold
+    painter(bx+bw*0.8,by+bh*0.3,s,Math.PI*1.5);
+    lbl('кисть · детали · карнизы · откосы · аккурат',cx,by-15*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 10: Drying ===
+  if(stage>=10){
+    // Fully painted building
+    X.fillStyle='rgba(80,120,180,0.06)';X.fillRect(bx,by,bw,bh);
+    // Sun drying
+    for(var sd2=0;sd2<5;sd2++){
+      X.strokeStyle='rgba(255,220,100,'+(0.02+Math.sin(t+sd2)*0.01)+')';X.lineWidth=0.3;
+      X.beginPath();X.arc(cx,by-30*s,20*s+sd2*8*s+Math.sin(t+sd2)*3,Math.PI*1.2,Math.PI*1.8);X.stroke();
+    }
+    // Humidity indicator
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(100,200,255,0.12)';X.textAlign='center';
+    X.fillText('+15°С · влажность 60% · 24ч',cx,by-15*s);X.textAlign='left';
+    lbl('сушка · 24ч · +15°С · 60% · без ветра',cx,by-5*s,'rgba(255,220,100,0.5)',6);
+  }
+
+  // === STAGE 11: Final ===
+  if(stage>=11){
+    // Beautiful finished building
+    X.fillStyle='rgba(80,120,180,0.07)';X.fillRect(bx,by,bw,bh);
+    // Clean windows
+    for(var fw=0;fw<8;fw++){
+      for(var fh=0;fh<6;fh++){
+        var fwx=bx+8*s+fw*((bw-16*s)/8);
+        var fwy=by+10*s+fh*((bh-20*s)/6);
+        X.fillStyle='rgba(150,220,255,0.05)';X.fillRect(fwx,fwy,6*s,8*s);
+        X.strokeStyle='rgba(100,180,240,0.06)';X.lineWidth=0.3;X.strokeRect(fwx,fwy,6*s,8*s);
+      }
+    }
+    // Shine effect
+    for(var sh=0;sh<3;sh++){
+      X.strokeStyle='rgba(255,255,255,'+(0.03-sh*0.008)+')';X.lineWidth=0.3;
+      X.beginPath();X.arc(bx+bw*0.3+sh*20*s,by+bh*0.3,15*s,0,Math.PI*2);X.stroke();
+    }
+    // Stats
+    X.font=(5*s)+'px monospace';X.fillStyle='rgba(255,255,255,0.1)';X.textAlign='center';
+    X.fillText('1200кв.м · 12 рабочих · 5 дней',cx,gy+15*s);X.textAlign='left';
+    lbl('1200кв.м · 12 рабочих · 5 дней · результат',cx,gy+25*s,'rgba(255,255,255,0.6)',7);
+  }
+
+  document.getElementById('part-label').textContent=pts[stage]||'';
+  X.fillStyle='rgba(80,120,180,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(80,120,180,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd3=0;sd3<=maxStage;sd3++){X.fillStyle=sd3<=stage?'rgba(80,120,180,0.25)':'rgba(80,120,180,0.06)';X.beginPath();X.arc(W*0.1+W*0.8*(sd3/maxStage),H-6.5,2,0,Math.PI*2);X.fill()}
+  requestAnimationFrame(draw);
+}
+draw();
+</script></body></html>
