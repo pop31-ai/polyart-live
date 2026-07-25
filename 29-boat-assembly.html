@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>29 — Сборка катера — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#05080a;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #fc0;color:#fc0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(255,200,0,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fc05;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#fc0;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:450px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Сборка Катера</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">◀</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">▶</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Волна</label><input type="range" id="wave" min="0" max="2" value="0.8" step="0.1" style="width:70px;accent-color:#fc0"><span class="val" id="waveV">0.8</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+var stage=0;
+var autoMode=false;
+var autoTimer=0;
+var maxStage=12;
+
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ';};
+document.getElementById('wave').oninput=function(){document.getElementById('waveV').textContent=this.value;};
+
+var parts=[
+  'Киль — стальной профиль, основа прочности',
+  'Шпангоуты — поперечный набор корпуса',
+  'Стрингеры — продольные балки жёсткости',
+  'Обшивка — алюминиевый сплав АМГ-5',
+  'Палуба — настил и рубка',
+  'Рубка — кормовой пост управления',
+  'Силовая установка — 2× Yamaha 300 л.с.',
+  'Винты и редукторы — водомётные движители',
+  'Рулевое устройство — стабилизаторы',
+  'Радиоэлектроника — РЛС, ГПС, эхолот',
+  'Вооружение — 12.7мм пулемёт, гранатомёт',
+  'Спасательное оборудование — плоты, огнетушители',
+  'Готов — катер проекта 12300 «Скорпион»'
+];
+
+var t=0;
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
+
+function label(text,x,y,color,size){
+  X.globalAlpha=0.6;X.font=(size||7)+'px monospace';X.fillStyle=color||'rgba(255,220,180,0.8)';X.textAlign='center';X.fillText(text,x,y);X.textAlign='left';X.globalAlpha=1;
+}
+
+// Water
+function drawWater(waterY,t2,waveAmp){
+  F([0,waterY,W,waterY,W,H,0,H],'rgba(15,25,40,0.25)');
+  
+  // Waves
+  for(var wv=0;wv<6;wv++){
+    var wvy=waterY+3+wv*6;
+    X.strokeStyle='rgba(40,80,140,'+(0.07-wv*0.01)+')';
+    X.lineWidth=0.5;
+    X.beginPath();
+    for(var wx=0;wx<W;wx+=3){
+      var wy=wvy+Math.sin(wx*0.012+t2*0.6+wv*0.5)*waveAmp*3+Math.sin(wx*0.006+t2*0.3)*waveAmp*2;
+      if(wx===0)X.moveTo(wx,wy);else X.lineTo(wx,wy);
+    }
+    X.stroke();
+  }
+  
+  // Reflections
+  for(var rf=0;rf<5;rf++){
+    var rfx=W*0.3+rf*W*0.1;
+    var rfy=waterY+8+Math.sin(t2+rf)*3;
+    X.fillStyle='rgba(100,160,220,'+(0.02+0.01*Math.sin(t2*0.7+rf))+')';
+    X.beginPath();X.ellipse(rfx,rfy,10,1,0,0,Math.PI*2);X.fill();
+  }
+}
+
+// Boat hull — builds up
+function drawBoat(cx,cy,s,stage2,t2,waveAmp){
+  var hullLen=120*s;
+  var hullH=25*s;
+  var hullY=cy;
+  var bowAngle=Math.sin(t2*0.3)*waveAmp*0.5;
+  
+  // Stage 0: Keel
+  if(stage2>=0){
+    S([[cx-hullLen,hullY+hullH],[cx+hullLen*0.8,hullY+hullH]],'rgba(100,110,120,0.25)',0.8);
+    // Keel profile
+    S([[cx+hullLen*0.8,hullY+hullH],[cx+hullLen,hullY+hullH*0.5]],'rgba(100,110,120,0.2)',0.6);
+    S([[cx-hullLen,hullY+hullH],[cx-hullLen,hullY+hullH*0.7]],'rgba(100,110,120,0.2)',0.5);
+    label('киль · сталь',cx,hullY+hullH+15*s,'rgba(150,160,170,0.5)',6);
+  }
+  
+  // Stage 1: Frames
+  if(stage2>=1){
+    for(var fr=0;fr<12;fr++){
+      var frx=cx-hullLen+fr*hullLen*0.15;
+      var frH=hullH*(0.7+Math.sin(fr*0.5)*0.2);
+      S([[frx,hullY+hullH],[frx,hullY+hullH-frH]],'rgba(100,110,120,0.12)',0.4);
+      // Frame curve at top
+      if(fr>0){
+        var prevX=cx-hullLen+(fr-1)*hullLen*0.15;
+        var prevH=hullH*(0.7+Math.sin((fr-1)*0.5)*0.2);
+        S([[prevX,hullY+hullH-prevH],[frx,hullY+hullH-frH]],'rgba(90,100,110,0.06)',0.3);
+      }
+    }
+    label('шпангоуты · 12 шт.',cx,hullY+hullH*0.3,'rgba(140,150,160,0.4)',5);
+  }
+  
+  // Stage 2: Stringers
+  if(stage2>=2){
+    for(var st2=0;st2<4;st2++){
+      var sty=hullY+hullH-st2*5*s;
+      S([[cx-hullLen,sty],[cx+hullLen*0.8,sty]],'rgba(90,100,110,0.08)',0.3);
+    }
+    label('стрингеры · 4 продольные балки',cx,hullY+hullH*0.6,'rgba(130,140,150,0.4)',5);
+  }
+  
+  // Stage 3: Plating
+  if(stage2>=3){
+    // Hull outline
+    var hullPts=[
+      [cx-hullLen,hullY],
+      [cx-hullLen,hullY+hullH],
+      [cx+hullLen*0.8,hullY+hullH],
+      [cx+hullLen,hullY+hullH*0.5],
+      [cx+hullLen+hullLen*0.15,hullY-hullH*0.3+bowAngle*5],
+      [cx+hullLen*0.8,hullY-hullH*0.8],
+      [cx-hullLen,hullY-hullH*0.8]
+    ];
+    F(hullPts,'rgba(80,90,100,0.06)');
+    S(hullPts,'rgba(100,110,120,0.2)',0.6);
+    
+    // Plating seams
+    for(var ps=0;ps<5;ps++){
+      var psy=hullY-hullH*0.3+ps*8*s;
+      S([[cx-hullLen+10*s,psy],[cx+hullLen*0.7,psy]],'rgba(90,100,110,0.05)',0.3);
+    }
+    label('обшивка · АМГ-5 · 4мм',cx,hullY-hullH-15*s,'rgba(160,170,180,0.5)',6);
+  }
+  
+  // Stage 4: Deck
+  if(stage2>=4){
+    var deckY=hullY-hullH*0.8;
+    // Foredeck
+    F([cx-hullLen+10*s,deckY,cx+hullLen*0.7,deckY,cx+hullLen*0.85,hullY-hullH*0.5,cx-hullLen,deckY+3*s],'rgba(85,95,105,0.06)');
+    S([cx-hullLen+10*s,deckY,cx+hullLen*0.7,deckY,cx+hullLen*0.85,hullY-hullH*0.5,cx-hullLen,deckY+3*s],'rgba(105,115,125,0.15)',0.5);
+    
+    // Deck lines
+    for(var dl=0;dl<3;dl++){
+      var dlx=cx-hullLen+20*s+dl*hullLen*0.4;
+      S([[dlx,deckY+1*s],[dlx,deckY+4*s]],'rgba(100,110,120,0.06)',0.3);
+    }
+    label('палуба · противоскользящее покрытие',cx,deckY-10*s,'rgba(150,160,170,0.4)',5);
+  }
+  
+  // Stage 5: Wheelhouse/cabin
+  if(stage2>=5){
+    var cabX=cx+hullLen*0.3;
+    var cabW=hullLen*0.35;
+    var cabH=hullH*0.8;
+    var cabY=hullY-hullH*0.8;
+    
+    // Cabin body
+    F([cabX,cabY,cabX+cabW,cabY,cabX+cabW,cabY-cabH,cabX,cabY-cabH],'rgba(80,90,100,0.08)');
+    S([cabX,cabY,cabX+cabW,cabY,cabX+cabW,cabY-cabH,cabX,cabY-cabH],'rgba(100,110,120,0.2)',0.5);
+    
+    // Windows
+    for(var cw=0;cw<3;cw++){
+      var wwx=cabX+5*s+cw*cabW*0.3;
+      F([wwx,cabY-cabH+3*s,wwx+cabW*0.2,cabY-cabH+3*s,wwx+cabW*0.2,cabY-cabH*0.4,wwx,cabY-cabH*0.4],'rgba(40,60,80,0.08)');
+      S([wwx,cabY-cabH+3*s,wwx+cabW*0.2,cabY-cabH+3*s,wwx+cabW*0.2,cabY-cabH*0.4,wwx,cabY-cabH*0.4],'rgba(80,120,160,0.15)',0.4);
+    }
+    
+    // Roof
+    S([[cabX-3*s,cabY-cabH],[cabX+cabW+3*s,cabY-cabH]],'rgba(100,110,120,0.15)',0.4);
+    
+    label('рубка · пост управления',cabX+cabW*0.5,cabY-cabH-10*s,'rgba(140,150,160,0.4)',5);
+  }
+  
+  // Stage 6: Engines
+  if(stage2>=6){
+    var engY=hullY+hullH*0.3;
+    // Port engine
+    F([cx-20*s,engY-5*s,cx-5*s,engY-5*s,cx-5*s,engY+5*s,cx-20*s,engY+5*s],'rgba(70,75,80,0.1)');
+    S([cx-20*s,engY-5*s,cx-5*s,engY-5*s,cx-5*s,engY+5*s,cx-20*s,engY+5*s],'rgba(90,95,100,0.2)',0.4);
+    // Starboard engine
+    F([cx+5*s,engY-5*s,cx+20*s,engY-5*s,cx+20*s,engY+5*s,cx+5*s,engY+5*s],'rgba(70,75,80,0.1)');
+    S([cx+5*s,engY-5*s,cx+20*s,engY-5*s,cx+20*s,engY+5*s,cx+5*s,engY+5*s],'rgba(90,95,100,0.2)',0.4);
+    // Exhaust
+    S([[cx-12*s,engY+5*s],[cx-12*s,engY+12*s]],'rgba(80,85,90,0.1)',0.3);
+    S([[cx+12*s,engY+5*s],[cx+12*s,engY+12*s]],'rgba(80,85,90,0.1)',0.3);
+    label('Yamaha 300 · 2×300 л.с.',cx,engY-10*s,'rgba(180,160,120,0.5)',5);
+  }
+  
+  // Stage 7: Propulsion
+  if(stage2>=7){
+    var propY=hullY+hullH;
+    // Waterjets
+    for(var pj=0;pj<2;pj++){
+      var pjx=cx-12*s+pj*24*s;
+      // Nozzle
+      F([pjx-4*s,propY,pjx+4*s,propY,pjx+5*s,propY+6*s,pjx-5*s,propY+6*s],'rgba(80,85,90,0.08)');
+      S([pjx-4*s,propY,pjx+4*s,propY,pjx+5*s,propY+6*s,pjx-5*s,propY+6*s],'rgba(100,105,110,0.15)',0.4);
+      // Impeller
+      X.strokeStyle='rgba(110,115,120,0.1)';X.lineWidth=0.4;
+      X.beginPath();X.arc(pjx,propY+3*s,2*s,0,Math.PI*2);X.stroke();
+    }
+    // Wake hint
+    if(stage2>=12){
+      X.globalAlpha=0.02;
+      for(var wk=0;wk<3;wk++){
+        var wkx=cx+Math.sin(t*0.5+wk)*5*s;
+        var wky=propY+8*s+wk*8*s;
+        X.beginPath();X.ellipse(wkx,wky,15*s+wk*5*s,2*s,0,0,Math.PI*2);X.fill();
+      }
+      X.globalAlpha=1;
+    }
+    label('водомётные движители',cx,propY+18*s,'rgba(140,150,160,0.4)',5);
+  }
+  
+  // Stage 8: Steering
+  if(stage2>=8){
+    var steerX=cx+hullLen*0.75;
+    var steerY=hullY+hullH*0.3;
+    // Stabilizer fins
+    S([[steerX,hullY+hullH*0.5],[steerX+8*s,hullY+hullH*0.3]],'rgba(90,100,110,0.12)',0.4);
+    S([[steerX,hullY+hullH*0.5],[steerX+8*s,hullY+hullH*0.7]],'rgba(90,100,110,0.12)',0.4);
+    // Rudder
+    S([[steerX+8*s,hullY+hullH*0.3],[steerX+8*s,hullY+hullH*0.7]],'rgba(100,110,120,0.15)',0.4);
+    label('стабилизаторы · руль',steerX+15*s,steerY,'rgba(130,140,150,0.4)',5);
+  }
+  
+  // Stage 9: Electronics
+  if(stage2>=9){
+    var radX=cx+hullLen*0.45;
+    var radY=hullY-hullH*0.8-hullH*0.8-5*s;
+    // Radar dome
+    X.fillStyle='rgba(100,110,120,0.06)';X.beginPath();X.arc(radX,radY,4*s,0,Math.PI*2);X.fill();
+    X.strokeStyle='rgba(120,130,140,0.12)';X.lineWidth=0.4;
+    X.beginPath();X.arc(radX,radY,4*s,0,Math.PI*2);X.stroke();
+    // Mast
+    S([[radX,radY+4*s],[radX,radY+10*s]],'rgba(100,105,110,0.1)',0.3);
+    // Antenna
+    S([[radX-3*s,radY+10*s],[radX+3*s,radY+10*s]],'rgba(100,105,110,0.08)',0.3);
+    // GPS dome on roof
+    X.fillStyle='rgba(100,110,120,0.04)';X.beginPath();X.arc(radX+15*s,radY+2*s,2*s,0,Math.PI*2);X.fill();
+    label('РЛС · ГПС · эхолот',radX,radY-10*s,'rgba(140,140,160,0.4)',5);
+  }
+  
+  // Stage 10: Weapons
+  if(stage2>=10){
+    var wpnX=cx-hullLen*0.2;
+    var wpnY=hullY-hullH*0.8-3*s;
+    // Gun mount base
+    F([wpnX-4*s,wpnY,wpnX+4*s,wpnY,wpnX+4*s,wpnY+3*s,wpnX-4*s,wpnY+3*s],'rgba(80,85,90,0.06)');
+    S([wpnX-4*s,wpnY,wpnX+4*s,wpnY,wpnX+4*s,wpnY+3*s,wpnX-4*s,wpnY+3*s],'rgba(100,105,110,0.12)',0.3);
+    // Gun barrel
+    S([[wpnX,wpnY],[wpnX-25*s,wpnY-2*s]],'rgba(90,95,100,0.15)',0.5);
+    // Shield
+    S([[wpnX-5*s,wpnY+3*s],[wpnX-5*s,wpnY-6*s],[wpnX+5*s,wpnY-6*s],[wpnX+5*s,wpnY+3*s]],'rgba(85,90,95,0.08)',0.3);
+    label('12.7мм НСВТ',wpnX-25*s,wpnY-8*s,'rgba(180,160,100,0.4)',5);
+  }
+  
+  // Stage 11: Safety
+  if(stage2>=11){
+    // Life rafts
+    for(var lr=0;lr<2;lr++){
+      var lrx=cx+hullLen*0.1+lr*hullLen*0.3;
+      var lry=hullY-hullH*0.8-2*s;
+      F([lrx-5*s,lry,lrx+5*s,lry,lrx+4*s,lry+2*s,lrx-4*s,lry+2*s],'rgba(200,180,80,0.06)');
+      S([lrx-5*s,lry,lrx+5*s,lry,lrx+4*s,lry+2*s,lrx-4*s,lry+2*s],'rgba(200,180,80,0.12)',0.3);
+    }
+    // Fire extinguisher
+    F([cx+hullLen*0.55,hullY-hullH*0.8-1*s,cx+hullLen*0.55+3*s,hullY-hullH*0.8-1*s,cx+hullLen*0.55+3*s,hullY-hullH*0.8+2*s,cx+hullLen*0.55,hullY-hullH*0.8+2*s],'rgba(200,60,60,0.06)');
+    S([cx+hullLen*0.55,hullY-hullH*0.8-1*s,cx+hullLen*0.55+3*s,hullY-hullH*0.8-1*s,cx+hullLen*0.55+3*s,hullY-hullH*0.8+2*s,cx+hullLen*0.55,hullY-hullH*0.8+2*s],'rgba(200,60,60,0.1)',0.3);
+    label('СПАС · плоты · огнетушители',cx,hullY-hullH*0.8-12*s,'rgba(200,180,100,0.4)',5);
+  }
+  
+  // Stage 12: Complete
+  if(stage2>=12){
+    // Camouflage
+    X.globalAlpha=0.02;
+    F([cx-40*s,hullY-hullH*0.5,cx+20*s,hullY-hullH*0.5,cx+20*s,hullY,cx-40*s,hullY],'rgba(60,80,60,0.5)');
+    F([cx+30*s,hullY-hullH*0.6,cx+70*s,hullY-hullH*0.6,cx+70*s,hullY-5*s,cx+30*s,hullY-5*s],'rgba(50,60,70,0.5)');
+    X.globalAlpha=1;
+    
+    // Bow wave when complete
+    X.strokeStyle='rgba(150,200,255,0.04)';X.lineWidth=1.5;
+    X.beginPath();
+    for(var bw=0;bw<20;bw++){
+      var bwx=cx+hullLen+hullLen*0.15+bw*4*s;
+      var bwy=hullY+hullH*0.3+Math.sin(t*2+bw*0.5)*2*s+bw*0.5*s;
+      if(bw===0)X.moveTo(bwx,bwy);else X.lineTo(bwx,bwy);
+    }
+    X.stroke();
+    
+    label('катер пр. 12300 «Скорпион»',cx,hullY+hullH+20*s,'rgba(255,220,180,0.6)',7);
+    label('2×Yamaha 300 · 600л.с. · 48уз · 85км/ч · водоизмещение 7т',cx,hullY+hullH+30*s,'rgba(200,180,140,0.35)',5);
+  }
+}
+
+// Factory/dock background
+function drawDock(t2){
+  // Overhead crane
+  S([[W*0.05,0],[W*0.05,H*0.2]],'rgba(80,80,85,0.08)',1);
+  S([[W*0.05,H*0.2],[W*0.95,H*0.2]],'rgba(80,80,85,0.06)',0.8);
+  var hookX=W*0.05+Math.sin(t2*0.12)*W*0.4;
+  S([[hookX,H*0.2],[hookX,H*0.3]],'rgba(100,100,110,0.05)',0.4);
+  
+  // Dock posts
+  for(var dp=0;dp<4;dp++){
+    var dpx=W*0.1+dp*W*0.27;
+    S([[dpx,H*0.85],[dpx,H*0.7]],'rgba(80,75,65,0.06)',0.8);
+  }
+  
+  // Overhead lights
+  for(var ol=0;ol<4;ol++){
+    var olx=W*0.15+ol*W*0.22;
+    X.fillStyle='rgba(255,240,200,'+(0.015+0.004*Math.sin(t2*0.5+ol))+')';
+    X.beginPath();X.arc(olx,H*0.05,12,0,Math.PI*2);X.fill();
+  }
+}
+
+function draw(){
+  var waveAmp=parseFloat(document.getElementById('wave').value);
+  
+  if(autoMode){
+    autoTimer+=0.016;
+    if(autoTimer>2){
+      autoTimer=0;
+      if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}
+      else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ';}
+    }
+  }
+  
+  t+=0.016;
+  
+  X.fillStyle='#05080a';X.fillRect(0,0,W,H);
+  
+  // Ambient
+  var sg=X.createRadialGradient(W*0.5,H*0.4,0,W*0.5,H*0.4,W*0.4);
+  sg.addColorStop(0,'rgba(100,150,200,0.02)');
+  sg.addColorStop(1,'rgba(100,150,200,0)');
+  X.fillStyle=sg;X.fillRect(0,0,W,H);
+  
+  var cx=W/2;
+  var cy=H*0.48;
+  var s=Math.min(W,H)/600;
+  var waterY=H*0.58;
+  
+  drawDock(t);
+  drawWater(waterY,t,waveAmp);
+  drawBoat(cx,cy,s,stage,t,waveAmp);
+  
+  document.getElementById('part-label').textContent=parts[stage]||'';
+  
+  // Progress bar
+  X.fillStyle='rgba(255,200,100,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(255,200,100,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd=0;sd<=maxStage;sd++){
+    var sdx=W*0.1+W*0.8*(sd/maxStage);
+    X.fillStyle=sd<=stage?'rgba(255,200,100,0.25)':'rgba(255,200,100,0.06)';
+    X.beginPath();X.arc(sdx,H-6.5,2,0,Math.PI*2);X.fill();
+  }
+  
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
