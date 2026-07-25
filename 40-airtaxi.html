@@ -1,0 +1,406 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>40 — Аэротакси — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060608;overflow:hidden;font-family:sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #0af;color:#0af;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(0,170,255,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #0af5;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#0af;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:600px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Аэротакси</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">&#9664;</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">&#9654;</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="speed" min="0" max="100" value="0" style="width:70px;accent-color:#0af"><span class="val" id="speedV">0</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+var stage=0,autoMode=false,autoTimer=0,maxStage=12,t=0;
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ'};
+document.getElementById('speed').oninput=function(){document.getElementById('speedV').textContent=this.value};
+
+var pts=['Карбон · каркас · 60% легче стали · 12м · фюзеляж','Батарея · твердотельная · 200кВтч · 350кг · 400 циклов','Мотор · 8× электрический · 140кВт · 3000Нм · бесщёточный','Ротор · 8 лопастей · карбон · 2.5м · 1200 об/мин','Шасси · складное · гидравлическое · аварийное · 3 точки','Навигация · GPS + LiDAR · ADS-B · автомат · 4G/5G','Кабина · 4 места · кондиционер · стекло · шумоизоляция','Обшивка · композит · аэродинамика · 0.85 Cd · титан','Системы · fly-by-wire · резерв · 3× redundant · ECS','Испытания · 500 часов · ветер · дождь · температура · -40+50','Сертификация · EASA / FAA · 30 месяцев · 2000 страниц','Маршруты · вертодром · 15 мин · 50 км · электрозарядка'];
+
+function propeller(x,y,r,speed,col){
+  X.save();X.translate(x,y);
+  for(var p=0;p<4;p++){
+    var pa=t*speed+p*Math.PI/2;
+    X.strokeStyle=col;X.lineWidth=0.8;
+    X.beginPath();X.moveTo(0,0);X.lineTo(Math.cos(pa)*r,Math.sin(pa)*r*0.3);X.stroke();
+  }
+  // Hub
+  X.fillStyle=col;X.beginPath();X.arc(0,0,1.5,0,Math.PI*2);X.fill();
+  X.restore();
+}
+
+function battery(x,y,w2,h2,charge){
+  X.fillStyle='rgba(50,200,50,0.04)';X.fillRect(x,y,w2,h2);
+  X.strokeStyle='rgba(70,220,70,0.08)';X.lineWidth=0.4;X.strokeRect(x,y,w2,h2);
+  // Charge level
+  var chargeH=h2*charge;
+  X.fillStyle='rgba(50,200,50,'+(0.03+charge*0.03)+')';
+  X.fillRect(x+1,y+h2-chargeH,w2-2,chargeH);
+  // Cells
+  for(var c=0;c<5;c++){
+    X.strokeStyle='rgba(70,220,70,0.04)';X.lineWidth=0.2;
+    X.beginPath();X.moveTo(x,y+c*(h2/5));X.lineTo(x+w2,y+c*(h2/5));X.stroke();
+  }
+  // + terminal
+  X.strokeStyle='rgba(70,220,70,0.06)';X.lineWidth=0.3;
+  X.beginPath();X.moveTo(x+w2/2-2,y-3);X.lineTo(x+w2/2+2,y-3);X.stroke();
+  X.beginPath();X.moveTo(x+w2/2,y-5);X.lineTo(x+w2/2,y-1);X.stroke();
+}
+
+function motor(x,y,r,col){
+  X.fillStyle='rgba(80,80,90,0.05)';X.beginPath();X.arc(x,y,r,0,Math.PI*2);X.fill();
+  X.strokeStyle=col;X.lineWidth=0.5;X.beginPath();X.arc(x,y,r,0,Math.PI*2);X.stroke();
+  // Coil
+  for(var cl=0;cl<3;cl++){
+    var cla=t*2+cl*Math.PI*2/3;
+    X.strokeStyle='rgba(200,150,50,0.05)';X.lineWidth=0.3;
+    X.beginPath();X.arc(x,y,r*0.6,cla,cla+1);X.stroke();
+  }
+}
+
+function lbl(t2,x,y,c,sz){X.globalAlpha=0.55;X.font=(sz||6)+'px monospace';X.fillStyle=c||'rgba(100,200,255,0.8)';X.textAlign='center';X.fillText(t2,x,y);X.textAlign='left';X.globalAlpha=1}
+
+function draw(){
+  var spd=parseInt(document.getElementById('speed').value);
+  if(autoMode){autoTimer+=0.016;if(autoTimer>2.5){autoTimer=0;if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ'}}}
+  t+=0.016;
+  X.fillStyle='#060608';X.fillRect(0,0,W,H);
+  var cx=W/2,cy=H*0.45,s=Math.min(W,H)/650;
+
+  // Sky gradient
+  var sg=X.createLinearGradient(0,0,0,H);
+  sg.addColorStop(0,'rgba(10,15,30,0.04)');sg.addColorStop(1,'rgba(15,20,35,0.02)');
+  X.fillStyle=sg;X.fillRect(0,0,W,H);
+
+  // City silhouette
+  X.fillStyle='rgba(40,40,50,0.03)';
+  var buildings=[[0.05,30],[0.12,45],[0.18,35],[0.25,55],[0.32,40],[0.4,50],[0.48,38],[0.55,60],[0.62,42],[0.7,48],[0.78,52],[0.85,35],[0.92,45]];
+  for(var b=0;b<buildings.length;b++){
+    var bx=W*buildings[b][0],bh=buildings[b][1]*s;
+    X.fillRect(bx-8*s,H*0.75-bh,16*s,bh);
+    // Windows
+    for(var bw=0;bw<3;bw++){
+      for(var bh2=0;bh2<Math.floor(bh/(6*s));bh2++){
+        X.fillStyle='rgba(255,200,100,'+(0.01+Math.sin(t+b+bw+bh2)*0.005)+')';
+        X.fillRect(bx-5*s+bw*5*s,H*0.75-bh+bh2*6*s+2*s,3*s,4*s);
+      }
+    }
+  }
+
+  // Ground
+  X.fillStyle='rgba(30,30,35,0.03)';X.fillRect(0,H*0.75,W,H*0.25);
+
+  // === Main aircraft (always visible) ===
+  var acX=cx,acY=cy;
+  // Fuselage
+  X.fillStyle='rgba(200,210,220,0.04)';
+  X.beginPath();X.moveTo(acX-30*s,acY);X.quadraticCurveTo(acX-35*s,acY-5*s,acX-25*s,acY-8*s);
+  X.lineTo(acX+25*s,acY-8*s);X.quadraticCurveTo(acX+35*s,acY-5*s,acX+30*s,acY);
+  X.quadraticCurveTo(acX+35*s,acY+5*s,acX+25*s,acY+8*s);
+  X.lineTo(acX-25*s,acY+8*s);X.quadraticCurveTo(acX-35*s,acY+5*s,acX-30*s,acY);
+  X.fill();
+  X.strokeStyle='rgba(180,190,200,0.08)';X.lineWidth=0.5;X.stroke();
+
+  // Canopy
+  X.fillStyle='rgba(150,200,255,0.03)';
+  X.beginPath();X.arc(acX+15*s,acY-2*s,8*s,Math.PI*1.2,Math.PI*1.8,true);X.fill();
+
+  // Wings
+  X.fillStyle='rgba(180,190,200,0.03)';
+  X.beginPath();X.moveTo(acX-10*s,acY-5*s);X.lineTo(acX-25*s,acY-15*s);
+  X.lineTo(acX-20*s,acY-14*s);X.lineTo(acX-8*s,acY-5*s);X.closePath();X.fill();
+  X.beginPath();X.moveTo(acX+10*s,acY-5*s);X.lineTo(acX+25*s,acY-15*s);
+  X.lineTo(acX+20*s,acY-14*s);X.lineTo(acX+8*s,acY-5*s);X.closePath();X.fill();
+
+  // Tail
+  X.fillStyle='rgba(180,190,200,0.03)';
+  X.beginPath();X.moveTo(acX-28*s,acY);X.lineTo(acX-35*s,acY-12*s);
+  X.lineTo(acX-30*s,acY-12*s);X.lineTo(acX-25*s,acY-3*s);X.closePath();X.fill();
+
+  // === STAGE 0: Carbon frame ===
+  if(stage>=0){
+    // Wireframe overlay
+    X.strokeStyle='rgba(100,200,255,0.06)';X.lineWidth=0.3;
+    // Frame ribs
+    for(var fr=0;fr<8;fr++){
+      var frX=acX-20*s+fr*5*s;
+      X.beginPath();X.moveTo(frX,acY-7*s);X.lineTo(frX,acY+7*s);X.stroke();
+    }
+    // Longitudinal
+    for(var fl=0;fl<3;fl++){
+      X.beginPath();X.moveTo(acX-30*s,acY-6*s+fl*6*s);X.lineTo(acX+30*s,acY-6*s+fl*6*s);X.stroke();
+    }
+    // Weight indicator
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(100,200,255,0.12)';X.textAlign='center';
+    X.fillText('60% легче стали',acX,acY+20*s);X.fillText('12м длина',acX,acY+26*s);X.textAlign='left';
+    lbl('карбон · каркас · 60% легче · 12м · фюзеляж',acX,acY-20*s,'rgba(100,200,255,0.5)',6);
+  }
+
+  // === STAGE 1: Battery ===
+  if(stage>=1){
+    battery(acX-20*s,acY+10*s,15*s,8*s,0.5+Math.sin(t*0.3)*0.2);
+    // Voltage lines
+    for(var vl=0;vl<4;vl++){
+      var vlx=acX-18*s+vl*3.5*s;
+      X.strokeStyle='rgba(50,200,50,0.04)';X.lineWidth=0.2;
+      X.beginPath();X.moveTo(vlx,acY+12*s);X.lineTo(vlx,acY+16*s);X.stroke();
+    }
+    // Charge indicator
+    var charge2=50+Math.sin(t*0.3)*20;
+    X.font=(2.5*s)+'px monospace';X.fillStyle='rgba(50,200,50,0.12)';X.textAlign='center';
+    X.fillText(charge2.toFixed(0)+'%',acX-12*s,acY+22*s);X.textAlign='left';
+    lbl('батарея · твёрдотельная · 200кВтч · 350кг',acX-12*s,acY+30*s,'rgba(50,200,50,0.5)',6);
+  }
+
+  // === STAGE 2: Motors ===
+  if(stage>=2){
+    var motorPositions=[[acX-20*s,acY-12*s],[acX-10*s,acY-14*s],[acX+10*s,acY-14*s],[acX+20*s,acY-12*s],
+                        [acX-20*s,acY+12*s],[acX-10*s,acY+14*s],[acX+10*s,acY+14*s],[acX+20*s,acY+12*s]];
+    for(var mp=0;mp<motorPositions.length;mp++){
+      motor(motorPositions[mp][0],motorPositions[mp][1],3*s,'rgba(100,200,255,0.06)');
+    }
+    // Wiring
+    X.strokeStyle='rgba(50,200,50,0.03)';X.lineWidth=0.3;
+    for(var mw=0;mw<4;mw++){
+      X.beginPath();X.moveTo(motorPositions[mw][0],motorPositions[mw][1]+3*s);X.lineTo(acX-12*s+mw*8*s,acY+10*s);X.stroke();
+    }
+    lbl('мотор · 8× электрический · 140кВт · 3000Нм',acX,acY-22*s,'rgba(100,200,255,0.5)',6);
+  }
+
+  // === STAGE 3: Rotors ===
+  if(stage>=3){
+    var rotorPositions=[[acX-20*s,acY-12*s],[acX-10*s,acY-14*s],[acX+10*s,acY-14*s],[acX+20*s,acY-12*s],
+                        [acX-20*s,acY+12*s],[acX-10*s,acY+14*s],[acX+10*s,acY+14*s],[acX+20*s,acY+12*s]];
+    var rotorSpeed=[1,1.2,1.1,1,0.9,1,1.1,1.2];
+    for(var rp=0;rp<rotorPositions.length;rp++){
+      propeller(rotorPositions[rp][0],rotorPositions[rp][1],12*s,rotorSpeed[rp]*3,'rgba(100,200,255,0.08)');
+      // Rotor disc
+      X.strokeStyle='rgba(100,200,255,0.03)';X.lineWidth=0.3;
+      X.beginPath();X.arc(rotorPositions[rp][0],rotorPositions[rp][1],12*s,0,Math.PI*2);X.stroke();
+    }
+    lbl('ротор · 8 лопастей · карбон · 2.5м · 1200 об/мин',acX,acY-28*s,'rgba(100,200,255,0.5)',6);
+  }
+
+  // === STAGE 4: Landing gear ===
+  if(stage>=4){
+    // 3-point retractable gear
+    var gearPositions=[[acX-15*s,acY+8*s],[acX+15*s,acY+8*s],[acX,acY+12*s]];
+    for(var gp=0;gp<gearPositions.length;gp++){
+      X.strokeStyle='rgba(150,150,160,0.06)';X.lineWidth=0.8;
+      X.beginPath();X.moveTo(gearPositions[gp][0],gearPositions[gp][1]);X.lineTo(gearPositions[gp][0],gearPositions[gp][1]+12*s);X.stroke();
+      // Wheel
+      X.fillStyle='rgba(60,60,70,0.05)';X.beginPath();X.arc(gearPositions[gp][0],gearPositions[gp][1]+12*s,2*s,0,Math.PI*2);X.fill();
+      X.strokeStyle='rgba(80,80,90,0.08)';X.lineWidth=0.3;X.beginPath();X.arc(gearPositions[gp][0],gearPositions[gp][1]+12*s,2*s,0,Math.PI*2);X.stroke();
+    }
+    // Hydraulic lines
+    X.strokeStyle='rgba(200,100,50,0.04)';X.lineWidth=0.3;
+    X.beginPath();X.moveTo(acX-15*s,acY+8*s);X.lineTo(acX,acY+12*s);X.lineTo(acX+15*s,acY+8*s);X.stroke();
+    lbl('шасси · складное · гидравлическое · аварийное',acX,acY+28*s,'rgba(150,150,160,0.5)',6);
+  }
+
+  // === STAGE 5: Navigation ===
+  if(stage>=5){
+    // GPS antenna
+    X.strokeStyle='rgba(100,200,255,0.06)';X.lineWidth=0.4;
+    X.beginPath();X.moveTo(acX+5*s,acY-8*s);X.lineTo(acX+5*s,acY-12*s);X.stroke();
+    X.fillStyle='rgba(100,200,255,0.05)';X.beginPath();X.arc(acX+5*s,acY-12*s,1.5,0,Math.PI*2);X.fill();
+    // GPS waves
+    for(var gw=0;gw<3;gw++){
+      X.strokeStyle='rgba(100,200,255,'+(0.03-gw*0.008)+')';X.lineWidth=0.2;
+      X.beginPath();X.arc(acX+5*s,acY-15*s,4*s+gw*3*s,Math.PI*0.8,Math.PI*0.2);X.stroke();
+    }
+    // LiDAR sweep
+    X.strokeStyle='rgba(255,100,100,0.03)';X.lineWidth=0.3;
+    for(var ls=0;ls<6;ls++){
+      var lsa=t*2+ls*Math.PI/3;
+      X.beginPath();X.moveTo(acX,acY);X.lineTo(acX+Math.cos(lsa)*40*s,acY+Math.sin(lsa)*40*s);X.stroke();
+    }
+    // Data bus
+    X.strokeStyle='rgba(50,200,50,0.03)';X.lineWidth=0.2;X.setLineDash([2,2]);
+    X.beginPath();X.moveTo(acX-20*s,acY);X.lineTo(acX+20*s,acY);X.stroke();
+    X.setLineDash([]);
+    lbl('навигация · GPS + LiDAR · ADS-B · 4G/5G',acX,acY-20*s,'rgba(100,200,255,0.5)',6);
+  }
+
+  // === STAGE 6: Cabin ===
+  if(stage>=6){
+    // 4 seats
+    for(var st2=0;st2<4;st2++){
+      var seatX=acX+10*s+st2*5*s;
+      var seatY=acY-3*s+(st2%2)*4*s;
+      X.fillStyle='rgba(100,100,110,0.03)';X.fillRect(seatX-1.5*s,seatY-2*s,3*s,4*s);
+      // Headrest
+      X.fillStyle='rgba(120,120,130,0.03)';X.fillRect(seatX-1*s,seatY-3*s,2*s,1*s);
+    }
+    // AC vents
+    for(var av=0;av<3;av++){
+      X.strokeStyle='rgba(150,200,255,0.03)';X.lineWidth=0.2;
+      X.beginPath();X.arc(acX-10*s+av*5*s,acY-7*s,1,0,Math.PI*2);X.stroke();
+      // Air flow
+      X.strokeStyle='rgba(150,200,255,'+(0.02+Math.sin(t+av)*0.01)+')';X.lineWidth=0.15;
+      X.beginPath();X.moveTo(acX-10*s+av*5*s,acY-6*s);X.lineTo(acX-10*s+av*5*s,acY-4*s);X.stroke();
+    }
+    // Canopy glass
+    X.strokeStyle='rgba(150,200,255,0.04)';X.lineWidth=0.3;
+    X.beginPath();X.arc(acX+15*s,acY-2*s,8*s,Math.PI*1.2,Math.PI*1.8,true);X.stroke();
+    lbl('кабина · 4 места · кондиционер · шумоизоляция',acX,acY-18*s,'rgba(150,200,255,0.5)',6);
+  }
+
+  // === STAGE 7: Aerodynamics ===
+  if(stage>=7){
+    // Streamlines
+    for(var sl=0;sl<8;sl++){
+      var slY=acY-10*s+sl*2.8*s;
+      X.strokeStyle='rgba(100,200,255,'+(0.03+Math.sin(t+sl)*0.01)+')';X.lineWidth=0.2;
+      X.beginPath();X.moveTo(acX-40*s,slY);
+      X.quadraticCurveTo(acX-20*s,slY+Math.sin(t+sl)*2,acX,slY+Math.sin(t+sl+1)*1);
+      X.quadraticCurveTo(acX+20*s,slY+Math.sin(t+sl+2)*2,acX+40*s,slY);
+      X.stroke();
+    }
+    // Drag coefficient
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(100,200,255,0.12)';X.textAlign='center';
+    X.fillText('Cd = 0.85',acX+35*s,acY-15*s);X.textAlign='left';
+    // Pressure zones
+    X.fillStyle='rgba(255,100,50,0.02)';X.beginPath();X.arc(acX-30*s,acY,5*s,0,Math.PI*2);X.fill();
+    X.fillStyle='rgba(100,150,255,0.02)';X.beginPath();X.arc(acX+30*s,acY,5*s,0,Math.PI*2);X.fill();
+    lbl('обшивка · композит · аэродинамика · титан',acX,acY-20*s,'rgba(100,200,255,0.5)',6);
+  }
+
+  // === STAGE 8: Fly-by-wire ===
+  if(stage>=8){
+    // Triple redundant systems
+    for(var rd=0;rd<3;rd++){
+      var rdX=acX-8*s+rd*8*s;
+      // Computer
+      X.fillStyle='rgba(50,200,50,0.04)';X.fillRect(rdX-2*s,acY+2*s,4*s,6*s);
+      X.strokeStyle='rgba(70,220,70,0.06)';X.lineWidth=0.3;X.strokeRect(rdX-2*s,acY+2*s,4*s,6*s);
+      // Status LED
+      X.fillStyle='rgba(50,200,50,'+(0.06+Math.sin(t*3+rd)*0.02)+')';
+      X.beginPath();X.arc(rdX,acY+3*s,0.8,0,Math.PI*2);X.fill();
+    }
+    // Bus lines
+    X.strokeStyle='rgba(50,200,50,0.03)';X.lineWidth=0.2;
+    X.beginPath();X.moveTo(acX-8*s,acY+5*s);X.lineTo(acX+8*s,acY+5*s);X.stroke();
+    // Cross-checking arrows
+    for(var cc=0;cc<2;cc++){
+      X.strokeStyle='rgba(100,255,100,0.02)';X.lineWidth=0.15;
+      X.beginPath();X.moveTo(acX-4*s+cc*8*s,acY+3*s);X.lineTo(acX+cc*8*s,acY+7*s);X.stroke();
+    }
+    lbl('fly-by-wire · резерв · 3× redundant · ECS',acX,acY+18*s,'rgba(50,200,50,0.5)',6);
+  }
+
+  // === STAGE 9: Testing ===
+  if(stage>=9){
+    // Wind tunnel visualization
+    for(var wt=0;wt<12;wt++){
+      var wtX=acX-50*s+((t*30+wt*8)%100)*s;
+      var wtY=acY+Math.sin(t*2+wt)*10*s;
+      X.fillStyle='rgba(100,200,255,'+(0.02+Math.sin(t+wt)*0.01)+')';
+      X.beginPath();X.arc(wtX,wtY,1,0,Math.PI*2);X.fill();
+    }
+    // Temperature indicator
+    var temp2=-40+Math.sin(t*0.5)*45;
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(255,150,50,0.12)';X.textAlign='center';
+    X.fillText(temp2.toFixed(0)+'°C',acX+40*s,acY);
+    // Hours counter
+    X.fillText('500 ч',acX+40*s,acY+6*s);X.textAlign='left';
+    // Wind indicator
+    X.strokeStyle='rgba(100,200,255,0.04)';X.lineWidth=0.3;
+    X.beginPath();X.moveTo(acX-50*s,acY);X.lineTo(acX-40*s,acY);X.stroke();
+    X.beginPath();X.moveTo(acX-42*s,acY-2*s);X.lineTo(acX-40*s,acY);X.lineTo(acX-42*s,acY+2*s);X.stroke();
+    lbl('испытания · 500 часов · ветер · дождь · -40+50°С',acX,acY-20*s,'rgba(100,200,255,0.5)',6);
+  }
+
+  // === STAGE 10: Certification ===
+  if(stage>=10){
+    // Document
+    var docX=cx+40*s,docY=cy+20*s;
+    X.fillStyle='rgba(200,200,210,0.04)';X.fillRect(docX-15*s,docY-20*s,30*s,40*s);
+    X.strokeStyle='rgba(180,180,190,0.06)';X.lineWidth=0.4;X.strokeRect(docX-15*s,docY-20*s,30*s,40*s);
+    // Text lines
+    for(var tl=0;tl<8;tl++){
+      X.strokeStyle='rgba(150,150,160,0.04)';X.lineWidth=0.2;
+      X.beginPath();X.moveTo(docX-12*s,docY-15*s+tl*4*s);X.lineTo(docX+12*s,docY-15*s+tl*4*s);X.stroke();
+    }
+    // Seals
+    X.strokeStyle='rgba(200,50,50,0.06)';X.lineWidth=0.4;
+    X.beginPath();X.arc(docX+8*s,docY+14*s,3*s,0,Math.PI*2);X.stroke();
+    X.strokeStyle='rgba(50,50,200,0.06)';
+    X.beginPath();X.arc(docX-8*s,docY+14*s,3*s,0,Math.PI*2);X.stroke();
+    // Labels
+    X.font=(2.5*s)+'px monospace';X.fillStyle='rgba(200,200,220,0.12)';X.textAlign='center';
+    X.fillText('EASA',docX-8*s,docY+15*s);X.fillText('FAA',docX+8*s,docY+15*s);X.textAlign='left';
+    X.font=(3*s)+'px monospace';X.fillText('30 мес · 2000 стр',docX,docY+24*s);X.textAlign='left';
+    lbl('сертификация · EASA / FAA · 30 месяцев · 2000 страниц',docX,docY-28*s,'rgba(200,200,220,0.5)',6);
+  }
+
+  // === STAGE 11: Final ===
+  if(stage>=11){
+    // Vertiport
+    var vpX=cx,vpY=H*0.72;
+    X.fillStyle='rgba(60,60,70,0.04)';X.fillRect(vpX-40*s,vpY-5*s,80*s,10*s);
+    X.strokeStyle='rgba(80,80,90,0.08)';X.lineWidth=0.5;X.strokeRect(vpX-40*s,vpY-5*s,80*s,10*s);
+    // Landing pad
+    X.strokeStyle='rgba(255,200,100,0.06)';X.lineWidth=0.8;
+    X.beginPath();X.arc(vpX,vpY,15*s,0,Math.PI*2);X.stroke();
+    X.strokeStyle='rgba(255,200,100,0.04)';X.lineWidth=0.4;
+    X.beginPath();X.arc(vpX,vpY,10*s,0,Math.PI*2);X.stroke();
+    // H marking
+    X.strokeStyle='rgba(255,200,100,0.06)';X.lineWidth=0.5;
+    X.beginPath();X.moveTo(vpX-4*s,vpY-6*s);X.lineTo(vpX-4*s,vpY+6*s);X.stroke();
+    X.beginPath();X.moveTo(vpX+4*s,vpY-6*s);X.lineTo(vpX+4*s,vpY+6*s);X.stroke();
+    X.beginPath();X.moveTo(vpX-4*s,vpY);X.lineTo(vpX+4*s,vpY);X.stroke();
+    // Charging station
+    X.fillStyle='rgba(50,200,50,0.04)';X.fillRect(vpX+35*s,vpY-8*s,8*s,13*s);
+    X.strokeStyle='rgba(70,220,70,0.06)';X.lineWidth=0.3;X.strokeRect(vpX+35*s,vpY-8*s,8*s,13*s);
+    // Lightning bolt
+    X.strokeStyle='rgba(50,200,50,0.06)';X.lineWidth=0.4;
+    X.beginPath();X.moveTo(vpX+38*s,vpY-6*s);X.lineTo(vpX+37*s,vpY-1*s);X.lineTo(vpX+39*s,vpY-1*s);X.lineTo(vpX+38*s,vpY+4*s);X.stroke();
+    // Route line
+    X.strokeStyle='rgba(100,200,255,0.04)';X.lineWidth=0.5;X.setLineDash([3,3]);
+    X.beginPath();X.moveTo(vpX,vpY-5*s);X.quadraticCurveTo(vpX-30*s,vpY-50*s,vpX-60*s,vpY-30*s);X.stroke();
+    X.setLineDash([]);
+    // Route dots
+    for(var rt=0;rt<5;rt++){
+      var rtf=rt/4;
+      var rtx=vpX-rtf*60*s;
+      var rty=vpY-5*s-rtf*25*s+Math.sin(rtf*Math.PI)*-20*s;
+      X.fillStyle='rgba(100,200,255,'+(0.04+Math.sin(t+rt)*0.02)+')';
+      X.beginPath();X.arc(rtx,rty,1.5,0,Math.PI*2);X.fill();
+    }
+    // Stats
+    X.font=(6*s)+'px monospace';X.fillStyle='rgba(100,200,255,0.12)';X.textAlign='center';
+    X.fillText('15 мин · 50 км · электрозарядка',vpX,vpY+20*s);X.textAlign='left';
+    lbl('маршруты · вертодром · 15 мин · 50 км',vpX,vpY-25*s,'rgba(100,200,255,0.6)',7);
+  }
+
+  document.getElementById('part-label').textContent=pts[stage]||'';
+  X.fillStyle='rgba(100,200,255,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(100,200,255,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd=0;sd<=maxStage;sd++){X.fillStyle=sd<=stage?'rgba(100,200,255,0.25)':'rgba(100,200,255,0.06)';X.beginPath();X.arc(W*0.1+W*0.8*(sd/maxStage),H-6.5,2,0,Math.PI*2);X.fill()}
+  requestAnimationFrame(draw);
+}
+draw();
+</script></body></html>
