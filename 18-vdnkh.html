@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>18 — ВДНХ — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#08060e;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:10}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl input[type=range]{width:90px;accent-color:#fc0;cursor:pointer}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:16px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fc05;z-index:10}
+#info{position:absolute;top:42px;left:50%;transform:translateX(-50%);color:#666;font-size:9px;letter-spacing:2px;z-index:10}
+button.tog{background:none;border:1px solid #fc0;color:#fc0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">ВДНХ — Монументально</div>
+<div id="info">Рабочий и Колхозница — Фонтан — Павильоны — Серп и Молот — Слава Труду</div>
+<div id="ui">
+<div class="ctrl"><label>Обводка</label><input type="range" id="lw" min="0" max="3" value="1" step="0.5"><span class="val" id="lwV">1</span></div>
+<div class="ctrl"><label>Сцена</label><button class="tog" id="togScene">РАБОТНИК</button></div>
+<div class="ctrl"><label>День/Ночь</label><button class="tog" id="togDay">НОЧЬ</button></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+document.getElementById('lw').oninput=function(){document.getElementById('lwV').textContent=this.value;};
+var scene=0;var dayMode=0;
+var sceneNames=['РАБОТНИК','ФОНТАН','ПАВИЛЬОН','КОСМОС'];
+document.getElementById('togScene').onclick=function(){scene=(scene+1)%4;this.textContent=sceneNames[scene];};
+document.getElementById('togDay').onclick=function(){dayMode=dayMode?0:1;this.textContent=dayMode?'ДЕНЬ':'НОЧЬ';};
+
+var PHI=1.618033988749895;
+var t=0;
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
+
+function draw(){
+  var lw=parseFloat(document.getElementById('lw').value);
+  t+=0.016;
+
+  // Background — day or night
+  if(dayMode){
+    X.fillStyle='#1a1828';X.fillRect(0,0,W,H);
+    // Stars dimmer
+    for(var di=0;di<30;di++){
+      var dx=(Math.sin(di*7.3)*0.5+0.5)*W;
+      var dy=(Math.cos(di*4.7)*0.5+0.5)*H*0.5;
+      X.fillStyle='rgba(255,255,255,'+(0.03+0.01*Math.sin(t+di))+')';
+      X.beginPath();X.arc(dx,dy,0.5+Math.sin(t*0.5+di)*0.3,0,Math.PI*2);X.fill();
+    }
+  }else{
+    X.fillStyle='#060412';X.fillRect(0,0,W,H);
+    // Stars
+    for(var di2=0;di2<60;di2++){
+      var dx2=(Math.sin(di2*7.3)*0.5+0.5)*W;
+      var dy2=(Math.cos(di2*4.7)*0.5+0.5)*H*0.5;
+      X.fillStyle='rgba(255,255,255,'+(0.06+0.04*Math.sin(t*1.5+di2))+')';
+      X.beginPath();X.arc(dx2,dy2,0.4+Math.sin(t+di2)*0.3,0,Math.PI*2);X.fill();
+    }
+    // Aurora hint
+    X.globalAlpha=0.03+0.01*Math.sin(t*0.3);
+    var grad=X.createLinearGradient(0,H*0.1,0,H*0.4);
+    grad.addColorStop(0,'rgba(50,200,100,0.3)');
+    grad.addColorStop(1,'rgba(100,50,200,0.1)');
+    X.fillStyle=grad;X.fillRect(0,H*0.1,W,H*0.3);
+    X.globalAlpha=1;
+  }
+
+  var cx=W/2, cy=H*0.5, s=Math.min(W,H)/600;
+
+  // ====== GROUND LINE ======
+  var groundY=cy+H*0.18;
+  X.globalAlpha=0.06;
+  S([[0,groundY],[W,groundY]],'rgba(200,180,140,0.5)',lw*0.5);
+  X.globalAlpha=1;
+
+  // Perspective grid — receding lines
+  X.globalAlpha=0.03;
+  for(var pg=0;pg<12;pg++){
+    var pgX=W*pg/11;
+    S([[pgX,groundY],[cx+(pgX-cx)*0.1,groundY-H*0.35]],'rgba(200,180,140,0.3)',lw*0.3);
+  }
+  // Horizontal perspective lines
+  for(var ph=0;ph<6;ph++){
+    var phY=groundY-ph*ph*8*s;
+    var phW=W*(0.3+ph*0.12);
+    S([[cx-phW,phY],[cx+phW,phY]],'rgba(200,180,140,0.2)',lw*0.2);
+  }
+  X.globalAlpha=1;
+
+  // ====== SCENE 0: РАБОТНИК И КОЛХОЗНИЦА ======
+  if(scene===0){
+    var figCX=cx;
+    var figBase=groundY;
+    var figH=H*0.55;
+    var figTop=figBase-figH;
+
+    // Pedestal — massive trapezoid
+    var pedW=figH*0.4;
+    var pedH=figH*0.12;
+    var pedTop=figBase-pedH;
+    // Shadow
+    X.globalAlpha=0.15;F([
+      [figCX-pedW*0.6+4*s,figBase+4*s],
+      [figCX+pedW*0.6+4*s,figBase+4*s],
+      [figCX+pedW*0.5+4*s,pedTop+4*s],
+      [figCX-pedW*0.5+4*s,pedTop+4*s]
+    ],'rgba(0,0,0,0.8)');X.globalAlpha=1;
+    F([
+      [figCX-pedW*0.6,figBase],[figCX+pedW*0.6,figBase],
+      [figCX+pedW*0.5,pedTop],[figCX-pedW*0.5,pedTop]
+    ],'rgba(80,80,100,0.1)');
+    S([
+      [figCX-pedW*0.6,figBase],[figCX+pedW*0.6,figBase],
+      [figCX+pedW*0.5,pedTop],[figCX-pedW*0.5,pedTop]
+    ],'rgba(140,140,160,0.5)',lw*1.2);
+    // Pedestal inscription
+    X.globalAlpha=0.08;X.font=(8*s)+'px serif';X.fillStyle='rgba(255,220,150,0.6)';X.textAlign='center';
+    X.fillText('СЛАВА ТРУДУ',figCX,figBase-pedH*0.35);
+    X.fillText('1937',figCX,figBase-pedH*0.6);
+    X.textAlign='left';X.globalAlpha=1;
+
+    // ====== WORKER (left figure) ======
+    var wkX=figCX-figH*0.08;
+    var wkTop=figTop+figH*0.05;
+    var wkBase=pedTop;
+    var wkH=wkBase-wkTop;
+    var wkElev=s*3;
+
+    // Shadow
+    X.globalAlpha=0.12;F([
+      [wkX-figH*0.08+3*s,wkBase+3*s],
+      [wkX+figH*0.06+3*s,wkBase+3*s],
+      [wkX+figH*0.04+3*s,wkTop+wkH*0.3+3*s],
+      [wkX-figH*0.06+3*s,wkTop+wkH*0.3+3*s]
+    ],'rgba(0,0,0,0.7)');X.globalAlpha=1;
+
+    // Legs — wide stance
+    var wkLegTop=wkBase-wkH*0.45;
+    // Left leg
+    S([
+      [wkX-figH*0.04,wkBase,
+       wkX-figH*0.05,wkLegTop+wkH*0.1,
+       wkX-figH*0.03,wkLegTop]
+    ],'rgba(200,180,150,0.4)',lw*1.5);
+    // Right leg
+    S([
+      [wkX+figH*0.04,wkBase,
+       wkX+figH*0.03,wkLegTop+wkH*0.1,
+       wkX+figH*0.02,wkLegTop]
+    ],'rgba(200,180,150,0.4)',lw*1.5);
+
+    // Torso — broad, muscular
+    var wkTorsoTop=wkTop+wkH*0.28;
+    var wkTorsoBot=wkLegTop;
+    F([
+      [wkX-figH*0.06,wkTorsoTop,
+       wkX+figH*0.05,wkTorsoTop,
+       wkX+figH*0.03,wkTorsoBot,
+       wkX-figH*0.04,wkTorsoBot]
+    ],'rgba(200,180,150,0.08)');
+    S([
+      [wkX-figH*0.06,wkTorsoTop,
+       wkX+figH*0.05,wkTorsoTop,
+       wkX+figH*0.03,wkTorsoBot,
+       wkX-figH*0.04,wkTorsoBot]
+    ],'rgba(200,180,150,0.45)',lw*1.3);
+
+    // Right arm — RAISED holding hammer (upward thrust)
+    var wkArmRX=wkX+figH*0.04;
+    var wkArmRY=wkTorsoTop+wkH*0.05;
+    var wkArmAngle=-0.8+Math.sin(t*0.5)*0.05; // mostly up
+    var wkArmLen=wkH*0.45;
+    S([
+      [wkArmRX,wkArmRY-wkElev,
+       wkArmRX+Math.cos(wkArmAngle)*wkArmLen*0.4,wkArmRY-Math.sin(wkArmAngle)*wkArmLen*0.4-wkElev,
+       wkArmRX+Math.cos(wkArmAngle)*wkArmLen,wkArmRY-Math.sin(wkArmAngle)*wkArmLen-wkElev]
+    ],'rgba(200,180,150,0.45)',lw*1.2);
+
+    // HAMMER — heavy, geometric
+    var hamX=wkArmRX+Math.cos(wkArmAngle)*wkArmLen;
+    var hamY=wkArmRY-Math.sin(wkArmAngle)*wkArmLen-wkElev;
+    var hamAng=wkArmAngle+Math.PI*0.5;
+    // Handle
+    S([[hamX,hamY],[hamX+Math.cos(hamAng)*figH*0.08,hamY-Math.sin(hamAng)*figH*0.08]],'rgba(140,120,80,0.4)',lw*1);
+    // Head — rectangle
+    var hamHX=hamX+Math.cos(hamAng)*figH*0.08;
+    var hamHY=hamY-Math.sin(hamAng)*figH*0.08;
+    F([
+      [hamHX-Math.cos(hamAng)*3*s-Math.sin(hamAng)*6*s,hamHY+Math.sin(hamAng)*3*s-Math.cos(hamAng)*6*s,
+       hamHX-Math.cos(hamAng)*3*s+Math.sin(hamAng)*6*s,hamHY+Math.sin(hamAng)*3*s+Math.cos(hamAng)*6*s,
+       hamHX+Math.cos(hamAng)*3*s+Math.sin(hamAng)*6*s,hamHY-Math.sin(hamAng)*3*s+Math.cos(hamAng)*6*s,
+       hamHX+Math.cos(hamAng)*3*s-Math.sin(hamAng)*6*s,hamHY-Math.sin(hamAng)*3*s-Math.cos(hamAng)*6*s]
+    ],'rgba(160,160,170,0.12)');
+    S([
+      [hamHX-Math.cos(hamAng)*3*s-Math.sin(hamAng)*6*s,hamHY+Math.sin(hamAng)*3*s-Math.cos(hamAng)*6*s,
+       hamHX-Math.cos(hamAng)*3*s+Math.sin(hamAng)*6*s,hamHY+Math.sin(hamAng)*3*s+Math.cos(hamAng)*6*s,
+       hamHX+Math.cos(hamAng)*3*s+Math.sin(hamAng)*6*s,hamHY-Math.sin(hamAng)*3*s+Math.cos(hamAng)*6*s,
+       hamHX+Math.cos(hamAng)*3*s-Math.sin(hamAng)*6*s,hamHY-Math.sin(hamAng)*3*s-Math.cos(hamAng)*6*s]
+    ],'rgba(180,180,190,0.5)',lw);
+
+    // Left arm — stretched toward kolkhoznitsa
+    var wkArmLX=wkX-figH*0.05;
+    var wkArmLY=wkTorsoTop+wkH*0.08;
+    S([
+      [wkArmLX,wkArmLY-wkElev,
+       wkArmLX+figH*0.08,wkArmLY-wkH*0.05-wkElev,
+       wkArmLX+figH*0.14,wkArmLY-wkH*0.02-wkElev]
+    ],'rgba(200,180,150,0.4)',lw*1.1);
+
+    // Head
+    var wkHeadY=wkTop+wkH*0.15;
+    var wkHeadR=figH*0.04;
+    X.fillStyle='rgba(200,180,150,0.12)';X.beginPath();X.arc(wkX,wkHeadY-wkElev,wkHeadR,0,Math.PI*2);X.fill();
+    X.strokeStyle='rgba(200,180,150,0.5)';X.lineWidth=lw;X.beginPath();X.arc(wkX,wkHeadY-wkElev,wkHeadR,0,Math.PI*2);X.stroke();
+    // Cap
+    S([
+      [wkX-wkHeadR*1.3,wkHeadY-wkElev-wkHeadR*0.2,
+       wkX-wkHeadR*0.5,wkHeadY-wkElev-wkHeadR*1.2,
+       wkX+wkHeadR*1.3,wkHeadY-wkElev-wkHeadR*0.2]
+    ],'rgba(180,60,50,0.35)',lw*0.8);
+
+    // ====== KOLKHOZNITSA (right figure) ======
+    var kzX=wkX+figH*0.18;
+    var kzTop=wkTop+figH*0.03; // slightly shorter
+    var kzBase=pedTop;
+    var kzH=kzBase-kzTop;
+
+    // Shadow
+    X.globalAlpha=0.12;F([
+      [kzX-figH*0.05+3*s,kzBase+3*s],
+      [kzX+figH*0.06+3*s,kzBase+3*s],
+      [kzX+figH*0.04+3*s,kzTop+kzH*0.3+3*s],
+      [kzX-figH*0.05+3*s,kzTop+kzH*0.3+3*s]
+    ],'rgba(0,0,0,0.7)');X.globalAlpha=1;
+
+    // Legs
+    var kzLegTop=kzBase-kzH*0.45;
+    S([
+      [kzX-figH*0.03,kzBase,
+       kzX-figH*0.035,kzLegTop+kzH*0.1,
+       kzX-figH*0.02,kzLegTop]
+    ],'rgba(200,180,150,0.4)',lw*1.5);
+    S([
+      [kzX+figH*0.03,kzBase,
+       kzX+figH*0.025,kzLegTop+kzH*0.1,
+       kzX+figH*0.02,kzLegTop]
+    ],'rgba(200,180,150,0.4)',lw*1.5);
+
+    // Skirt — flowing
+    var kzSkirtTop=kzLegTop+kzH*0.05;
+    F([
+      [kzX-figH*0.04,kzSkirtTop,
+       kzX+figH*0.03,kzSkirtTop,
+       kzX+figH*0.06,kzBase,
+       kzX-figH*0.06,kzBase]
+    ],'rgba(180,80,70,0.08)');
+    S([
+      [kzX-figH*0.04,kzSkirtTop,
+       kzX+figH*0.03,kzSkirtTop,
+       kzX+figH*0.06,kzBase,
+       kzX-figH*0.06,kzBase]
+    ],'rgba(200,100,80,0.4)',lw*1.2);
+    // Skirt folds
+    S([
+      [kzX-figH*0.02,kzSkirtTop+kzH*0.1,
+       kzX,kzSkirtTop+kzH*0.3,
+       kzX+figH*0.01,kzSkirtTop+kzH*0.5]
+    ],'rgba(180,80,70,0.15)',lw*0.5);
+
+    // Torso
+    var kzTorsoTop=kzTop+kzH*0.28;
+    var kzTorsoBot=kzSkirtTop;
+    F([
+      [kzX-figH*0.045,kzTorsoTop,
+       kzX+figH*0.04,kzTorsoTop,
+       kzX+figH*0.03,kzTorsoBot,
+       kzX-figH*0.04,kzTorsoBot]
+    ],'rgba(200,180,150,0.08)');
+    S([
+      [kzX-figH*0.045,kzTorsoTop,
+       kzX+figH*0.04,kzTorsoTop,
+       kzX+figH*0.03,kzTorsoBot,
+       kzX-figH*0.04,kzTorsoBot]
+    ],'rgba(200,180,150,0.45)',lw*1.3);
+
+    // Left arm — RAISED holding sickle
+    var kzArmLX=kzX-figH*0.035;
+    var kzArmLY=kzTorsoTop+kzH*0.05;
+    var kzArmAngle=0.7+Math.sin(t*0.5+0.5)*0.05;
+    var kzArmLen=kzH*0.42;
+    S([
+      [kzArmLX,kzArmLY-wkElev,
+       kzArmLX-Math.cos(kzArmAngle)*kzArmLen*0.4,kzArmLY-Math.sin(kzArmAngle)*kzArmLen*0.4-wkElev,
+       kzArmLX-Math.cos(kzArmAngle)*kzArmLen,kzArmLY-Math.sin(kzArmAngle)*kzArmLen-wkElev]
+    ],'rgba(200,180,150,0.45)',lw*1.2);
+
+    // SICKLE — curved polynomial
+    var scX=kzArmLX-Math.cos(kzArmAngle)*kzArmLen;
+    var scY=kzArmLY-Math.sin(kzArmAngle)*kzArmLen-wkElev;
+    // Handle
+    S([[scX,scY],[scX+Math.sin(kzArmAngle)*figH*0.05,scY-Math.cos(kzArmAngle)*figH*0.05]],'rgba(140,120,80,0.4)',lw*0.8);
+    // Blade — polynomial curve
+    var scTipX=scX-Math.cos(kzArmAngle-0.3)*figH*0.08;
+    var scTipY=scY-Math.sin(kzArmAngle-0.3)*figH*0.08;
+    S([
+      [scX-Math.sin(kzArmAngle)*4*s,scY+Math.cos(kzArmAngle)*4*s,
+       scX-Math.sin(kzArmAngle)*8*s+Math.cos(kzArmAngle)*figH*0.04,scY+Math.cos(kzArmAngle)*8*s+Math.sin(kzArmAngle)*figH*0.04,
+       scTipX,scTipY]
+    ],'rgba(180,180,190,0.5)',lw*1);
+    // Blade inner edge
+    S([
+      [scX-Math.sin(kzArmAngle)*3*s,scY+Math.cos(kzArmAngle)*3*s,
+       scX-Math.sin(kzArmAngle)*6*s+Math.cos(kzArmAngle)*figH*0.03,scY+Math.cos(kzArmAngle)*6*s+Math.sin(kzArmAngle)*figH*0.03,
+       scTipX+Math.cos(kzArmAngle)*3*s,scTipY+Math.sin(kzArmAngle)*3*s]
+    ],'rgba(200,200,210,0.3)',lw*0.6);
+
+    // Right arm — toward worker
+    var kzArmRX=kzX+figH*0.035;
+    var kzArmRY=kzTorsoTop+kzH*0.08;
+    S([
+      [kzArmRX,kzArmRY-wkElev,
+       kzArmRX-figH*0.06,kzArmRY-wkH*0.06-wkElev,
+       kzArmRX-figH*0.12,kzArmRY-wkH*0.03-wkElev]
+    ],'rgba(200,180,150,0.4)',lw*1.1);
+
+    // Head
+    var kzHeadY=kzTop+kzH*0.14;
+    var kzHeadR=figH*0.037;
+    X.fillStyle='rgba(200,180,150,0.12)';X.beginPath();X.arc(kzX,kzHeadY-wkElev,kzHeadR,0,Math.PI*2);X.fill();
+    X.strokeStyle='rgba(200,180,150,0.5)';X.lineWidth=lw;X.beginPath();X.arc(kzX,kzHeadY-wkElev,kzHeadR,0,Math.PI*2);X.stroke();
+    // Headscarf
+    S([
+      [kzX-kzHeadR*1.4,kzHeadY-wkElev+kzHeadR*0.3,
+       kzX-kzHeadR*0.3,kzHeadY-wkElev-kzHeadR*1.3,
+       kzX+kzHeadR*0.3,kzHeadY-wkElev-kzHeadR*1.3,
+       kzX+kzHeadR*1.4,kzHeadY-wkElev+kzHeadR*0.3]
+    ],'rgba(180,60,50,0.35)',lw*0.8);
+    // Scarf tail flowing
+    var scarfWave=Math.sin(t*1.2)*3*s;
+    S([
+      [kzX+kzHeadR*1.2,kzHeadY-wkElev+kzHeadR*0.2,
+       kzX+kzHeadR*2.5,kzHeadY-wkElev+5*s+scarfWave,
+       kzX+kzHeadR*3.5,kzHeadY-wkElev+8*s-scarfWave]
+    ],'rgba(180,60,50,0.25)',lw*0.7);
+
+    // ====== HAMMER AND SICKLE — meeting above ======
+    // The iconic symbol — hands meeting
+    var hsCX=(wkArmRX+kzArmLX)/2+figH*0.04;
+    var hsCY=wkTop+wkH*0.05-wkElev;
+    // Glow
+    X.globalAlpha=0.06+0.02*Math.sin(t);
+    var hsGrad=X.createRadialGradient(hsCX,hsCY,0,hsCX,hsCY,figH*0.06);
+    hsGrad.addColorStop(0,'rgba(255,200,50,0.4)');
+    hsGrad.addColorStop(1,'rgba(255,200,50,0)');
+    X.fillStyle=hsGrad;X.fillRect(hsCX-figH*0.1,hsCY-figH*0.1,figH*0.2,figH*0.2);
+    X.globalAlpha=1;
+
+    // ====== DECORATIVE ELEMENTS ======
+    // Wheat ears — left side
+    for(var wi=0;wi<5;wi++){
+      var wx=figCX-pedW*0.7-wi*6*s;
+      var wy=groundY-wi*12*s;
+      var wH=15*s+wi*3*s;
+      S([
+        [wx,wy,wx+3*s,wy-wH*0.6,wx-wi*2*s,wy-wH]
+      ],'rgba(200,180,80,0.25)',lw*0.5);
+      // Grain
+      for(var wg=0;wg<3;wg++){
+        var wgY=wy-wH*0.4-wg*wH*0.2;
+        X.fillStyle='rgba(220,200,100,0.15)';
+        X.beginPath();X.ellipse(wx+2*s+Math.sin(wg)*2*s,wgY,2*s,4*s,0.3,0,Math.PI*2);X.fill();
+      }
+    }
+
+    // Wheat ears — right side
+    for(var wi2=0;wi2<5;wi2++){
+      var wx2=figCX+pedW*0.7+wi2*6*s;
+      var wy2=groundY-wi2*12*s;
+      var wH2=15*s+wi2*3*s;
+      S([
+        [wx2,wy2,wx2-3*s,wy2-wH2*0.6,wx2+wi2*2*s,wy2-wH2]
+      ],'rgba(200,180,80,0.25)',lw*0.5);
+      for(var wg2=0;wg2<3;wg2++){
+        var wgY2=wy2-wH2*0.4-wg2*wH2*0.2;
+        X.fillStyle='rgba(220,200,100,0.15)';
+        X.beginPath();X.ellipse(wx2-2*s+Math.sin(wg2)*2*s,wgY2,2*s,4*s,-0.3,0,Math.PI*2);X.fill();
+      }
+    }
+
+    // Star on top — five-pointed
+    var starX=hsCX;
+    var starY=hsCY-figH*0.05;
+    var starR=figH*0.025;
+    X.fillStyle='rgba(255,60,40,0.2)';
+    X.beginPath();
+    for(var si=0;si<5;si++){
+      var sa=si*Math.PI*2/5-Math.PI/2;
+      var sr=si%2===0?starR:starR*0.4;
+      if(si===0)X.moveTo(starX+Math.cos(sa)*sr,starY+Math.sin(sa)*sr);
+      else X.lineTo(starX+Math.cos(sa)*sr,starY+Math.sin(sa)*sr);
+    }
+    X.closePath();X.fill();
+    X.strokeStyle='rgba(255,80,60,0.5)';X.lineWidth=lw*0.8;
+    X.beginPath();
+    for(var si2=0;si2<5;si2++){
+      var sa2=si2*Math.PI*2/5-Math.PI/2;
+      var sr2=si2%2===0?starR:starR*0.4;
+      if(si2===0)X.moveTo(starX+Math.cos(sa2)*sr2,starY+Math.sin(sa2)*sr2);
+      else X.lineTo(starX+Math.cos(sa2)*sr2,starY+Math.sin(sa2)*sr2);
+    }
+    X.closePath();X.stroke();
+    // Star glow
+    X.globalAlpha=0.04+0.02*Math.sin(t*2);
+    var stGrad=X.createRadialGradient(starX,starY,0,starX,starY,starR*3);
+    stGrad.addColorStop(0,'rgba(255,60,40,0.4)');
+    stGrad.addColorStop(1,'rgba(255,60,40,0)');
+    X.fillStyle=stGrad;X.fillRect(starX-starR*4,starY-starR*4,starR*8,starR*8);
+    X.globalAlpha=1;
+  }
+
+  // ====== SCENE 1: ФОНТАН ДРУЖБЫ НАРОДОВ ======
+  if(scene===1){
+    var fCX=cx;
+    var fBase=groundY;
+    var fH=H*0.45;
+
+    // Basin — wide ellipse
+    var basinW=fH*0.5;
+    var basinH=fH*0.08;
+    X.fillStyle='rgba(60,120,180,0.06)';
+    X.beginPath();X.ellipse(fCX,fBase,basinW,basinH,0,0,Math.PI*2);X.fill();
+    X.strokeStyle='rgba(100,160,220,0.4)';X.lineWidth=lw*1.5;
+    X.beginPath();X.ellipse(fCX,fBase,basinW,basinH,0,0,Math.PI*2);X.stroke();
+    // Inner basin
+    X.strokeStyle='rgba(100,160,220,0.2)';X.lineWidth=lw*0.5;
+    X.beginPath();X.ellipse(fCX,fBase,basinW*0.85,basinH*0.85,0,0,Math.PI*2);X.stroke();
+
+    // Water surface
+    X.globalAlpha=0.04;
+    for(var wp=0;wp<8;wp++){
+      var wpx=fCX-basinW*0.7+wp*basinW*0.2;
+      var wpy=fBase+Math.sin(t*1.5+wp)*2*s;
+      X.fillStyle='rgba(100,180,255,0.3)';
+      X.beginPath();X.ellipse(wpx,wpy,basinW*0.06,1*s,0,0,Math.PI*2);X.fill();
+    }
+    X.globalAlpha=1;
+
+    // Central column
+    var colH=fH*0.6;
+    var colW=fH*0.04;
+    var colTop=fBase-colH;
+    // Shadow
+    X.globalAlpha=0.1;F([
+      [fCX-colW+3*s,fBase+3*s],[fCX+colW+3*s,fBase+3*s],
+      [fCX+colW*0.7+3*s,colTop+3*s],[fCX-colW*0.7+3*s,colTop+3*s]
+    ],'rgba(0,0,0,0.6)');X.globalAlpha=1;
+    // Column body
+    F([
+      [fCX-colW,fBase],[fCX+colW,fBase],
+      [fCX+colW*0.7,colTop],[fCX-colW*0.7,colTop]
+    ],'rgba(140,160,180,0.1)');
+    S([
+      [fCX-colW,fBase],[fCX+colW,fBase],
+      [fCX+colW*0.7,colTop],[fCX-colW*0.7,colTop]
+    ],'rgba(160,180,200,0.5)',lw);
+    // Column rings
+    for(var cr=0;cr<4;cr++){
+      var crY=fBase-colH*(0.2+cr*0.2);
+      var crW=colW*(1-cr*0.08);
+      S([[fCX-crW,crY],[fCX+crW,crY]],'rgba(160,180,200,0.3)',lw*0.5);
+    }
+
+    // 16 female figures — arranged in circle
+    var figCount=16;
+    var figR=fH*0.2;
+    var figElev=s*2;
+    for(var fi=0;fi<figCount;fi++){
+      var fa=fi*Math.PI*2/figCount+t*0.05;
+      var fx=fCX+Math.cos(fa)*figR;
+      var fy=fBase-basinH+Math.sin(fa)*figR*0.3-figH*0.02;
+      var fScale=0.5+Math.sin(fa)*0.15; // perspective
+      var fH2=fH*0.12*fScale;
+
+      // Simple figure — raised arms
+      // Body
+      S([
+        [fx,fy,fx,fy-fH2*0.6]
+      ],'rgba(200,180,150,0.3)',lw*0.8);
+      // Arms up
+      S([
+        [fx,fy-fH2*0.4,fx-fH2*0.2,fy-fH2*0.8,fx-fH2*0.15,fy-fH2]
+      ],'rgba(200,180,150,0.25)',lw*0.5);
+      S([
+        [fx,fy-fH2*0.4,fx+fH2*0.2,fy-fH2*0.8,fx+fH2*0.15,fy-fH2]
+      ],'rgba(200,180,150,0.25)',lw*0.5);
+      // Head
+      X.fillStyle='rgba(200,180,150,0.2)';X.beginPath();X.arc(fx,fy-fH2*0.6,fH2*0.12,0,Math.PI*2);X.fill();
+      // National color hint
+      var natHue=(fi*360/figCount);
+      X.fillStyle='hsla('+natHue+',40%,50%,0.06)';
+      X.beginPath();X.ellipse(fx,fy-fH2*0.3,fH2*0.15,fH2*0.25,0,0,Math.PI*2);X.fill();
+    }
+
+    // Water jets — central
+    for(var wj=0;wj<8;wj++){
+      var wjA=wj*Math.PI/4;
+      var wjH=fH*(0.15+Math.sin(t*2+wj)*0.05);
+      var wjX=fCX+Math.cos(wjA)*8*s;
+      S([
+        [wjX,fBase-colH*0.6,
+         wjX+Math.cos(wjA)*wjH*0.5,fBase-colH*0.6-wjH*0.7,
+         wjX+Math.cos(wjA)*wjH,fBase-colH*0.6-wjH]
+      ],'rgba(100,180,255,0.15)',lw*0.4);
+    }
+    // Central jet — highest
+    var cjH=fH*(0.25+Math.sin(t*1.5)*0.08);
+    S([
+      [fCX,colTop,fCX,colTop-cjH*0.6,fCX,colTop-cjH]
+    ],'rgba(100,180,255,0.2)',lw*0.6);
+    // Water drops
+    for(var wd=0;wd<12;wd++){
+      var wdx=fCX+Math.sin(t*3+wd*2.1)*fH*0.15;
+      var wdy=colTop-cjH*(0.3+Math.abs(Math.sin(t*4+wd*1.7))*0.7);
+      X.fillStyle='rgba(100,180,255,'+(0.06+0.03*Math.sin(t*2+wd))+')';
+      X.beginPath();X.arc(wdx,wdy,1.5*s,0,Math.PI*2);X.fill();
+    }
+
+    // Gold tips on figures
+    for(var gi=0;gi<figCount;gi++){
+      var ga=gi*Math.PI*2/figCount+t*0.05;
+      var gx=fCX+Math.cos(ga)*figR;
+      var gy=fBase-basinH+Math.sin(ga)*figR*0.3-figH*0.02-fH*0.12*(0.5+Math.sin(ga)*0.15);
+      X.fillStyle='rgba(255,200,80,0.12)';
+      X.beginPath();X.arc(gx,gy,2*s,0,Math.PI*2);X.fill();
+    }
+  }
+
+  // ====== SCENE 2: ПАВИЛЬОН (Армянский/Грузинский стиль) ======
+  if(scene===2){
+    var pCX=cx;
+    var pBase=groundY;
+    var pH=H*0.5;
+    var pTop=pBase-pH;
+
+    // Main arch — grand entrance
+    var archW=pH*0.35;
+    var archH=pH*0.6;
+    var archTop=pBase-archH;
+
+    // Shadow
+    X.globalAlpha=0.12;F([
+      [pCX-archW*0.7+4*s,pBase+4*s],
+      [pCX+archW*0.7+4*s,pBase+4*s],
+      [pCX+archW*0.6+4*s,archTop+4*s],
+      [pCX-archW*0.6+4*s,archTop+4*s]
+    ],'rgba(0,0,0,0.7)');X.globalAlpha=1;
+
+    // Building body
+    F([
+      [pCX-archW*0.7,pBase],[pCX+archW*0.7,pBase],
+      [pCX+archW*0.6,archTop],[pCX-archW*0.6,archTop]
+    ],'rgba(180,160,140,0.08)');
+    S([
+      [pCX-archW*0.7,pBase],[pCX+archW*0.7,pBase],
+      [pCX+archW*0.6,archTop],[pCX-archW*0.6,archTop]
+    ],'rgba(200,180,160,0.5)',lw*1.2);
+
+    // Central arch opening
+    var openW=archW*0.4;
+    var openH=archH*0.55;
+    F([
+      [pCX-openW,pBase],[pCX+openW,pBase],
+      [pCX+openW,pBase-openH],
+      [pCX+openW*0.3,pBase-openH-openW*0.5],
+      [pCX,pBase-openH-openW*0.7],
+      [pCX-openW*0.3,pBase-openH-openW*0.5],
+      [pCX-openW,pBase-openH]
+    ],'rgba(6,4,18,0.3)');
+    S([
+      [pCX-openW,pBase],[pCX+openW,pBase],
+      [pCX+openW,pBase-openH],
+      [pCX+openW*0.3,pBase-openH-openW*0.5],
+      [pCX,pBase-openH-openW*0.7],
+      [pCX-openW*0.3,pBase-openH-openW*0.5],
+      [pCX-openW,pBase-openH]
+    ],'rgba(200,180,160,0.6)',lw);
+
+    // Columns — 6 fluted
+    for(var ci=0;ci<6;ci++){
+      var cX=pCX-archW*0.6+ci*archW*0.24;
+      var cW=4*s;
+      var cTop=archTop+archH*0.15;
+      var cBot=pBase;
+      // Shaft
+      S([[cX,cBot],[cX,cTop]],'rgba(200,180,160,0.4)',lw*1.2);
+      // Fluting lines
+      S([[cX-cW*0.3,cBot],[cX-cW*0.3,cTop]],'rgba(180,160,140,0.15)',lw*0.3);
+      S([[cX+cW*0.3,cBot],[cX+cW*0.3,cTop]],'rgba(180,160,140,0.15)',lw*0.3);
+      // Capital
+      S([[cX-cW*1.2,cTop],[cX+cW*1.2,cTop]],'rgba(200,180,160,0.5)',lw*0.7);
+      S([[cX-cW*1.5,cTop+3*s],[cX+cW*1.5,cTop+3*s]],'rgba(200,180,160,0.4)',lw*0.5);
+      // Base
+      S([[cX-cW*1.3,cBot-2*s],[cX+cW*1.3,cBot-2*s]],'rgba(200,180,160,0.4)',lw*0.5);
+    }
+
+    // Roof — triangular pediment
+    F([
+      [pCX-archW*0.65,archTop+3*s],
+      [pCX,archTop-pH*0.1],
+      [pCX+archW*0.65,archTop+3*s]
+    ],'rgba(180,80,60,0.06)');
+    S([
+      [pCX-archW*0.65,archTop+3*s],
+      [pCX,archTop-pH*0.1],
+      [pCX+archW*0.65,archTop+3*s]
+    ],'rgba(200,100,80,0.5)',lw*1);
+    // Frieze — decorative band
+    S([
+      [pCX-archW*0.65,archTop+3*s],
+      [pCX+archW*0.65,archTop+3*s]
+    ],'rgba(255,200,80,0.3)',lw*0.8);
+
+    // Ornamental patterns — geometric
+    for(var oi=0;oi<12;oi++){
+      var ox=pCX-archW*0.6+oi*archW*0.11;
+      var oy=archTop+8*s;
+      // Small diamond
+      F([
+        [ox,oy-3*s],[ox+3*s,oy],[ox,oy+3*s],[ox-3*s,oy]
+      ],'rgba(255,200,80,0.08)');
+      S([
+        [ox,oy-3*s],[ox+3*s,oy],[ox,oy+3*s],[ox-3*s,oy]
+      ],'rgba(255,200,80,0.25)',lw*0.3);
+    }
+
+    // Grapes/vine decoration around arch
+    for(var vi=0;vi<8;vi++){
+      var va=Math.PI+vi*Math.PI/7;
+      var vx=pCX+Math.cos(va)*openW*1.1;
+      var vy=pBase-openH*0.5+Math.sin(va)*openH*0.4;
+      X.fillStyle='rgba(100,40,120,0.12)';
+      X.beginPath();X.arc(vx,vy,2.5*s,0,Math.PI*2);X.fill();
+    }
+
+    // Steps
+    for(var st=0;st<4;st++){
+      var stW=archW*(0.5+st*0.08);
+      var stY=pBase+st*4*s;
+      S([[pCX-stW,stY],[pCX+stW,stY]],'rgba(180,160,140,0.3)',lw*0.6);
+    }
+  }
+
+  // ====== SCENE 3: КОСМОС (Space pavilion + rocket) ======
+  if(scene===3){
+    var kCX=cx;
+    var kBase=groundY;
+    var kH=H*0.55;
+
+    // Rocket — towering polynomial form
+    var rocketH=kH*0.75;
+    var rocketW=kH*0.06;
+    var rocketTop=kBase-rocketH;
+    var rocketElev=s*4;
+
+    // Shadow
+    X.globalAlpha=0.15;F([
+      [kCX-rocketW+5*s,kBase+5*s],[kCX+rocketW+5*s,kBase+5*s],
+      [kCX+rocketW*0.3+5*s,rocketTop+rocketH*0.1+5*s],
+      [kCX+rocketW*0.1+5*s,rocketTop+5*s],
+      [kCX-rocketW*0.1+5*s,rocketTop+5*s],
+      [kCX-rocketW*0.3+5*s,rocketTop+rocketH*0.1+5*s]
+    ],'rgba(0,0,0,0.7)');X.globalAlpha=1;
+
+    // Rocket body — polynomial nosecone
+    F([
+      [kCX-rocketW,kBase],
+      [kCX-rocketW,kBase-rocketH*0.6],
+      [kCX-rocketW*0.8,kBase-rocketH*0.75],
+      [kCX-rocketW*0.3,kBase-rocketH*0.9],
+      [kCX,kBase-rocketH],
+      [kCX+rocketW*0.3,kBase-rocketH*0.9],
+      [kCX+rocketW*0.8,kBase-rocketH*0.75],
+      [kCX+rocketW,kBase-rocketH*0.6],
+      [kCX+rocketW,kBase]
+    ],'rgba(200,210,220,0.08)');
+    S([
+      [kCX-rocketW,kBase],
+      [kCX-rocketW,kBase-rocketH*0.6],
+      [kCX-rocketW*0.8,kBase-rocketH*0.75],
+      [kCX-rocketW*0.3,kBase-rocketH*0.9],
+      [kCX,kBase-rocketH],
+      [kCX+rocketW*0.3,kBase-rocketH*0.9],
+      [kCX+rocketW*0.8,kBase-rocketH*0.75],
+      [kCX+rocketW,kBase-rocketH*0.6],
+      [kCX+rocketW,kBase]
+    ],'rgba(200,210,220,0.5)',lw*1.3);
+
+    // Body bands
+    for(var rb=0;rb<5;rb++){
+      var rbY=kBase-rocketH*(0.15+rb*0.15);
+      var rbW=rocketW*(1-rb*0.08);
+      S([[kCX-rbW,rbY],[kCX+rbW,rbY]],'rgba(200,210,220,0.25)',lw*0.5);
+    }
+
+    // Fins — 3 polynomial curves
+    for(var rf=0;rf<3;rf++){
+      var rfA=rf*Math.PI*2/3;
+      var rfX=kCX+Math.cos(rfA)*rocketW*0.8;
+      var rfBot=kBase;
+      var rfTop=kBase-rocketH*0.35;
+      F([
+        [rfX,rfBot],
+        [rfX+Math.cos(rfA+Math.PI*0.5)*rocketW*1.5,rfBot-rocketH*0.05],
+        [rfX+Math.cos(rfA)*rocketW*0.5,rfTop],
+        [rfX,rfTop+rocketH*0.1]
+      ],'rgba(180,80,60,0.06)');
+      S([
+        [rfX,rfBot],
+        [rfX+Math.cos(rfA+Math.PI*0.5)*rocketW*1.5,rfBot-rocketH*0.05],
+        [rfX+Math.cos(rfA)*rocketW*0.5,rfTop],
+        [rfX,rfTop+rocketH*0.1]
+      ],'rgba(200,100,80,0.4)',lw*0.8);
+    }
+
+    // Nose cone tip — red
+    F([
+      [kCX-rocketW*0.15,kBase-rocketH*0.9],
+      [kCX,kBase-rocketH],
+      [kCX+rocketW*0.15,kBase-rocketH*0.9]
+    ],'rgba(200,60,40,0.15)');
+    S([
+      [kCX-rocketW*0.15,kBase-rocketH*0.9],
+      [kCX,kBase-rocketH],
+      [kCX+rocketW*0.15,kBase-rocketH*0.9]
+    ],'rgba(220,80,60,0.5)',lw);
+
+    // Exhaust flame
+    var flameH=rocketH*(0.1+Math.sin(t*8)*0.03);
+    for(var fl=0;fl<5;fl++){
+      var flW=rocketW*(0.8+fl*0.3);
+      var flY=kBase+fl*flameH*0.2;
+      var flA=0.3-fl*0.05;
+      X.fillStyle=fl%2===0?'rgba(255,150,50,'+flA+')':'rgba(255,220,80,'+flA+')';
+      X.beginPath();
+      X.moveTo(kCX-flW,flY);
+      X.quadraticCurveTo(kCX,flY+flameH*0.3,kCX+flW,flY);
+      X.fill();
+    }
+    // Smoke particles
+    for(var sp=0;sp<10;sp++){
+      var spx=kCX+Math.sin(t*2+sp*1.5)*rocketW*(2+sp*0.5);
+      var spy=kBase+rocketH*0.05+sp*8*s;
+      var spr=2+Math.sin(t+sp)*1.5;
+      X.fillStyle='rgba(180,180,190,'+(0.04-sp*0.003)+')';
+      X.beginPath();X.arc(spx,spy,spr*s,0,Math.PI*2);X.fill();
+    }
+
+    // Orbit rings
+    for(var orb=0;orb<3;orb++){
+      var orbR=rocketW*(4+orb*3);
+      var orbY=kBase-rocketH*(0.4+orb*0.15);
+      X.globalAlpha=0.05;
+      S([
+        [kCX-orbR,orbY,kCX,orbY-orbR*0.3,kCX+orbR,orbY]
+      ],'rgba(100,150,255,0.4)',lw*0.4);
+      X.globalAlpha=1;
+      // Satellite dot
+      var satA=t*(1+orb*0.3)+orb*2;
+      var satX=kCX+Math.cos(satA)*orbR*0.8;
+      var satY=orbY-Math.sin(satA)*orbR*0.25;
+      X.fillStyle='rgba(200,220,255,0.3)';
+      X.beginPath();X.arc(satX,satY,1.5*s,0,Math.PI*2);X.fill();
+    }
+
+    // Stars burst from nose
+    for(var sb=0;sb<6;sb++){
+      var sbA=-Math.PI/2+sb*Math.PI/5-Math.PI*0.4;
+      var sbR2=rocketW*(1.5+Math.sin(t*3+sb)*0.5);
+      var sbX=kCX+Math.cos(sbA)*sbR2;
+      var sbY=rocketTop-5*s+Math.sin(sbA)*sbR2*0.5;
+      X.fillStyle='rgba(255,220,100,'+(0.1+0.05*Math.sin(t*4+sb))+')';
+      X.beginPath();X.arc(sbX,sbY,1*s,0,Math.PI*2);X.fill();
+    }
+  }
+
+  // ====== FLOATING PARTICLES (all scenes) ======
+  for(var fp=0;fp<15;fp++){
+    var fpx=cx+Math.sin(t*0.1+fp*2.5)*W*0.4;
+    var fpy=cy+Math.cos(t*0.08+fp*1.9)*H*0.4;
+    var fpr=0.3+Math.sin(t+fp)*0.2;
+    X.fillStyle='rgba(255,220,160,'+(0.02+0.01*Math.sin(t*1.2+fp))+')';
+    X.beginPath();X.arc(fpx,fpy,fpr*s,0,Math.PI*2);X.fill();
+  }
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
