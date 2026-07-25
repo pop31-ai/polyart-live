@@ -148,6 +148,17 @@ body{background:#080810;color:#ccc;font-family:'Segoe UI',sans-serif}
 
 </div>
 
+<div class="card" onclick="open('13-minin-pozharsky.html')">
+<div class="preview"><canvas id="p13"></canvas></div>
+<div class="info">
+<h3>Minin &amp; Pozharsky</h3>
+<p>Два фигуры из полиномиальных линий — меч, щит, указующий перст. 1612.</p>
+<div class="tags"><span class="tag">линии</span><span class="tag">история</span><span class="tag">4 пресета</span><span class="tag">цвет</span></div>
+</div>
+</div>
+
+</div>
+
 <div class="footer">
 POLYART COLLECTION — MATHEMATICS AS ART<br>
 All illustrations are self-contained HTML5 — no dependencies
@@ -166,7 +177,8 @@ const previews=[
   {id:'p9',fn:(ctx,w,h,t)=>{ctx.fillStyle='#0a0a14';ctx.fillRect(0,0,w,h);const cx=w/2,cy=h/2;for(let i=0;i<8;i++){const a=i*Math.PI/4+t*0.4;const r=30+15*Math.sin(t+i);const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;ctx.fillStyle=`hsla(${i*45+50},90%,70%,0.7)`;ctx.beginPath();ctx.arc(x,y,2+Math.sin(t*2+i),0,Math.PI*2);ctx.fill();if(i>0){const pa=(i-1)*Math.PI/4+t*0.4;const pr=30+15*Math.sin(t+i-1);ctx.strokeStyle=`hsla(${i*45+50},60%,50%,0.2)`;ctx.beginPath();ctx.moveTo(cx+Math.cos(pa)*pr,cy+Math.sin(pa)*pr);ctx.lineTo(x,y);ctx.stroke();}}}},
   {id:'p10',fn:(ctx,w,h,t)=>{ctx.fillStyle='#020008';ctx.fillRect(0,0,w,h);const cx=w/2,cy=h/2;for(let i=0;i<200;i++){const arm=i%3;const armAngle=arm*Math.PI*2/3;const dist=(i/200)*100;const spiralAngle=dist*0.08+armAngle;const x=cx+Math.cos(spiralAngle+t*0.1)*dist;const y=cy+Math.sin(spiralAngle+t*0.1)*dist*0.4;const alpha=0.3+Math.sin(t+i)*0.2;ctx.fillStyle=`hsla(${260+i*0.5},70%,60%,${alpha})`;ctx.beginPath();ctx.arc(x,y,1,0,Math.PI*2);ctx.fill();}}},
   {id:'p11',fn:(ctx,w,h,t)=>{ctx.fillStyle='rgba(5,0,8,0.15)';ctx.fillRect(0,0,w,h);for(let i=0;i<20;i++){const x=(Math.sin(t*0.5+i*3)*0.3+0.5)*w;const y=(Math.cos(t*0.4+i*2.5)*0.3+0.5)*h;const s=2+Math.sin(t*2+i)*1;ctx.fillStyle=`hsla(${(t*30+i*18)%360},90%,60%,0.5)`;ctx.beginPath();ctx.arc(x,y,s,0,Math.PI*2);ctx.fill();}}},
-  {id:'p12',fn:(ctx,w,h,t)=>{ctx.fillStyle='#020810';ctx.fillRect(0,0,w,h);for(let l=0;l<4;l++){ctx.beginPath();ctx.moveTo(0,h*0.4+l*25);for(let x=0;x<=w;x+=3){const y=h*0.4+l*25+Math.sin(x*0.01+t+l)*15+Math.sin(x*0.005+t*1.5)*8;ctx.lineTo(x,y);}ctx.strokeStyle=`hsla(${210+l*10},60%,45%,0.3)`;ctx.lineWidth=2;ctx.stroke();}}}
+  {id:'p12',fn:(ctx,w,h,t)=>{ctx.fillStyle='#020810';ctx.fillRect(0,0,w,h);for(let l=0;l<4;l++){ctx.beginPath();ctx.moveTo(0,h*0.4+l*25);for(let x=0;x<=w;x+=3){const y=h*0.4+l*25+Math.sin(x*0.01+t+l)*15+Math.sin(x*0.005+t*1.5)*8;ctx.lineTo(x,y);}ctx.strokeStyle=`hsla(${210+l*10},60%,45%,0.3)`;ctx.lineWidth=2;ctx.stroke();}}},
+  {id:'p13',fn:(ctx,w,h,t)=>{ctx.fillStyle='#0a0a0f';ctx.fillRect(0,0,w,h);const cx=w/2,cy=h*0.6;ctx.strokeStyle='rgba(220,220,230,0.5)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(cx-20,cy);ctx.lineTo(cx-18,cy-40);ctx.lineTo(cx-15,cy-70);ctx.stroke();ctx.beginPath();ctx.moveTo(cx-10,cy);ctx.lineTo(cx-8,cy-40);ctx.lineTo(cx-6,cy-70);ctx.stroke();ctx.beginPath();ctx.moveTo(cx-18,cy-70);ctx.lineTo(cx-25,cy-85);ctx.lineTo(cx-30,cy-75);ctx.stroke();ctx.beginPath();ctx.moveTo(cx-5,cy-70);ctx.lineTo(cx+10,cy-80);ctx.lineTo(cx+25,cy-75);ctx.stroke();ctx.strokeStyle='rgba(180,190,210,0.7)';ctx.beginPath();ctx.moveTo(cx+25,cy-75);ctx.lineTo(cx+25,cy-100);ctx.stroke();ctx.strokeStyle='rgba(220,220,230,0.6)';ctx.beginPath();ctx.moveTo(cx+15,cy);ctx.lineTo(cx+13,cy-40);ctx.lineTo(cx+12,cy-70);ctx.stroke();ctx.beginPath();ctx.moveTo(cx+22,cy);ctx.lineTo(cx+20,cy-40);ctx.lineTo(cx+19,cy-70);ctx.stroke();ctx.beginPath();ctx.moveTo(cx+12,cy-70);ctx.lineTo(cx+15,cy-82);ctx.lineTo(cx+10,cy-88);ctx.stroke();ctx.beginPath();ctx.moveTo(cx+19,cy-70);ctx.lineTo(cx+35,cy-78);ctx.stroke();ctx.strokeStyle='rgba(255,255,255,0.9)';ctx.beginPath();ctx.moveTo(cx+35,cy-78);ctx.lineTo(cx+35,cy-105);ctx.stroke();ctx.fillStyle='#0a0a0f';ctx.fillRect(0,cy+5,w,h);ctx.strokeStyle='rgba(160,160,180,0.3)';ctx.beginPath();ctx.moveTo(cx-40,cy+5);ctx.lineTo(cx-35,cy);ctx.lineTo(cx+35,cy);ctx.lineTo(cx+40,cy+5);ctx.stroke();}}
 ];
 
 let t=0;
