@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>21 — Улица — Спектр Движений — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0814;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:10}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl input[type=range]{width:90px;accent-color:#fc0;cursor:pointer}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:16px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fc05;z-index:10}
+#info{position:absolute;top:42px;left:50%;transform:translateX(-50%);color:#666;font-size:9px;letter-spacing:2px;z-index:10}
+button.tog{background:none;border:1px solid #fc0;color:#fc0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Улица — Спектр</div>
+<div id="info">Ходьба — Бег — Прыжок — Кручение — Брейк — Лёд — Свобода</div>
+<div id="ui">
+<div class="ctrl"><label>Обводка</label><input type="range" id="lw" min="0" max="3" value="1" step="0.5"><span class="val" id="lwV">1</span></div>
+<div class="ctrl"><label>Спектр</label><button class="tog" id="togSp">ВСЁ</button></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="spd" min="20" max="200" value="100"><span class="val" id="spdV">1.0</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+document.getElementById('lw').oninput=function(){document.getElementById('lwV').textContent=this.value;};
+document.getElementById('spd').oninput=function(){document.getElementById('spdV').textContent=(this.value/100).toFixed(1);};
+
+var spectrum=0;var specNames=['ВСЁ','ХОДЬБА','БЕГ','ПРЫЖОК','КРУЧЕНИЕ','БРЕЙК','ЛЁД'];
+document.getElementById('togSp').onclick=function(){spectrum=(spectrum+1)%7;this.textContent=specNames[spectrum];};
+
+var PHI=1.618033988749895;
+var t=0;
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
+
+// Parametric figure
+function drawFig(cx,baseY,s,pos,col,lw2){
+  var lean=pos.lean||0;
+  var torsoH=pos.torsoH||28;
+  var armLen=pos.armLen||24;
+  var legLen=pos.legLen||30;
+
+  // Legs
+  S([
+    [cx+pos.x-legLen*Math.sin(pos.legL)*0.3,baseY,
+     cx+pos.x-legLen*Math.sin(pos.legL)*0.15,baseY-legLen*0.5,
+     cx+pos.x,baseY-legLen]
+  ],col,lw2*1.3);
+  S([
+    [cx+pos.x+legLen*Math.sin(pos.legR)*0.3,baseY,
+     cx+pos.x+legLen*Math.sin(pos.legR)*0.15,baseY-legLen*0.5,
+     cx+pos.x+legLen*0.05,baseY-legLen]
+  ],col,lw2*1.3);
+
+  // Torso
+  var tTop=baseY-legLen;
+  S([
+    [cx+pos.x+lean*s*3,tTop,
+     cx+pos.x+lean*s*5,tTop-torsoH*s]
+  ],col,lw2*1.3);
+
+  // Arms
+  var shX=cx+pos.x+lean*s*5;
+  var shY=tTop-torsoH*s*0.1;
+  S([
+    [shX-s*8,shY,
+     shX-s*8-Math.cos(pos.armL)*armLen*s*0.5,shY-Math.sin(pos.armL)*armLen*s*0.5,
+     shX-s*8-Math.cos(pos.armL)*armLen*s,shY-Math.sin(pos.armL)*armLen*s]
+  ],col,lw2*1);
+  S([
+    [shX+s*8,shY,
+     shX+s*8+Math.cos(pos.armR)*armLen*s*0.5,shY-Math.sin(pos.armR)*armLen*s*0.5,
+     shX+s*8+Math.cos(pos.armR)*armLen*s,shY-Math.sin(pos.armR)*armLen*s]
+  ],col,lw2*1);
+
+  // Hands
+  var hlX=shX-s*8-Math.cos(pos.armL)*armLen*s;
+  var hlY=shY-Math.sin(pos.armL)*armLen*s;
+  var hrX=shX+s*8+Math.cos(pos.armR)*armLen*s;
+  var hrY=shY-Math.sin(pos.armR)*armLen*s;
+  X.fillStyle=col;X.globalAlpha=0.25;
+  X.beginPath();X.arc(hlX,hlY,2*s,0,Math.PI*2);X.fill();
+  X.beginPath();X.arc(hrX,hrY,2*s,0,Math.PI*2);X.fill();
+  X.globalAlpha=1;
+
+  // Head
+  var headR=pos.headR||6;
+  var headX=shX+pos.headTilt*s*4;
+  var headY=shY-torsoH*s*0.3-headR*s*1.5;
+  X.fillStyle=col;X.globalAlpha=0.1;X.beginPath();X.arc(headX,headY,headR*s,0,Math.PI*2);X.fill();X.globalAlpha=1;
+  X.strokeStyle=col;X.lineWidth=lw2*0.8;X.beginPath();X.arc(headX,headY,headR*s,0,Math.PI*2);X.stroke();
+
+  return {headX:headX,headY:headY,hlX:hlX,hlY:hlY,hrX:hrX,hrY:hrY,shX:shX,shY:shY};
+}
+
+function draw(){
+  var lw=parseFloat(document.getElementById('lw').value);
+  var spd=parseFloat(document.getElementById('spd').value)/100;
+  t+=0.016*spd;
+
+  X.fillStyle='#0a0814';X.fillRect(0,0,W,H);
+
+  var cx=W/2, cy=H*0.5, s=Math.min(W,H)/600;
+  var floorY=cy+H*0.2;
+
+  // Street ground
+  X.globalAlpha=0.05;
+  S([[0,floorY],[W,floorY]],'rgba(180,170,160,0.5)',lw*0.5);
+  // Asphalt texture dots
+  for(var at=0;at<30;at++){
+    var atx=(at*W/30)+Math.sin(at*3.7)*10;
+    X.fillStyle='rgba(120,110,100,0.03)';
+    X.beginPath();X.arc(atx,floorY+3*s+Math.sin(at*2.3)*2*s,1*s,0,Math.PI*2);X.fill();
+  }
+  X.globalAlpha=1;
+
+  // Spotlight — warm street lamp
+  var lampGrad=X.createRadialGradient(cx,floorY-H*0.4,0,cx,floorY,W*0.35);
+  lampGrad.addColorStop(0,'rgba(255,200,120,0.05)');
+  lampGrad.addColorStop(1,'rgba(255,200,120,0)');
+  X.fillStyle=lampGrad;X.fillRect(0,0,W,H);
+
+  // Lamp post — simple
+  X.strokeStyle='rgba(140,130,120,0.15)';X.lineWidth=lw*0.5;
+  S([[W*0.08,floorY],[W*0.08,floorY-H*0.5]],'rgba(140,130,120,0.15)',lw*0.5);
+  // Lamp head
+  X.fillStyle='rgba(255,220,150,0.08)';X.beginPath();X.arc(W*0.08,floorY-H*0.5,8*s,0,Math.PI*2);X.fill();
+
+  // ====== MOVEMENT SPECTRUM ======
+  var p=t*0.8;
+  var figures=[];
+
+  // ХОДЬБА — casual walk
+  if(spectrum===0||spectrum===1){
+    for(var w=0;w<2;w++){
+      var wp=p*0.7+w*3;
+      var wx=cx-W*0.35+w*W*0.7+Math.sin(wp*0.3)*W*0.05;
+      var wSwing=Math.sin(wp*1.2)*0.25;
+      figures.push({
+        x:wx,lean:0.05+wSwing*0.1,
+        armL:Math.PI*0.5+Math.sin(wp+0.5)*0.3,
+        armR:Math.PI*0.5-Math.sin(wp+0.5)*0.3,
+        legL:Math.PI*0.5+Math.sin(wp)*0.3,
+        legR:Math.PI*0.5-Math.sin(wp)*0.3,
+        headTilt:Math.sin(wp*0.2)*0.1,
+        torsoH:28,armLen:22,legLen:30,headR:6,
+        col:'rgba(180,200,220,0.4)',
+        label:'ХОДЬБА',labelY:floorY+18*s
+      });
+    }
+  }
+
+  // БЕГ — running
+  if(spectrum===0||spectrum===2){
+    for(var r=0;r<2;r++){
+      var rp=p*1.5+r*4;
+      var rx=cx-W*0.15+r*W*0.3+Math.sin(rp*0.5)*W*0.03;
+      var rLean=0.35;
+      figures.push({
+        x:rx,lean:rLean,
+        armL:Math.PI*0.5-Math.sin(rp*2)*0.6,
+        armR:Math.PI*0.5+Math.sin(rp*2)*0.6,
+        legL:Math.PI*0.5+Math.sin(rp*2)*0.6,
+        legR:Math.PI*0.5-Math.sin(rp*2)*0.6,
+        headTilt:0.3,torsoH:27,armLen:22,legLen:34,headR:5.5,
+        col:'rgba(200,180,220,0.4)',
+        label:'БЕГ',labelY:floorY+18*s
+      });
+    }
+  }
+
+  // ПРЫЖОК — jump
+  if(spectrum===0||spectrum===3){
+    var jp=(p*0.6)%3/3;
+    var jH=Math.sin(jp*Math.PI);
+    var jX=cx+Math.sin(p*0.3)*W*0.05;
+    figures.push({
+      x:jX,lean:Math.cos(jp*Math.PI)*0.1,
+      armL:Math.PI*0.5+jH*0.9,
+      armR:Math.PI*0.5+jH*0.9,
+      legL:Math.PI*0.5-jH*0.4,
+      legR:Math.PI*0.5-jH*0.6,
+      headTilt:0,torsoH:28,armLen:24,legLen:32,headR:6,
+      col:'rgba(220,200,180,0.45)',
+      label:'ПРЫЖОК',labelY:floorY+18*s,
+      jumpH:jH*40*s
+    });
+  }
+
+  // КРУЧЕНИЕ — spin
+  if(spectrum===0||spectrum===4){
+    var sp2=p*1.2;
+    var spinA=sp2*3;
+    var spinX=cx+W*0.1+Math.sin(sp2)*W*0.03;
+    var spinScale=Math.cos(spinA)*0.3+0.7;
+    figures.push({
+      x:spinX,lean:Math.sin(spinA)*0.15*spinScale,
+      armL:Math.PI*0.5+Math.sin(spinA)*0.8*spinScale,
+      armR:Math.PI*0.5-Math.sin(spinA)*0.8*spinScale,
+      legL:Math.PI*0.5+Math.cos(spinA)*0.3*spinScale,
+      legR:Math.PI*0.5-Math.cos(spinA+1)*0.3*spinScale,
+      headTilt:Math.sin(spinA)*0.3,
+      torsoH:28*spinScale,armLen:24*spinScale,legLen:30*spinScale,headR:6*spinScale,
+      col:'rgba(200,160,200,0.4)',
+      label:'КРУЧЕНИЕ',labelY:floorY+18*s
+    });
+  }
+
+  // БРЕЙК — breakdance
+  if(spectrum===0||spectrum===5){
+    var bp=p*0.9;
+    var breakPhase=(bp%4)/4;
+    var bX=cx+W*0.25;
+    // Headspin / freeze
+    var bArmL,bArmR,bLegL,bLegR,bLean,bTorsoH,bLegLen,bJumpH=0;
+
+    if(breakPhase<0.25){
+      // Wind up
+      bArmL=Math.PI*0.5-Math.sin(breakPhase*4*Math.PI)*0.5;
+      bArmR=Math.PI*0.5+Math.sin(breakPhase*4*Math.PI)*0.5;
+      bLegL=Math.PI*0.5+Math.sin(breakPhase*4*Math.PI)*0.4;
+      bLegR=Math.PI*0.5-Math.sin(breakPhase*4*Math.PI)*0.4;
+      bLean=0.2; bTorsoH=26; bLegLen=30;
+    }else if(breakPhase<0.5){
+      // Power move — legs wide
+      var bp2=(breakPhase-0.25)*4;
+      bArmL=Math.PI*0.5+bp2*0.6;
+      bArmR=Math.PI*0.5+bp2*0.6;
+      bLegL=Math.PI*0.5+bp2*0.8;
+      bLegR=Math.PI*0.5-bp2*0.3;
+      bLean=-0.1; bTorsoH=25; bLegLen=32;
+    }else if(breakPhase<0.75){
+      // Freeze — one hand balance
+      var bp3=(breakPhase-0.5)*4;
+      bArmL=Math.PI*0.8;
+      bArmR=Math.PI*0.2-bp3*0.3;
+      bLegL=Math.PI*0.3+bp3*0.4;
+      bLegR=Math.PI*0.7-bp3*0.2;
+      bLean=-0.3; bTorsoH=24; bLegLen=30;
+      bJumpH=20*s;
+    }else{
+      // Recovery
+      var bp4=(breakPhase-0.75)*4;
+      bArmL=Math.PI*0.5-bp4*0.3;
+      bArmR=Math.PI*0.5+bp4*0.3;
+      bLegL=Math.PI*0.5+bp4*0.2;
+      bLegR=Math.PI*0.5-bp4*0.2;
+      bLean=0.1*bp4; bTorsoH=26+bp4*2; bLegLen=30;
+    }
+
+    figures.push({
+      x:bX,lean:bLean,
+      armL:bArmL,armR:bArmR,
+      legL:bLegL,legR:bLegR,
+      headTilt:bLean*-0.5,
+      torsoH:bTorsoH,armLen:24,legLen:bLegLen,headR:5.5,
+      col:'rgba(255,180,100,0.45)',
+      label:'БРЕЙК',labelY:floorY+18*s,
+      jumpH:bJumpH
+    });
+
+    // Second breakdancer — windmill
+    var bp5=(bp*0.7%3)/3;
+    var b2X=cx+W*0.35;
+    var b2Angle=bp5*Math.PI*2;
+    figures.push({
+      x:b2X+Math.cos(b2Angle)*10*s,
+      lean:Math.sin(b2Angle)*0.4,
+      armL:Math.PI*0.5+Math.sin(b2Angle)*0.7,
+      armR:Math.PI*0.5-Math.sin(b2Angle)*0.7,
+      legL:Math.PI*0.5+Math.cos(b2Angle)*0.9,
+      legR:Math.PI*0.5-Math.cos(b2Angle+1)*0.9,
+      headTilt:Math.sin(b2Angle)*0.4,
+      torsoH:24,armLen:22,legLen:28,headR:5,
+      col:'rgba(255,160,120,0.35)',
+      label:'ВИНМОУЛ',labelY:floorY+18*s,
+      jumpH:Math.abs(Math.sin(b2Angle))*15*s
+    });
+  }
+
+  // ЛЁД — ice skating
+  if(spectrum===0||spectrum===6){
+    var ip=p*0.8;
+    var iceX=cx-W*0.1;
+    // Skater — gliding
+    figures.push({
+      x:iceX+Math.sin(ip*0.4)*W*0.12,
+      lean:Math.sin(ip*0.4)*0.15,
+      armL:Math.PI*0.5+Math.sin(ip)*0.4,
+      armR:Math.PI*0.5-Math.sin(ip)*0.6,
+      legL:Math.PI*0.5+Math.sin(ip)*0.5,
+      legR:Math.PI*0.5-Math.sin(ip)*0.15,
+      headTilt:Math.sin(ip*0.4)*0.2,
+      torsoH:28,armLen:25,legLen:32,headR:6,
+      col:'rgba(180,210,240,0.45)',
+      label:'ЛЁД',labelY:floorY+18*s
+    });
+
+    // Ice trail — polynomial curves
+    X.globalAlpha=0.06;
+    var iceTrail=[];
+    for(var it=0;it<30;it++){
+      var itp=ip-it*0.05;
+      iceTrail.push([
+        iceX+Math.sin(itp*0.4)*W*0.12,
+        floorY+1*s+Math.sin(itp*0.8)*2*s
+      ]);
+    }
+    S(iceTrail,'rgba(180,220,255,0.4)',lw*0.4);
+    X.globalAlpha=1;
+  }
+
+  // ====== DRAW ALL FIGURES ======
+  var allPts=[];
+  for(var di=0;di<figures.length;di++){
+    var fig=figures[di];
+    var fBaseY=floorY-(fig.jumpH||0);
+    var pts=drawFig(cx,fBaseY,s,fig,fig.col,lw);
+    allPts.push(pts);
+
+    // Label
+    X.globalAlpha=0.07;X.font=(7*s)+'px monospace';X.fillStyle=fig.col;X.textAlign='center';
+    X.fillText(fig.label,fig.x,fig.labelY);
+    X.textAlign='left';X.globalAlpha=1;
+
+    // Shadow
+    X.globalAlpha=0.08;
+    X.fillStyle='rgba(0,0,0,0.6)';
+    X.beginPath();X.ellipse(fig.x+3*s,floorY+3*s,12*s,3*s,0,0,Math.PI*2);X.fill();
+    X.globalAlpha=1;
+  }
+
+  // ====== CONNECTION LINES between figures ======
+  if(allPts.length>1){
+    X.globalAlpha=0.04;
+    for(var ci=0;ci<allPts.length-1;ci++){
+      var c0=allPts[ci],c1=allPts[ci+1];
+      S([
+        [c0.headX,c0.headY,c1.headX,c1.headY]
+      ],'rgba(255,200,150,0.3)',lw*0.3);
+      // Gradient connection — hands
+      S([
+        [c0.hrX,c0.hrY,c1.hlX,c1.hlY]
+      ],'rgba(200,150,255,0.2)',lw*0.3);
+    }
+    X.globalAlpha=1;
+  }
+
+  // ====== ENERGY BURST particles ======
+  for(var ep=0;ep<25;ep++){
+    var epx=cx+Math.sin(t*0.3+ep*2.1)*W*0.4;
+    var epy=cy+Math.cos(t*0.25+ep*1.7)*H*0.35;
+    var epr=0.3+Math.sin(t*1.5+ep)*0.2;
+    X.fillStyle='rgba(255,220,160,'+(0.015+0.01*Math.sin(t*2+ep))+')';
+    X.beginPath();X.arc(epx,epy,epr*s,0,Math.PI*2);X.fill();
+  }
+
+  // ====== SPECTRUM BAR (bottom) ======
+  var barY=H-35*s;
+  var barW=W*0.6;
+  var barX=cx-barW/2;
+  X.globalAlpha=0.08;
+  // Bar background
+  S([[barX,barY],[barX+barW,barY]],'rgba(200,180,160,0.3)',lw*0.3);
+  // Spectrum labels
+  var specLabels=['ХОДЬБА','БЕГ','ПРЫЖОК','КРУЧЕНИЕ','БРЕЙК','ЛЁД'];
+  for(var si=0;si<6;si++){
+    var sx=barX+barW*(si+0.5)/6;
+    X.fillStyle='rgba(200,180,160,0.4)';X.font=(6*s)+'px monospace';X.textAlign='center';
+    X.fillText(specLabels[si],sx,barY-6*s);
+    // Dot
+    X.fillStyle='rgba(255,200,100,0.3)';
+    X.beginPath();X.arc(sx,barY,2*s,0,Math.PI*2);X.fill();
+    // Connecting line
+    if(si<5){
+      S([[sx+barW/12,barY],[sx+barW/6-barW/12,barY]],'rgba(200,180,160,0.2)',lw*0.2);
+    }
+  }
+  // Current position indicator
+  if(spectrum>0){
+    var curX=barX+barW*(spectrum-0.5)/6;
+    X.fillStyle='rgba(255,200,80,0.5)';
+    X.beginPath();X.arc(curX,barY,4*s,0,Math.PI*2);X.fill();
+  }else{
+    // All active — glow across entire bar
+    X.globalAlpha=0.04+0.02*Math.sin(t);
+    S([[barX,barY],[barX+barW,barY]],'rgba(255,200,80,0.5)',lw*1.5);
+  }
+  X.textAlign='left';X.globalAlpha=1;
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
