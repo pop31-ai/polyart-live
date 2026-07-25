@@ -26,6 +26,8 @@ canvas{display:block}
 <div class="ctrl"><label>Высота</label><input type="range" id="gl" min="0" max="100" value="50"><span class="val" id="glV">0.50</span></div>
 <div class="ctrl"><label>Наряд</label><button id="togD" style="background:none;border:1px solid #fc0;color:#fc0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px">NUDUS</button></div>
 <div class="ctrl"><label>Тип</label><button id="togT" style="background:none;border:1px solid #aaa;color:#aaa;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px">ТОГА</button></div>
+<div class="ctrl"><label>Состояние</label><button id="togS" style="background:none;border:1px solid #5f5;color:#5f5;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px">ТРЕЗВ</button></div>
+<div class="ctrl"><label>Телосложение</label><button id="togB" style="background:none;border:1px solid #aaa;color:#aaa;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px">НОРМА</button></div>
 </div>
 <script>
 var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
@@ -38,10 +40,15 @@ document.getElementById('gl').oninput=function(){document.getElementById('glV').
 var PHI=1.618033988749895;
 var t=0;
 var dressed=false;
-var dressType=0; // 0=toga,1=lorica,2=paludamentum
+var dressType=0;
 var dressNames=['ТОГА','ЛОРИКА','ИМПЕРАТОР'];
+var drunk=0;
+var bodyType=0; // 0=norm,1=thin,2=chubby,4=bloated
+var bodyNames=['НОРМА','ХУДОЙ','ПОЛНЫЙ','ОПУХ'];
 document.getElementById('togD').onclick=function(){dressed=!dressed;this.textContent=dressed?'ROMA':'NUDUS';};
 document.getElementById('togT').onclick=function(){dressType=(dressType+1)%3;this.textContent=dressNames[dressType];};
+document.getElementById('togS').onclick=function(){drunk=drunk?0:1;this.textContent=drunk?'БРАК':'ТРЕЗВ';this.style.color=drunk?'#f55':'#5f5';};
+document.getElementById('togB').onclick=function(){bodyType=(bodyType+1)%4;this.textContent=bodyNames[bodyType];};
 
 function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
 function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
@@ -79,7 +86,17 @@ function draw(){
   X.fillStyle='#08060e';X.fillRect(0,0,W,H);
 
   var cx=W/2, cy=H/2, s=Math.min(W,H)/550;
-  var shH=elev*12*s; // shadow height = elevation
+  var shH=elev*12*s;
+
+  // Body type multipliers
+  var bW=1,bH=1,bLW=1,bHead=1,bJaw=1,bBelly=0,bNeck=1,bArm=1; // defaults = norm
+  if(bodyType===1){bW=0.72;bH=1.15;bLW=0.7;bHead=1.08;bJaw=0.8;bBelly=0;bNeck=0.75;bArm=0.7;} // худой
+  if(bodyType===2){bW=1.35;bH=0.92;bLW=1.3;bHead=0.95;bJaw=1.2;bBelly=0.4;bNeck=1.2;bArm=1.2;} // полный
+  if(bodyType===3){bW=1.6;bH=0.85;bLW=1.5;bHead=1.1;bJaw=1.5;bBelly=0.8;bNeck=1.4;bArm=1.3;} // опухший
+
+  // Drunk sway
+  var drunkSway=drunk?Math.sin(t*1.2)*4*s:0;
+  var drunkNod=drunk?Math.sin(t*0.8)*2*s:0;
 
   // ====== GOLDEN RATIO GRID ======
   var gx1=W/PHI, gx2=W-gx1;
@@ -103,37 +120,333 @@ function draw(){
   // Positioned at golden section points
   // Elevated with shadows
 
-  // === HEAD — circle, highest element ===
-  var headR=s*28;
-  var headX=cx;
-  var headY=cy-H*0.22;
+  // === HEAD — realistic human head, polynomial curves ===
+  var headR=s*28*bHead;
+  var headX=cx+drunkSway;
+  var headY=cy-H*0.22+drunkNod;
   var headElev=shH*1.5;
+  // Enforce minimum facial feature sizes — face always detailed
+  var eyeMinR=s*3.5;
+  var noseMinR=s*2;
+  var mouthMinW=s*8;
 
   // Shadow
   X.globalAlpha=0.2;
   X.fillStyle='rgba(0,0,0,0.9)';X.beginPath();X.ellipse(headX+3*s,headY+headElev+4*s,headR*1.1,headR*0.4,0,0,Math.PI*2);X.fill();
   X.globalAlpha=1;
-  // Circle head
-  X.fillStyle='rgba(255,230,180,0.15)';X.beginPath();X.arc(headX,headY-headElev,headR,0,Math.PI*2);X.fill();
-  X.strokeStyle='rgba(255,220,160,0.6)';X.lineWidth=lw*1.2;X.beginPath();X.arc(headX,headY-headElev,headR,0,Math.PI*2);X.stroke();
-  // Inner highlight
-  X.globalAlpha=0.1;X.fillStyle='rgba(255,255,255,0.4)';X.beginPath();X.arc(headX-headR*0.2,headY-headElev-headR*0.3,headR*0.5,0,Math.PI*2);X.fill();X.globalAlpha=1;
-  // Eyes — two small circles at φ positions
-  var eyeY=headY-headElev+headR*0.05;
-  var eyeR=headR*0.12;
-  X.fillStyle='rgba(255,255,255,0.25)';X.beginPath();X.arc(headX-headR*0.3,eyeY,eyeR,0,Math.PI*2);X.fill();
-  X.beginPath();X.arc(headX+headR*0.3,eyeY,eyeR,0,Math.PI*2);X.fill();
-  X.fillStyle='rgba(40,40,60,0.5)';X.beginPath();X.arc(headX-headR*0.3,eyeY,eyeR*0.5,0,Math.PI*2);X.fill();
-  X.beginPath();X.arc(headX+headR*0.3,eyeY,eyeR*0.5,0,Math.PI*2);X.fill();
-  // Mouth — curved line
-  var mouthY=headY-headElev+headR*0.4;
+
+  // Head shape — oval with jawline (polynomial)
+  var jawDrop=headR*0.35*bJaw; // chin extends below circle — affected by body type
+  X.fillStyle='rgba(255,230,180,0.13)';
+  X.beginPath();
+  X.moveTo(headX,headY-headElev-headR*0.95); // top of skull
+  // Right side — skull to cheek to jaw
+  X.bezierCurveTo(
+    headX+headR*0.7,headY-headElev-headR*0.9,
+    headX+headR*1.05,headY-headElev-headR*0.3,
+    headX+headR*0.95,headY-headElev+headR*0.15
+  );
+  // Right jaw — angular
+  X.bezierCurveTo(
+    headX+headR*0.85,headY-headElev+headR*0.45,
+    headX+headR*0.55,headY-headElev+jawDrop,
+    headX+headR*0.15,headY-headElev+jawDrop+2*s
+  );
+  // Chin
+  X.quadraticCurveTo(
+    headX,headY-headElev+jawDrop+4*s,
+    headX-headR*0.15,headY-headElev+jawDrop+2*s
+  );
+  // Left jaw
+  X.bezierCurveTo(
+    headX-headR*0.55,headY-headElev+jawDrop,
+    headX-headR*0.85,headY-headElev+headR*0.45,
+    headX-headR*0.95,headY-headElev+headR*0.15
+  );
+  // Left side — jaw to cheek to skull
+  X.bezierCurveTo(
+    headX-headR*1.05,headY-headElev-headR*0.3,
+    headX-headR*0.7,headY-headElev-headR*0.9,
+    headX,headY-headElev-headR*0.95
+  );
+  X.fill();
+
+  // Outline — same shape
+  X.strokeStyle='rgba(255,220,160,0.55)';X.lineWidth=lw*1.2;
+  X.beginPath();
+  X.moveTo(headX,headY-headElev-headR*0.95);
+  X.bezierCurveTo(
+    headX+headR*0.7,headY-headElev-headR*0.9,
+    headX+headR*1.05,headY-headElev-headR*0.3,
+    headX+headR*0.95,headY-headElev+headR*0.15
+  );
+  X.bezierCurveTo(
+    headX+headR*0.85,headY-headElev+headR*0.45,
+    headX+headR*0.55,headY-headElev+jawDrop,
+    headX+headR*0.15,headY-headElev+jawDrop+2*s
+  );
+  X.quadraticCurveTo(
+    headX,headY-headElev+jawDrop+4*s,
+    headX-headR*0.15,headY-headElev+jawDrop+2*s
+  );
+  X.bezierCurveTo(
+    headX-headR*0.55,headY-headElev+jawDrop,
+    headX-headR*0.85,headY-headElev+headR*0.45,
+    headX-headR*0.95,headY-headElev+headR*0.15
+  );
+  X.bezierCurveTo(
+    headX-headR*1.05,headY-headElev-headR*0.3,
+    headX-headR*0.7,headY-headElev-headR*0.9,
+    headX,headY-headElev-headR*0.95
+  );
+  X.stroke();
+
+  // Brow ridge — subtle curve
   S([
-    [headX-headR*0.25,mouthY],
-    [headX,mouthY+3*s+Math.sin(t*1.5)*2*s,headX+headR*0.25,mouthY]
-  ],c8a(0.3),lw*0.8);
+    [headX-headR*0.55,headY-headElev-headR*0.12,
+     headX-headR*0.2,headY-headElev-headR*0.18,
+     headX,headY-headElev-headR*0.17,
+     headX+headR*0.2,headY-headElev-headR*0.18,
+     headX+headR*0.55,headY-headElev-headR*0.12]
+  ],'rgba(255,220,160,0.2)',lw*0.5);
+
+  // Eyes — almond-shaped with polynomial curves
+  var eyeY=headY-headElev+headR*0.0;
+  var eyeW=Math.max(headR*0.32,eyeMinR*2.5);
+  var eyeH=Math.max(headR*0.11,eyeMinR);
+  for(var ei=-1;ei<=1;ei+=2){
+    var ex=headX+ei*headR*0.3;
+    // Eye white
+    X.fillStyle='rgba(255,255,252,0.15)';
+    X.beginPath();
+    X.moveTo(ex-eyeW,eyeY);
+    X.quadraticCurveTo(ex,eyeY-eyeH*1.5,ex+eyeW,eyeY);
+    X.quadraticCurveTo(ex,eyeY+eyeH*1.2,ex-eyeW,eyeY);
+    X.fill();
+    // Iris
+    var irisR=eyeH*0.9;
+    var irisOff=Math.sin(t*0.3)*1.5*s; // subtle look-around
+    X.fillStyle='rgba(80,100,140,0.25)';
+    X.beginPath();X.arc(ex+irisOff,eyeY,irisR,0,Math.PI*2);X.fill();
+    // Pupil
+    X.fillStyle='rgba(20,20,30,0.4)';
+    X.beginPath();X.arc(ex+irisOff,eyeY,irisR*0.45,0,Math.PI*2);X.fill();
+    // Light reflection
+    X.fillStyle='rgba(255,255,255,0.3)';
+    X.beginPath();X.arc(ex+irisOff+irisR*0.25,eyeY-irisR*0.25,irisR*0.2,0,Math.PI*2);X.fill();
+    // Eyelid line
+    S([
+      [ex-eyeW*1.1,eyeY+eyeH*0.2,
+       ex,eyeY-eyeH*1.8,
+       ex+eyeW*1.1,eyeY+eyeH*0.2]
+    ],'rgba(200,180,150,0.3)',lw*0.5);
+    // Lower lash line
+    S([
+      [ex-eyeW*0.9,eyeY+eyeH*0.3,
+       ex,eyeY+eyeH*1.3,
+       ex+eyeW*0.9,eyeY+eyeH*0.3]
+    ],'rgba(200,180,150,0.15)',lw*0.3);
+    // Eyebrow
+    S([
+      [ex-eyeW*1.2,eyeY-eyeH*2.5-ei*2*s,
+       ex-eyeW*0.2,eyeY-eyeH*3.2-ei*1*s,
+       ex+eyeW*0.8,eyeY-eyeH*2.3-ei*0.5*s]
+    ],'rgba(80,60,40,0.25)',lw*0.7);
+  }
+
+  // Nose — polynomial bridge and tip
+  var noseTopY=headY-headElev-headR*0.15;
+  var noseBotY=headY-headElev+headR*0.25;
+  var noseMidY=(noseTopY+noseBotY)/2;
+  // Bridge
+  S([
+    [headX-headR*0.04,noseTopY,
+     headX-headR*0.06,noseMidY,
+     headX-headR*0.1,noseBotY-4*s]
+  ],'rgba(200,180,150,0.2)',lw*0.6);
+  S([
+    [headX+headR*0.04,noseTopY,
+     headX+headR*0.03,noseMidY,
+     headX+headR*0.08,noseBotY-4*s]
+  ],'rgba(200,180,150,0.15)',lw*0.5);
+  // Tip — small circle
+  X.fillStyle='rgba(255,220,180,0.1)';X.beginPath();
+  X.ellipse(headX,noseBotY-2*s,headR*0.1,headR*0.06,0,0,Math.PI*2);X.fill();
+  // Nostrils
+  X.fillStyle='rgba(180,150,120,0.15)';
+  X.beginPath();X.ellipse(headX-headR*0.06,noseBotY,headR*0.04,headR*0.025,-0.2,0,Math.PI*2);X.fill();
+  X.beginPath();X.ellipse(headX+headR*0.06,noseBotY,headR*0.04,headR*0.025,0.2,0,Math.PI*2);X.fill();
+
+  // Mouth — full lips with polynomial curves
+  var mouthY=headY-headElev+headR*0.42;
+  var mouthW=Math.max(headR*0.28,mouthMinW);
+  // Upper lip — cupid's bow
+  X.fillStyle='rgba(200,130,110,0.1)';
+  X.beginPath();
+  X.moveTo(headX-mouthW,mouthY);
+  X.quadraticCurveTo(headX-mouthW*0.5,mouthY-3*s,headX,mouthY-2*s+Math.sin(t*1.5)*s);
+  X.quadraticCurveTo(headX+mouthW*0.5,mouthY-3*s,headX+mouthW,mouthY);
+  X.quadraticCurveTo(headX,mouthY+1*s,headX-mouthW,mouthY);
+  X.fill();
+  // Upper lip outline
+  S([
+    [headX-mouthW,mouthY,
+     headX-mouthW*0.5,mouthY-3*s,
+     headX,mouthY-2*s+Math.sin(t*1.5)*s,
+     headX+mouthW*0.5,mouthY-3*s,
+     headX+mouthW,mouthY]
+  ],'rgba(180,110,90,0.35)',lw*0.7);
+  // Lower lip
+  X.fillStyle='rgba(210,140,120,0.08)';
+  X.beginPath();
+  X.moveTo(headX-mouthW*0.9,mouthY+1*s);
+  X.quadraticCurveTo(headX,mouthY+5*s+Math.sin(t*1.5)*1.5*s,headX+mouthW*0.9,mouthY+1*s);
+  X.quadraticCurveTo(headX,mouthY+2*s,headX-mouthW*0.9,mouthY+1*s);
+  X.fill();
+  S([
+    [headX-mouthW*0.9,mouthY+1*s,
+     headX,mouthY+5*s+Math.sin(t*1.5)*1.5*s,
+     headX+mouthW*0.9,mouthY+1*s]
+  ],'rgba(180,110,90,0.25)',lw*0.5);
+  // Line between lips
+  S([
+    [headX-mouthW,mouthY,
+     headX-mouthW*0.3,mouthY+0.5*s+Math.sin(t*1.5)*0.5*s,
+     headX+mouthW*0.3,mouthY+0.5*s+Math.sin(t*1.5)*0.5*s,
+     headX+mouthW,mouthY]
+  ],'rgba(150,100,80,0.3)',lw*0.4);
+
+  // Ears — small polynomial curves on sides
+  for(var ear=-1;ear<=1;ear+=2){
+    var earX=headX+ear*headR*0.95;
+    var earY=headY-headElev-headR*0.05;
+    var earH2=headR*0.3;
+    S([
+      [earX,earY-earH2,
+       earX+ear*headR*0.15,earY-earH2*0.3,
+       earX+ear*headR*0.12,earY+earH2*0.3,
+       earX,earY+earH2]
+    ],'rgba(255,220,160,0.2)',lw*0.5);
+    // Inner ear
+    S([
+      [earX+ear*2*s,earY-earH2*0.6,
+       earX+ear*headR*0.1,earY,
+       earX+ear*2*s,earY+earH2*0.5]
+    ],'rgba(220,180,140,0.12)',lw*0.3);
+  }
+
+  // Neck shadow under jaw
+  X.globalAlpha=0.06;
+  F([
+    [headX-headR*0.3,headY-headElev+jawDrop+2*s],
+    [headX+headR*0.3,headY-headElev+jawDrop+2*s],
+    [headX+headR*0.4,headY-headElev+jawDrop+12*s],
+    [headX-headR*0.4,headY-headElev+jawDrop+12*s]
+  ],'rgba(0,0,0,0.5)');
+  X.globalAlpha=1;
+
+  // === DRUNK FACE EFFECTS ===
+  if(drunk){
+    // Flushed cheeks — red patches
+    X.globalAlpha=0.12+Math.sin(t*2)*0.03;
+    X.fillStyle='rgba(220,80,60,0.5)';
+    X.beginPath();X.ellipse(headX-headR*0.55,headY-headElev+headR*0.2,headR*0.18,headR*0.12,0.1,0,Math.PI*2);X.fill();
+    X.beginPath();X.ellipse(headX+headR*0.55,headY-headElev+headR*0.2,headR*0.18,headR*0.12,-0.1,0,Math.PI*2);X.fill();
+    X.globalAlpha=1;
+
+    // Droopy left eyelid — half-closed
+    var droopY=eyeY-eyeH*0.3;
+    X.fillStyle='rgba(255,230,180,0.12)';
+    X.beginPath();
+    X.moveTo(headX-headR*0.3-headR*0.32,droopY);
+    X.quadraticCurveTo(headX-headR*0.3,droopY+eyeH*0.8,headX-headR*0.3+headR*0.32,droopY);
+    X.quadraticCurveTo(headX-headR*0.3,droopY-eyeH*0.5,headX-headR*0.3-headR*0.32,droopY);
+    X.fill();
+
+    // Slight smirk — asymmetric mouth
+    S([
+      [headX-mouthW,mouthY+1.5*s,
+       headX-mouthW*0.2,mouthY+3*s+Math.sin(t*1.5)*s,
+       headX+mouthW*0.5,mouthY-1*s,
+       headX+mouthW,mouthY+0.5*s]
+    ],'rgba(180,110,90,0.15)',lw*0.4);
+  }
+
+  // === BODY TYPE EFFECTS ===
+  // Belly bulge — polynomial curve below torso
+  if(bBelly>0){
+    var bellyCY=torsoCY+torsoH2*0.3-torsoElev;
+    var bellyR=torsoW*bBelly*0.8;
+    X.fillStyle='rgba(255,230,180,0.06)';
+    X.beginPath();
+    X.ellipse(torsoCX+drunkSway*0.5,bellyCY+bellyR*0.3,bellyR,bellyR*0.7,0,0,Math.PI);
+    X.fill();
+    S([
+      [torsoCX+drunkSway*0.5-bellyR,bellyCY+bellyR*0.1,
+       torsoCX+drunkSway*0.5,bellyCY+bellyR*0.9,
+       torsoCX+drunkSway*0.5+bellyR,bellyCY+bellyR*0.1]
+    ],'rgba(255,220,160,0.15)',lw*0.5);
+  }
+
+  // === DRUNK ACCESSORIES — wine in hand ===
+  if(drunk){
+    var cupX=handX+8*s;
+    var cupY=handY-4*s;
+    var cupElev=shH*0.5;
+    // Shadow
+    X.globalAlpha=0.1;X.fillStyle='rgba(0,0,0,0.6)';
+    X.beginPath();X.ellipse(cupX+1*s,cupY+cupElev+2*s,5*s,2*s,0,0,Math.PI*2);X.fill();X.globalAlpha=1;
+    // Cup stem
+    S([[cupX,cupY+cupElev*0.5],[cupX,cupY-cupElev]],'rgba(200,180,140,0.3)',lw*0.5);
+    // Cup bowl
+    X.fillStyle='rgba(180,50,50,0.15)';
+    X.beginPath();
+    X.moveTo(cupX-5*s,cupY-cupElev);
+    X.quadraticCurveTo(cupX-6*s,cupY-cupElev-6*s,cupX,cupY-cupElev-7*s);
+    X.quadraticCurveTo(cupX+6*s,cupY-cupElev-6*s,cupX+5*s,cupY-cupElev);
+    X.closePath();X.fill();
+    X.strokeStyle='rgba(200,180,140,0.4)';X.lineWidth=lw*0.5;
+    X.beginPath();
+    X.moveTo(cupX-5*s,cupY-cupElev);
+    X.quadraticCurveTo(cupX-6*s,cupY-cupElev-6*s,cupX,cupY-cupElev-7*s);
+    X.quadraticCurveTo(cupX+6*s,cupY-cupElev-6*s,cupX+5*s,cupY-cupElev);
+    X.stroke();
+    // Wine sloshing
+    var wineLevel=Math.sin(t*2)*1.5*s;
+    X.fillStyle='rgba(180,40,40,0.12)';
+    X.beginPath();
+    X.moveTo(cupX-4*s,cupY-cupElev-2*s+wineLevel);
+    X.quadraticCurveTo(cupX,cupY-cupElev-5*s+wineLevel,cupX+4*s,cupY-cupElev-2*s+wineLevel);
+    X.quadraticCurveTo(cupX,cupY-cupElev-1*s+wineLevel,cupX-4*s,cupY-cupElev-2*s+wineLevel);
+    X.fill();
+    // Base
+    S([[cupX-3*s,cupY+cupElev*0.5],[cupX+3*s,cupY+cupElev*0.5]],'rgba(200,180,140,0.3)',lw*0.5);
+
+    // Grapes bunch hanging from left hand
+    var grX=armLX-Math.cos(0.8)*armLen*0.5;
+    var grY=armLY+Math.sin(1.2)*armLen*0.3-armElev;
+    for(var gi=0;gi<7;gi++){
+      var gxOff=Math.sin(gi*1.3)*3*s;
+      var gyOff=gi*3.5*s;
+      var gR=2*s+Math.sin(t+gi)*0.5*s;
+      X.fillStyle='rgba(100,40,120,0.15)';
+      X.beginPath();X.arc(grX+gxOff,grY+gyOff+4*s,gR,0,Math.PI*2);X.fill();
+      X.strokeStyle='rgba(130,60,150,0.3)';X.lineWidth=lw*0.3;
+      X.beginPath();X.arc(grX+gxOff,grY+gyOff+4*s,gR,0,Math.PI*2);X.stroke();
+    }
+    // Stem
+    S([[grX,grY+2*s],[grX,grY+2*s+7*3.5*s]],'rgba(80,120,50,0.25)',lw*0.3);
+    // Leaf
+    X.fillStyle='rgba(60,130,40,0.1)';
+    X.beginPath();
+    X.moveTo(grX,grY+2*s);
+    X.quadraticCurveTo(grX+6*s,grY-2*s,grX+4*s,grY+6*s);
+    X.quadraticCurveTo(grX+1*s,grY+4*s,grX,grY+2*s);
+    X.fill();
+  }
 
   // === NECK — small rectangle ===
-  var neckW=8*s, neckH=12*s/PHI;
+  var neckW=8*s*bNeck, neckH=12*s/PHI;
   var neckTop=headY-headElev+headR;
   // Shadow
   X.globalAlpha=0.1;X.fillStyle='rgba(0,0,0,0.7)';X.fillRect(headX-neckW/2+2*s,neckTop+shH,neckW,neckH);X.globalAlpha=1;
@@ -141,10 +454,10 @@ function draw(){
   S([[headX-neckW/2,neckTop],[headX+neckW/2,neckTop],[headX+neckW/2,neckTop+neckH],[headX-neckW/2,neckTop+neckH]],'rgba(255,220,160,0.4)',lw*0.7);
 
   // === TORSO — large diamond/rhombus ===
-  var torsoW=headR*2.2;
-  var torsoH2=torsoW*PHI;
+  var torsoW=headR*2.2*bW;
+  var torsoH2=torsoW*PHI*bH;
   var torsoTop=neckTop+neckH;
-  var torsoCX=headX;
+  var torsoCX=headX+drunkSway*0.7;
   var torsoCY=torsoTop+torsoH2*0.5;
   var torsoElev=shH*1.2;
 
@@ -196,7 +509,7 @@ function draw(){
   // === LEFT ARM — triangle ===
   var armLX=torsoCX-torsoW*0.6;
   var armLY=torsoCY-torsoH2*0.3-torsoElev;
-  var armLen=torsoW*0.8;
+  var armLen=torsoW*0.8*bArm;
   var armElev=shH*0.9;
 
   // Shadow
@@ -253,10 +566,10 @@ function draw(){
   X.strokeStyle='rgba(220,180,100,0.5)';X.lineWidth=lw*0.8;X.beginPath();X.arc(handX,handY,6*s,0,Math.PI*2);X.stroke();
 
   // === LEFT LEG — tall rectangle ===
-  var legW=10*s;
+  var legW=10*s*bLW;
   var legH2=torsoH2*0.7;
   var legLX=torsoCX-torsoW*0.25;
-  var legTop=torsoCY+torsoH2*0.5-torsoElev;
+  var legTop=torsoCY+torsoH2*0.5-torsoElev+drunkNod*0.3;
   var legElev=shH*0.6;
 
   // Shadow
