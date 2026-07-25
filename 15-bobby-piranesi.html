@@ -10,23 +10,22 @@ body{background:#050508;overflow:hidden;font-family:'Segoe UI',sans-serif}
 canvas{display:block}
 #ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:10;flex-wrap:wrap;justify-content:center}
 .ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
-.ctrl label{color:#888;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
 .ctrl input[type=range]{width:90px;accent-color:#999;cursor:pointer}
-.ctrl .val{color:#ccc;font-size:11px;font-weight:bold}
-#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:16px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fff3;z-index:10}
-#info{position:absolute;top:42px;left:50%;transform:translateX(-50%);color:#444;font-size:9px;letter-spacing:2px;z-index:10}
-#colorBtn{position:absolute;top:14px;left:14px;z-index:10;padding:4px 10px;background:rgba(255,255,255,0.04);border:1px solid #fff3;color:#aaa;font-size:9px;cursor:pointer;border-radius:3px;text-transform:uppercase;letter-spacing:1px}
-#colorBtn.on{background:rgba(255,200,0,0.1);color:#fc0;border-color:#fc03}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:16px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fff5;z-index:10}
+#info{position:absolute;top:42px;left:50%;transform:translateX(-50%);color:#666;font-size:9px;letter-spacing:2px;z-index:10}
+#colorBtn{position:absolute;top:14px;left:14px;z-index:10;padding:4px 10px;background:rgba(255,200,0,0.08);border:1px solid rgba(255,200,0,0.3);color:#fc0;font-size:9px;cursor:pointer;border-radius:3px;text-transform:uppercase;letter-spacing:1px}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="title">Bobby en Piranesi</div>
-<div id="info">Полицейский в форме — Пиронези — Архитектурные лепнины — Полиномиальные кривые</div>
+<div id="info">Бдительность — Власть — Архитектурная монументальность</div>
 <button id="colorBtn" onclick="toggleColor()">Цвет</button>
 <div id="ui">
-<div class="ctrl"><label>Обводка</label><input type="range" id="lw" min="0" max="3" value="1" step="0.5"><span class="val" id="lwV">1</span></div>
-<div class="ctrl"><label>Свечение</label><input type="range" id="gl" min="0" max="100" value="40"><span class="val" id="glV">0.40</span></div>
+<div class="ctrl"><label>Обводка</label><input type="range" id="lw" min="0" max="3" value="1.2" step="0.5"><span class="val" id="lwV">1.2</span></div>
+<div class="ctrl"><label>Свечение</label><input type="range" id="gl" min="0" max="100" value="60"><span class="val" id="glV">0.60</span></div>
 </div>
 <script>
 var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
@@ -41,12 +40,14 @@ document.getElementById('gl').oninput=function(){document.getElementById('glV').
 var PHI=1.618033988749895;
 var t=0;
 
-function c1(a){return col?'rgba(180,60,40,'+a+')':'rgba(180,195,220,'+a+')';}
-function c2(a){return col?'rgba(40,80,160,'+a+')':'rgba(120,135,165,'+a+')';}
-function c3(a){return col?'rgba(200,180,140,'+a+')':'rgba(160,155,140,'+a+')';}
-function c4(a){return col?'rgba(220,210,180,'+a+')':'rgba(210,210,200,'+a+')';}
-function c5(a){return col?'rgba(200,160,60,'+a+')':'rgba(230,230,235,'+a+')';}
-function c6(a){return col?'rgba(50,50,70,'+a+')':'rgba(80,85,100,'+a+')';}
+// === BRIGHT color palette ===
+function c1(a){return col?'rgba(230,70,40,'+a+')':'rgba(200,215,240,'+a+')';}
+function c2(a){return col?'rgba(30,100,210,'+a+')':'rgba(50,90,180,'+a+')';}
+function c3(a){return col?'rgba(230,200,140,'+a+')':'rgba(200,190,160,'+a+')';}
+function c4(a){return col?'rgba(255,240,200,'+a+')':'rgba(240,235,220,'+a+')';}
+function c5(a){return col?'rgba(255,200,40,'+a+')':'rgba(255,240,200,'+a+')';}
+function c6(a){return col?'rgba(30,30,50,'+a+')':'rgba(40,50,80,'+a+')';}
+function c7(a){return col?'rgba(255,160,20,'+a+')':'rgba(255,180,60,'+a+')';}
 
 function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
 function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
@@ -55,428 +56,487 @@ function draw(){
   var lw=parseFloat(document.getElementById('lw').value);
   var gl=parseFloat(document.getElementById('gl').value)/100;
   t+=0.016;
-  X.fillStyle='#050508';X.fillRect(0,0,W,H);
+  X.fillStyle='#080810';X.fillRect(0,0,W,H);
 
-  var cx=W/2, cy=H/2, s=Math.min(W,H)/600;
-  var vpY=cy-H*0.18;
+  var cx=W/2, cy=H/2, s=Math.min(W,H)/550;
 
-  // ====== PIRANESI PERSPECTIVE — ARCHES & COLUMNS ======
-  // Vanishing point architecture
-  var archCount=5;
+  // ====== PIRANESI PERSPECTIVE — ARCHES ======
+  var archCount=4;
   for(var ai=archCount-1;ai>=0;ai--){
     var f=ai/archCount;
-    var depth=0.3+f*0.7;
-    var aw=W*0.9*depth;
-    var ah=H*0.85*depth;
-    var ay=vpY+H*0.08-f*H*0.05;
-    var cxp=cx;
+    var depth=0.35+f*0.65;
+    var aw=W*0.85*depth;
+    var ah=H*0.82*depth;
+    var ay=cy-H*0.05-f*H*0.04;
 
-    // Arch opening
+    // Arch opening — warm stone
     F([
-      [cxp-aw/2,ay+ah*0.3],
-      [cxp-aw/2,ay-ah*0.15,cxp-aw*0.35,ay-ah*0.35],
-      [cxp,ay-ah*0.42],
-      [cxp+aw*0.35,ay-ah*0.35,cxp+aw/2,ay-ah*0.15],
-      [cxp+aw/2,ay+ah*0.3]
-    ],c3('0.015)'));
-
-    // Arch keystone
-    var ksR=aw*0.015;
-    F([
-      [cxp-ksR,ay-ah*0.42-ksR*2],[cxp,ay-ah*0.42-ksR*3.5],
-      [cxp+ksR,ay-ah*0.42-ksR*2]
-    ],c4('0.03)'));
-
-    // Columns left
-    var colW=aw*0.025;
-    var colH=ah*0.65;
-    var colX=cxp-aw/2+colW*1.5;
-
-    // Column shaft with entasis (Piranesi-style slight curve)
-    F([
-      [colX-colW/2,ay+ah*0.3],
-      [colX-colW*0.6,ay+ah*0.3-colH*0.5,colX-colW*0.55,ay+ah*0.3-colH*0.9],
-      [colX-colW*0.45,ay+ah*0.3-colH],
-      [colX+colW*0.45,ay+ah*0.3-colH],
-      [colX+colW*0.55,ay+ah*0.3-colH*0.9,colX+colW*0.6,ay+ah*0.3-colH*0.5],
-      [colX+colW/2,ay+ah*0.3]
-    ],c3('0.025)'));
+      [cx-aw/2,ay+ah*0.35],
+      [cx-aw/2,ay-ah*0.1,cx-aw*0.35,ay-ah*0.32],
+      [cx,ay-ah*0.38],
+      [cx+aw*0.35,ay-ah*0.32,cx+aw/2,ay-ah*0.1],
+      [cx+aw/2,ay+ah*0.35]
+    ],c3('0.06)'));
     S([
-      [colX-colW/2,ay+ah*0.3],
-      [colX-colW*0.6,ay+ah*0.3-colH*0.5,colX-colW*0.55,ay+ah*0.3-colH*0.9],
-      [colX-colW*0.45,ay+ah*0.3-colH],
-      [colX+colW*0.45,ay+ah*0.3-colH],
-      [colX+colW*0.55,ay+ah*0.3-colH*0.9,colX+colW*0.6,ay+ah*0.3-colH*0.5],
-      [colX+colW/2,ay+ah*0.3]
-    ],c3('0.04)'),lw*0.5);
+      [cx-aw/2,ay+ah*0.35],
+      [cx-aw/2,ay-ah*0.1,cx-aw*0.35,ay-ah*0.32],
+      [cx,ay-ah*0.38],
+      [cx+aw*0.35,ay-ah*0.32,cx+aw/2,ay-ah*0.1],
+      [cx+aw/2,ay+ah*0.35]
+    ],c3('0.1)'),lw*0.6);
 
-    // Column capital — ornate acanthus leaves (Piranesi style)
-    var capY=ay+ah*0.3-colH;
-    var capW=colW*1.8;
-    // Echinus (curved abacus)
+    // Keystone
+    var ksR=aw*0.018;
     F([
-      [colX-capW/2,capY],[colX-capW/2,capY-colW*0.8],
-      [colX-capW*0.3,capY-colW*1.2,colX,capY-colW*1.0],
-      [colX+capW*0.3,capY-colW*1.2,colX+capW/2,capY-colW*0.8],
-      [colX+capW/2,capY]
-    ],c4('0.03)'));
-    // Acanthus leaves — small polynomial curves
-    for(var lf=0;lf<4;lf++){
-      var lx=colX-capW*0.35+lf*capW*0.23;
-      var ly=capY-colW*0.3;
+      [cx-ksR*1.5,ay-ah*0.38-ksR],[cx,ay-ah*0.38-ksR*3],
+      [cx+ksR*1.5,ay-ah*0.38-ksR]
+    ],c5('0.08)'));
+
+    // LEFT COLUMN
+    var colW=aw*0.03;
+    var colH=ah*0.6;
+    var colX=cx-aw/2+colW*1.8;
+
+    // Shaft
+    F([
+      [colX-colW/2,ay+ah*0.35],
+      [colX-colW*0.65,ay+ah*0.35-colH*0.5,colX-colW*0.58,ay+ah*0.35-colH*0.9],
+      [colX-colW*0.48,ay+ah*0.35-colH],
+      [colX+colW*0.48,ay+ah*0.35-colH],
+      [colX+colW*0.58,ay+ah*0.35-colH*0.9,colX+colW*0.65,ay+ah*0.35-colH*0.5],
+      [colX+colW/2,ay+ah*0.35]
+    ],c4('0.12)'));
+    S([
+      [colX-colW*0.48,ay+ah*0.35-colH],
+      [colX-colW*0.48,ay+ah*0.35],
+      [colX+colW*0.48,ay+ah*0.35],
+      [colX+colW*0.48,ay+ah*0.35-colH]
+    ],c3('0.08)'),lw*0.3);
+
+    // Flutes (vertical grooves)
+    for(var fi=0;fi<4;fi++){
+      var fx=colX-colW*0.3+fi*colW*0.2;
       S([
-        [lx,ly+colW*0.3],
-        [lx-capW*0.05,ly-colW*0.2,lx,ly-colW*0.6],
-        [lx+capW*0.05,ly-colW*0.2,lx+capW*0.08,ly+colW*0.1]
-      ],c3('0.02)'),lw*0.3);
+        [fx,ay+ah*0.35-colH*0.05],[fx,ay+ah*0.35-colH*0.9]
+      ],c3('0.05)'),lw*0.2);
     }
+
+    // Capital — Ionic volutes + acanthus
+    var capY=ay+ah*0.35-colH;
+    var capW=colW*2;
+    F([
+      [colX-capW/2,capY],[colX-capW/2,capY-colW],
+      [colX-capW*0.25,capY-colW*1.4,colX,capY-colW*1.1],
+      [colX+capW*0.25,capY-colW*1.4,colX+capW/2,capY-colW],
+      [colX+capW/2,capY]
+    ],c4('0.15)'));
+    S([
+      [colX-capW/2,capY],[colX-capW/2,capY-colW],
+      [colX-capW*0.25,capY-colW*1.4,colX,capY-colW*1.1],
+      [colX+capW*0.25,capY-colW*1.4,colX+capW/2,capY-colW],
+      [colX+capW/2,capY]
+    ],c3('0.12)'),lw*0.5);
+
+    // Left volute spiral
+    var volLX=colX-capW/2;
+    for(var vl=0;vl<30;vl++){
+      var vlf=vl/30;
+      var vlr=colW*0.6*(1-vlf*0.8);
+      var vla=vlf*Math.PI*4;
+      var vlp=colW*0.8+vlf*colW*0.5;
+      X.fillStyle=c3('0.08)');
+      X.beginPath();X.arc(volLX+Math.cos(vla)*vlr,capY-colW*0.3+Math.sin(vla)*vlr,0.8*s,0,Math.PI*2);X.fill();
+    }
+    // Right volute spiral
+    var volRX=colX+capW/2;
+    for(var vr=0;vr<30;vr++){
+      var vrf=vr/30;
+      var vrr=colW*0.6*(1-vrf*0.8);
+      var vra=vrf*Math.PI*4;
+      X.fillStyle=c3('0.08)');
+      X.beginPath();X.arc(volRX+Math.cos(-vra)*vrr,capY-colW*0.3+Math.sin(vra)*vrr,0.8*s,0,Math.PI*2);X.fill();
+    }
+
     // Column base
     F([
-      [colX-capW/2,ay+ah*0.3],[colX-capW*0.6,ay+ah*0.3+colW*0.5],
-      [colX+capW*0.6,ay+ah*0.3+colW*0.5],[colX+capW/2,ay+ah*0.3]
-    ],c4('0.02)'));
+      [colX-capW*0.7,ay+ah*0.35],[colX-capW*0.75,ay+ah*0.35+colW*0.6],
+      [colX+capW*0.75,ay+ah*0.35+colW*0.6],[colX+capW*0.7,ay+ah*0.35]
+    ],c4('0.08)'));
 
-    // Column right (mirror)
-    var colXR=cxp+aw/2-colW*1.5;
+    // RIGHT COLUMN (mirror)
+    var colXR=cx+aw/2-colW*1.8;
     F([
-      [colXR-colW/2,ay+ah*0.3],
-      [colXR-colW*0.6,ay+ah*0.3-colH*0.5,colXR-colW*0.55,ay+ah*0.3-colH*0.9],
-      [colXR-colW*0.45,ay+ah*0.3-colH],
-      [colXR+colW*0.45,ay+ah*0.3-colH],
-      [colXR+colW*0.55,ay+ah*0.3-colH*0.9,colXR+colW*0.6,ay+ah*0.3-colH*0.5],
-      [colXR+colW/2,ay+ah*0.3]
-    ],c3('0.025)'));
+      [colXR-colW/2,ay+ah*0.35],
+      [colXR-colW*0.65,ay+ah*0.35-colH*0.5,colXR-colW*0.58,ay+ah*0.35-colH*0.9],
+      [colXR-colW*0.48,ay+ah*0.35-colH],
+      [colXR+colW*0.48,ay+ah*0.35-colH],
+      [colXR+colW*0.58,ay+ah*0.35-colH*0.9,colXR+colW*0.65,ay+ah*0.35-colH*0.5],
+      [colXR+colW/2,ay+ah*0.35]
+    ],c4('0.12)'));
     // Right capital
-    var capYR=ay+ah*0.3-colH;
+    var capYR=ay+ah*0.35-colH;
     F([
-      [colXR-capW/2,capYR],[colXR-capW/2,capYR-colW*0.8],
-      [colXR-capW*0.3,capYR-colW*1.2,colXR,capYR-colW*1.0],
-      [colXR+capW*0.3,capYR-colW*1.2,colXR+capW/2,capYR-colW*0.8],
+      [colXR-capW/2,capYR],[colXR-capW/2,capYR-colW],
+      [colXR-capW*0.25,capYR-colW*1.4,colXR,capYR-colW*1.1],
+      [colXR+capW*0.25,capYR-colW*1.4,colXR+capW/2,capYR-colW],
       [colXR+capW/2,capYR]
-    ],c4('0.03)'));
+    ],c4('0.15)'));
 
-    // Architrave (horizontal beam) with decorative frieze
-    var friezeY=capY-colW*1.0;
+    // Architrave with dentil molding
+    var friezeY=capY-colW*1.1;
     F([
-      [cxp-aw/2,friezeY-colW*0.4],[cxp-aw/2,friezeY],
-      [cxp+aw/2,friezeY],[cxp+aw/2,friezeY-colW*0.4]
-    ],c3('0.02)'));
-    // Dentil molding — tiny teeth
-    var dentCount=Math.floor(aw/colW/2);
-    for(var di=0;di<dentCount;di++){
-      var dx=cxp-aw/2+colW*1.5+di*(aw-colW*3)/dentCount;
-      var dw=(aw-colW*3)/dentCount*0.5;
+      [cx-aw/2,friezeY-colW*0.5],[cx-aw/2,friezeY],
+      [cx+aw/2,friezeY],[cx+aw/2,friezeY-colW*0.5]
+    ],c3('0.08)'));
+    // Dentils
+    var dentN=Math.floor(aw/colW/2.5);
+    for(var di=0;di<dentN;di++){
+      var dx=cx-aw/2+colW*2+di*(aw-colW*4)/dentN;
+      var dw=(aw-colW*4)/dentN*0.4;
       F([
-        [dx,friezeY-colW*0.3],[dx,friezeY-colW*0.05],
-        [dx+dw,friezeY-colW*0.05],[dx+dw,friezeY-colW*0.3]
-      ],c4('0.025)'));
+        [dx,friezeY-colW*0.4],[dx,friezeY-colW*0.08],
+        [dx+dw,friezeY-colW*0.08],[dx+dw,friezeY-colW*0.4]
+      ],c5('0.06)'));
     }
   }
 
-  // ====== FLOOR — receding tile pattern (Piranesi perspective) ======
-  var floorTop=cy+H*0.15;
-  for(var fy=0;fy<12;fy++){
-    var ff=fy/12;
-    var fyPos=floorTop+ff*H*0.35;
-    var tileW=W*0.4+ff*W*0.3;
-    var tileRows=Math.floor(3+ff*4);
-    var tileH=(H*0.35/12)*0.8;
+  // ====== FLOOR — receding perspective tiles ======
+  var floorTop=cy+H*0.18;
+  for(var fy=0;fy<10;fy++){
+    var ff=fy/10;
+    var fyPos=floorTop+ff*H*0.32;
+    var tileW=W*0.35+ff*W*0.35;
+    var tileRows=Math.floor(3+ff*5);
+    var tileH=(H*0.32/10)*0.75;
     for(var tx=0;tx<tileRows;tx++){
       var txPos=cx-tileW/2+tx*(tileW/tileRows);
       var tw=tileW/tileRows;
       S([
         [txPos,fyPos],[txPos+tw,fyPos],[txPos+tw,fyPos+tileH],[txPos,fyPos+tileH]
-      ],c3('0.015)'),lw*0.3);
+      ],c3(0.04-ff*0.02+')'),lw*0.3);
     }
-    // Horizontal line
-    S([[cx-tileW/2,fyPos],[cx+tileW/2,fyPos]],c3('0.02)'),lw*0.3);
+    S([[cx-tileW/2,fyPos],[cx+tileW/2,fyPos]],c3(0.05-ff*0.03+')'),lw*0.3);
   }
 
-  // ====== BOBBY (British Police Officer) — center foreground ======
+  // ====== BOBBY — authority figure, upright, commanding ======
+  // Emotional state: ALERT VIGILANCE — broad stance, upright spine,
+  // shoulders back, head slightly turned. Status: officer on duty.
+  // Body as indicator: wide planted feet = grounded authority,
+  // extended arm = directed attention, upright torso = command presence.
   var bx=cx;
-  var by=cy+H*0.12;
-  var figH=s*165;
+  var by=cy+H*0.15;
+  var figH=s*170;
   var torsoH=figH/PHI;
   var legH=figH-torsoH;
   var headR=torsoH/PHI/4;
 
-  // Shadow on ground
-  X.globalAlpha=0.06;
+  // Ground shadow — wide, planted stance indicator
+  X.globalAlpha=0.12;
   F([
-    [bx-30*s,by+8*s],[bx-25*s,by+3*s,bx+25*s,by+3*s],[bx+30*s,by+8*s],
-    [bx+20*s,by+12*s,bx-20*s,by+12*s]
+    [bx-40*s,by+10*s],[bx-35*s,by+4*s,bx+35*s,by+4*s],[bx+40*s,by+10*s],
+    [bx+25*s,by+16*s,bx-25*s,by+16*s]
   ],c6('1)'));
   X.globalAlpha=1;
 
-  // === LEGS — dark trousers with stripe ===
-  var legW=7*s;
-  // Left leg
+  // === LEGS — wide authoritative stance ===
+  var legW=8*s;
+  // Left leg — firmly planted
   F([
-    [bx-legW*1.8,by],[bx-legW*2,by-legH*0.35,bx-legW*1.5,by-legH*0.65],
-    [bx-legW*1.2,by-legH*0.95],[bx-legW*0.3,by-legH*0.65,bx-legW*0.1,by-legH*0.35],
-    [bx-legW*0.3,by]
-  ],c6('0.4)'));
-  // Right leg
+    [bx-legW*2,by],[bx-legW*2.2,by-legH*0.35,bx-legW*1.6,by-legH*0.65],
+    [bx-legW*1.3,by-legH*0.95],[bx-legW*0.3,by-legH*0.65,bx-legW*0.2,by-legH*0.35],
+    [bx-legW*0.4,by]
+  ],c6('0.7)'));
+  // Right leg — wide stance
   F([
-    [bx+legW*0.1,by],[bx+legW*0.3,by-legH*0.35,bx+legW*0.8,by-legH*0.65],
-    [bx+legW*1.2,by-legH*0.95],[bx+legW*2,by-legH*0.65,bx+legW*2.2,by-legH*0.35],
-    [bx+legW*2,by]
-  ],c6('0.35)'));
-  // Trousers stripe — white piping (British police detail)
+    [bx+legW*0.4,by],[bx+legW*0.2,by-legH*0.35,bx+legW*0.8,by-legH*0.65],
+    [bx+legW*1.3,by-legH*0.95],[bx+legW*2.2,by-legH*0.65,bx+legW*2.4,by-legH*0.35],
+    [bx+legW*2.2,by]
+  ],c6('0.65)'));
+  // Trouser stripes — visible white piping
   S([
-    [bx-legW*0.1,by],[bx-legW*0.2,by-legH*0.35,bx-legW*0.05,by-legH*0.65],
-    [bx+legW*0.1,by-legH*0.95]
-  ],c5('0.12)'),lw*0.4);
+    [bx-legW*0.2,by+2*s],[bx-legW*0.3,by-legH*0.35,bx-legW*0.15,by-legH*0.65],
+    [bx-legW*0.05,by-legH*0.95]
+  ],c5('0.2)'),lw*0.5);
   S([
-    [bx+legW*1.2,by],[bx+legW*1.1,by-legH*0.35,bx+legW*1.3,by-legH*0.65],
-    [bx+legW*1.5,by-legH*0.95]
-  ],c5('0.12)'),lw*0.4);
+    [bx+legW*1.3,by+2*s],[bx+legW*1.2,by-legH*0.35,bx+legW*1.4,by-legH*0.65],
+    [bx+legW*1.6,by-legH*0.95]
+  ],c5('0.2)'),lw*0.5);
 
-  // === BOOTS — polished black ===
+  // Boots — polished, reflecting ground light
   F([
-    [bx-legW*2.5,by+2*s],[bx-legW*2.8,by-2*s,bx-legW*1.5,by-2*s],
-    [bx-legW*0.3,by-2*s],[bx-legW*0.3,by+4*s]
-  ],c6('0.5)'));
+    [bx-legW*2.8,by+3*s],[bx-legW*3,by-2*s,bx-legW*1.5,by-2*s],
+    [bx-legW*0.4,by-2*s],[bx-legW*0.4,by+5*s]
+  ],c6('0.8)'));
   F([
-    [bx+legW*0.3,by+2*s],[bx+legW*0.3,by-2*s,bx+legW*1.5,by-2*s],
-    [bx+legW*2.8,by-2*s],[bx+legW*2.5,by+4*s]
-  ],c6('0.5)'));
-  // Boot shine
-  S([[bx-legW*2,by-1*s],[bx-legW*0.8,by-1*s]],c5('0.08)'),lw*0.3);
-  S([[bx+legW*0.8,by-1*s],[bx+legW*2,by-1*s]],c5('0.08)'),lw*0.3);
+    [bx+legW*0.4,by+3*s],[bx+legW*0.4,by-2*s,bx+legW*1.5,by-2*s],
+    [bx+legW*3,by-2*s],[bx+legW*2.8,by+5*s]
+  ],c6('0.8)'));
+  // Boot shine highlight
+  S([[bx-legW*2.5,by-1*s],[bx-legW*1,by-1*s]],c4('0.15)'),lw*0.5);
+  S([[bx+legW*1,by-1*s],[bx+legW*2.5,by-1*s]],c4('0.15)'),lw*0.5);
 
-  // === TORSO — high-vis jacket ===
+  // === TORSO — upright, commanding posture ===
   var tBot=by-legH;
   var tTop=tBot-torsoH;
+  // Dark uniform jacket
   F([
-    [bx,tBot],[bx+5*s,tBot-torsoH*0.15,bx+10*s,tBot-torsoH*0.55],
-    [bx+9*s,tTop,bx+1*s,tTop-3*s],
-    [bx-7*s,tTop,bx-11*s,tBot-torsoH*0.55],
-    [bx-8*s,tBot-torsoH*0.15],[bx,tBot]
-  ],c2('0.4)'));
+    [bx,tBot],[bx+6*s,tBot-torsoH*0.15,bx+12*s,tBot-torsoH*0.55],
+    [bx+10*s,tTop,bx+1*s,tTop-3*s],
+    [bx-8*s,tTop,bx-12*s,tBot-torsoH*0.55],
+    [bx-9*s,tBot-torsoH*0.15],[bx,tBot]
+  ],c2('0.65)'));
   S([
-    [bx,tBot],[bx+5*s,tBot-torsoH*0.15,bx+10*s,tBot-torsoH*0.55],
-    [bx+9*s,tTop,bx+1*s,tTop-3*s],
-    [bx-7*s,tTop,bx-11*s,tBot-torsoH*0.55],
-    [bx-8*s,tBot-torsoH*0.15],[bx,tBot]
-  ],c2('0.2)'),lw);
+    [bx,tBot],[bx+6*s,tBot-torsoH*0.15,bx+12*s,tBot-torsoH*0.55],
+    [bx+10*s,tTop,bx+1*s,tTop-3*s],
+    [bx-8*s,tTop,bx-12*s,tBot-torsoH*0.55],
+    [bx-9*s,tBot-torsoH*0.15],[bx,tBot]
+  ],c2('0.35)'),lw);
 
-  // High-vis reflective strips — horizontal
+  // HIGH-VIS reflective strips — bright yellow-orange
   for(var ri=0;ri<3;ri++){
-    var ry=tBot-torsoH*(0.2+ri*0.25);
-    var rw=8*s-ri*1*s;
+    var ry=tBot-torsoH*(0.2+ri*0.22);
+    var rw=10*s-ri*1.5*s;
+    F([
+      [bx-rw,ry-2*s],[bx-rw*0.8,ry-4*s,bx,ry-4*s],[bx+rw*0.8,ry-4*s,bx+rw,ry-2*s],
+      [bx+rw,ry+1*s],[bx+rw*0.8,ry+3*s,bx,ry+3*s],[bx-rw*0.8,ry+3*s,bx-rw,ry+1*s]
+    ],c7('0.45)'));
     S([
-      [bx-rw,ry],[bx-rw*0.8,ry-2*s,bx,ry-2*s],[bx+rw*0.8,ry-2*s,bx+rw,ry]
-    ],c5('0.25)'),lw*0.6);
+      [bx-rw,ry-2*s],[bx-rw*0.8,ry-4*s,bx,ry-4*s],[bx+rw*0.8,ry-4*s,bx+rw,ry-2*s]
+    ],c7('0.3)'),lw*0.5);
   }
 
-  // === POLICE BADGE / CHEVRON ===
-  var badgeX=bx-2*s, badgeY=tTop+torsoH*0.15;
-  // Shield badge
+  // Belt
+  var beltY=tBot-torsoH*0.05;
   F([
-    [badgeX,badgeY],[badgeX+4*s,badgeY-2*s,badgeX+4*s,badgeY+6*s],
-    [badgeX,badgeY+8*s],[badgeX-4*s,badgeY+6*s,badgeX-4*s,badgeY-2*s]
-  ],c5('0.15)'));
+    [bx-11*s,beltY-2*s],[bx-11*s,beltY+3*s],
+    [bx+12*s,beltY+3*s],[bx+12*s,beltY-2*s]
+  ],c6('0.6)'));
+  // Belt buckle
+  F([
+    [bx-3*s,beltY-1*s],[bx-3*s,beltY+2*s],[bx+3*s,beltY+2*s],[bx+3*s,beltY-1*s]
+  ],c5('0.3)'));
+
+  // BADGE on chest — shield shape
+  var badgeX=bx-3*s, badgeY=tTop+torsoH*0.15;
+  F([
+    [badgeX,badgeY],[badgeX+5*s,badgeY-3*s,badgeX+5*s,badgeY+8*s],
+    [badgeX,badgeY+10*s],[badgeX-5*s,badgeY+8*s,badgeX-5*s,badgeY-3*s]
+  ],c5('0.25)'));
   S([
-    [badgeX,badgeY],[badgeX+4*s,badgeY-2*s,badgeX+4*s,badgeY+6*s],
-    [badgeX,badgeY+8*s],[badgeX-4*s,badgeY+6*s,badgeX-4*s,badgeY-2*s]
-  ],c5('0.2)'),lw*0.4);
+    [badgeX,badgeY],[badgeX+5*s,badgeY-3*s,badgeX+5*s,badgeY+8*s],
+    [badgeX,badgeY+10*s],[badgeX-5*s,badgeY+8*s,badgeX-5*s,badgeY-3*s]
+  ],c5('0.2)'),lw*0.5);
 
-  // === LEFT ARM — at side ===
+  // CHEVRONS on sleeve — rank indicator
+  var chX=bx+10*s, chY=tTop+torsoH*0.25;
+  for(var ci=0;ci<3;ci++){
+    S([
+      [chX-3*s,chY+ci*4*s],[chX,chY-2*s+ci*4*s],[chX+3*s,chY+ci*4*s]
+    ],c5('0.2)'),lw*0.6);
+  }
+
+  // === LEFT ARM — relaxed at side, hand on belt (authority posture) ===
   F([
-    [bx-10*s,tTop+5*s],
-    [bx-16*s,tTop+torsoH*0.2,bx-18*s,tBot-torsoH*0.2],
-    [bx-17*s,tBot+2*s,bx-16*s,tBot+10*s]
-  ],c2('0.3)'));
+    [bx-12*s,tTop+5*s],
+    [bx-18*s,tTop+torsoH*0.2,bx-20*s,tBot-torsoH*0.15],
+    [bx-18*s,tBot+5*s,bx-15*s,beltY+3*s]
+  ],c2('0.5)'));
 
-  // === RIGHT ARM — holding truncheon ===
+  // === RIGHT ARM — extended, pointing/directing (alertness indicator) ===
   var armWave=Math.sin(t*1.2)*1.5*s;
   F([
-    [bx+9*s,tTop+5*s],
-    [bx+16*s,tTop+torsoH*0.1+armWave,bx+20*s,tTop+torsoH*0.4+armWave],
-    [bx+22*s,tTop+torsoH*0.6+armWave,bx+20*s,tBot-torsoH*0.1+armWave]
-  ],c2('0.3)'));
+    [bx+10*s,tTop+5*s],
+    [bx+18*s,tTop+torsoH*0.08+armWave,bx+35*s,tTop+torsoH*0.02+armWave],
+    [bx+50*s,tTop+torsoH*0.06+armWave,bx+60*s,tTop+torsoH*0.1+armWave]
+  ],c2('0.5)'));
+  S([
+    [bx+10*s,tTop+5*s],
+    [bx+18*s,tTop+torsoH*0.08+armWave,bx+35*s,tTop+torsoH*0.02+armWave],
+    [bx+50*s,tTop+torsoH*0.06+armWave,bx+60*s,tTop+torsoH*0.1+armWave]
+  ],c2('0.25)'),lw*0.6);
 
-  // Truncheon
-  var trX=bx+21*s, trY=tTop+torsoH*0.5+armWave;
-  S([[trX,trY],[trX+2*s,trY+20*s]],c6('0.35)'),lw*1.2);
-  S([[trX-1*s,trY+20*s],[trX+3*s,trY+20*s]],c6('0.25)'),lw*0.6);
-
-  // === RADIO on shoulder ===
-  var radX=bx+7*s, radY=tTop-1*s;
-  F([
-    [radX-1.5*s,radY+3*s],[radX-1.5*s,radY-4*s],[radX+1.5*s,radY-4*s],[radX+1.5*s,radY+3*s]
-  ],c6('0.3)'));
-  // Antenna
-  S([[radX,radY-4*s],[radX+1*s,radY-10*s]],c6('0.2)'),lw*0.4);
-  // Radio light blink
-  var blink=Math.sin(t*5)>0.5?0.3:0;
-  if(blink>0){
-    var rg=X.createRadialGradient(radX,radY-1*s,0,radX,radY-1*s,4*s);
-    rg.addColorStop(0,'rgba(0,200,100,'+blink+')');rg.addColorStop(1,'rgba(0,200,100,0)');
-    X.fillStyle=rg;X.beginPath();X.arc(radX,radY-1*s,4*s,0,Math.PI*2);X.fill();
+  // Extended hand — directing gesture
+  var htx=bx+60*s, hty=tTop+torsoH*0.09+armWave;
+  F([[htx,hty-2*s],[htx+8*s,hty-3*s],[htx+8*s,hty+3*s],[htx,hty+2*s]],c4('0.35)'));
+  // Fingers spread
+  for(var fi2=0;fi2<3;fi2++){
+    S([[htx+8*s,hty-2*s+fi2*2*s],[htx+14*s,hty-3*s+fi2*2.5*s]],c4('0.2)'),lw*0.4);
   }
 
-  // === CUSTODIAN HELMET — the iconic British police helmet ===
-  var hlX=bx+1*s, hlY=tTop-6*s;
+  // TRUNCHEON in left hand area
+  var trX=bx-16*s, trY=beltY+3*s;
+  S([[trX,trY-5*s],[trX+2*s,trY+22*s]],c6('0.6)'),lw*1.5);
+  S([[trX-2*s,trY+22*s],[trX+6*s,trY+22*s]],c6('0.4)'),lw*0.7);
 
-  // Helmet body — dome shape
+  // === RADIO on left shoulder ===
+  var radX=bx-8*s, radY=tTop-1*s;
   F([
-    [hlX-headR*1.4,hlY+headR*0.3],
-    [hlX-headR*1.5,hlY-headR*0.3,hlX-headR*1.2,hlY-headR*1.2],
-    [hlX-headR*0.6,hlY-headR*1.8,hlX,hlY-headR*2.0],
-    [hlX+headR*0.6,hlY-headR*1.8,hlX+headR*1.2,hlY-headR*1.2],
-    [hlX+headR*1.5,hlY-headR*0.3,hlX+headR*1.4,hlY+headR*0.3]
-  ],c6('0.45)'));
+    [radX-2*s,radY+4*s],[radX-2*s,radY-5*s],[radX+2*s,radY-5*s],[radX+2*s,radY+4*s]
+  ],c6('0.6)'));
+  // Antenna
+  S([[radX,radY-5*s],[radX+1*s,radY-12*s]],c5('0.15)'),lw*0.5);
+  // Blinking light
+  var blink=Math.sin(t*5)>0.5?0.5:0.1;
+  var rg=X.createRadialGradient(radX,radY-1*s,0,radX,radY-1*s,5*s);
+  rg.addColorStop(0,'rgba(0,255,120,'+blink+')');rg.addColorStop(1,'rgba(0,255,120,0)');
+  X.fillStyle=rg;X.beginPath();X.arc(radX,radY-1*s,5*s,0,Math.PI*2);X.fill();
+
+  // === CUSTODIAN HELMET — the crown of authority ===
+  var hlX=bx+1*s, hlY=tTop-7*s;
+
+  // Helmet dome
+  F([
+    [hlX-headR*1.5,hlY+headR*0.4],
+    [hlX-headR*1.6,hlY-headR*0.2,hlX-headR*1.3,hlY-headR*1.3],
+    [hlX-headR*0.7,hlY-headR*2.0,hlX,hlY-headR*2.2],
+    [hlX+headR*0.7,hlY-headR*2.0,hlX+headR*1.3,hlY-headR*1.3],
+    [hlX+headR*1.6,hlY-headR*0.2,hlX+headR*1.5,hlY+headR*0.4]
+  ],c6('0.75)'));
   S([
-    [hlX-headR*1.4,hlY+headR*0.3],
-    [hlX-headR*1.5,hlY-headR*0.3,hlX-headR*1.2,hlY-headR*1.2],
-    [hlX-headR*0.6,hlY-headR*1.8,hlX,hlY-headR*2.0],
-    [hlX+headR*0.6,hlY-headR*1.8,hlX+headR*1.2,hlY-headR*1.2],
-    [hlX+headR*1.5,hlY-headR*0.3,hlX+headR*1.4,hlY+headR*0.3]
-  ],c6('0.25)'),lw);
+    [hlX-headR*1.5,hlY+headR*0.4],
+    [hlX-headR*1.6,hlY-headR*0.2,hlX-headR*1.3,hlY-headR*1.3],
+    [hlX-headR*0.7,hlY-headR*2.0,hlX,hlY-headR*2.2],
+    [hlX+headR*0.7,hlY-headR*2.0,hlX+headR*1.3,hlY-headR*1.3],
+    [hlX+headR*1.6,hlY-headR*0.2,hlX+headR*1.5,hlY+headR*0.4]
+  ],c6('0.4)'),lw);
 
-  // Helmet crest — metal comb on top
-  var crestY=hlY-headR*2.0;
+  // Helmet highlight — metallic sheen
+  X.globalAlpha=0.15+0.05*Math.sin(t*0.8);
+  var hlGrad=X.createLinearGradient(hlX-headR,hlY-headR*1.5,hlX+headR,hlY-headR*0.5);
+  hlGrad.addColorStop(0,'rgba(200,210,230,0.3)');hlGrad.addColorStop(0.5,'rgba(200,210,230,0)');hlGrad.addColorStop(1,'rgba(200,210,230,0.1)');
+  X.fillStyle=hlGrad;
+  X.beginPath();X.ellipse(hlX,hlY-headR*1.0,headR*1.0,headR*1.2,-0.2,0,Math.PI*2);X.fill();
+  X.globalAlpha=1;
+
+  // Crest — metal comb
+  var crestY=hlY-headR*2.2;
   F([
-    [hlX-1*s,crestY+2*s],[hlX-0.5*s,crestY-4*s],[hlX,crestY-6*s],
-    [hlX+0.5*s,crestY-4*s],[hlX+1*s,crestY+2*s]
+    [hlX-1.5*s,crestY+3*s],[hlX-0.8*s,crestY-5*s],[hlX,crestY-8*s],
+    [hlX+0.8*s,crestY-5*s],[hlX+1.5*s,crestY+3*s]
+  ],c5('0.3)'));
+  S([[hlX,crestY-8*s],[hlX,crestY-11*s]],c5('0.2)'),lw*0.6);
+
+  // Badge plate — silver shield
+  var plateR=headR*0.6;
+  F([
+    [hlX,hlY-headR*0.9-plateR],
+    [hlX+plateR*0.9,hlY-headR*0.9-plateR*0.4,hlX+plateR*0.9,hlY-headR*0.9+plateR*0.4],
+    [hlX,hlY-headR*0.9+plateR],
+    [hlX-plateR*0.9,hlY-headR*0.9+plateR*0.4,hlX-plateR*0.9,hlY-headR*0.9-plateR*0.4]
   ],c5('0.2)'));
-  S([[hlX,crestY-6*s],[hlX,crestY-8*s]],c5('0.15)'),lw*0.5);
-
-  // Helmet plate — silver badge on front
-  var plateR=headR*0.5;
-  F([
-    [hlX,hlY-headR*0.8-plateR],
-    [hlX+plateR,hlY-headR*0.8-plateR*0.5,hlX+plateR,hlY-headR*0.8+plateR*0.5],
-    [hlX,hlY-headR*0.8+plateR],
-    [hlX-plateR,hlY-headR*0.8+plateR*0.5,hlX-plateR,hlY-headR*0.8-plateR*0.5]
-  ],c5('0.12)'));
-  // Star on badge
-  for(var si=0;si<5;si++){
-    var sa=si*Math.PI*2/5-Math.PI/2;
-    var sar=plateR*0.5;
+  // Star pattern on badge
+  for(var si=0;si<6;si++){
+    var sa=si*Math.PI/3-Math.PI/2;
     S([
-      [hlX,hlY-headR*0.8],
-      [hlX+Math.cos(sa)*sar,hlY-headR*0.8+Math.sin(sa)*sar]
-    ],c5('0.1)'),lw*0.3);
+      [hlX,hlY-headR*0.9],
+      [hlX+Math.cos(sa)*plateR*0.6,hlY-headR*0.9+Math.sin(sa)*plateR*0.6]
+    ],c5('0.12)'),lw*0.4);
   }
 
   // Visor brim
   F([
-    [hlX-headR*1.6,hlY+headR*0.3],
-    [hlX-headR*1.3,hlY+headR*0.5,hlX+headR*1.3,hlY+headR*0.5],
-    [hlX+headR*1.6,hlY+headR*0.3],
-    [hlX+headR*1.2,hlY+headR*0.15,hlX-headR*1.2,hlY+headR*0.15]
-  ],c6('0.35)'));
+    [hlX-headR*1.7,hlY+headR*0.4],
+    [hlX-headR*1.4,hlY+headR*0.65,hlX+headR*1.4,hlY+headR*0.65],
+    [hlX+headR*1.7,hlY+headR*0.4],
+    [hlX+headR*1.3,hlY+headR*0.2,hlX-headR*1.3,hlY+headR*0.2]
+  ],c6('0.6)'));
 
-  // Face under helmet
-  X.fillStyle=c4('0.25)');X.beginPath();X.ellipse(hlX,hlY+headR*0.1,headR*0.8,headR*0.7,0,0,Math.PI*2);X.fill();
+  // Face
+  X.fillStyle=c4('0.35)');X.beginPath();X.ellipse(hlX,hlY+headR*0.15,headR*0.85,headR*0.7,0,0,Math.PI*2);X.fill();
 
-  // Eyes
-  X.fillStyle=c6('0.2)');X.beginPath();X.ellipse(hlX-3*s,hlY,1.2*s,0.8*s,0,0,Math.PI*2);X.fill();
-  X.beginPath();X.ellipse(hlX+3*s,hlY,1.2*s,0.8*s,0,0,Math.PI*2);X.fill();
+  // Eyes — watchful, alert
+  X.fillStyle=c6('0.4)');X.beginPath();X.ellipse(hlX-3.5*s,hlY+headR*0.1,1.5*s,0.9*s,0,0,Math.PI*2);X.fill();
+  X.beginPath();X.ellipse(hlX+3.5*s,hlY+headR*0.1,1.5*s,0.9*s,0,0,Math.PI*2);X.fill();
+  // Eye highlights
+  X.fillStyle='rgba(255,255,255,0.3)';X.beginPath();X.arc(hlX-2.8*s,hlY-0.5*s+s*headR*0.1,0.5*s,0,Math.PI*2);X.fill();
+  X.beginPath();X.arc(hlX+4.2*s,hlY-0.5*s+s*headR*0.1,0.5*s,0,Math.PI*2);X.fill();
 
-  // ====== PIRANESI ORNAMENTS — decorative friezes on sides ======
-  // Left ornate panel
-  var panelX=cx-W*0.38;
-  var panelW=W*0.12;
-  var panelH=H*0.5;
-  var panelTop=cy-H*0.25;
+  // ====== ORNAMENTAL FRIEZES — left & right panels ======
+  // Left panel
+  var panelX=cx-W*0.4;
+  var panelW=W*0.1;
+  var panelH=H*0.55;
+  var panelTop=cy-H*0.28;
 
-  // Panel frame
   S([
     [panelX,panelTop],[panelX+panelW,panelTop],
     [panelX+panelW,panelTop+panelH],[panelX,panelTop+panelH]
-  ],c3('0.04)'),lw*0.5);
+  ],c3('0.08)'),lw*0.5);
 
-  // Spiral volute — Piranesi's favorite
+  // Spiral volute
   var volX=panelX+panelW/2;
   var volY=panelTop+panelH*0.3;
   var volR=panelW*0.35;
-  for(var vi=0;vi<80;vi++){
-    var vf=vi/80;
+  for(var vi=0;vi<50;vi++){
+    var vf=vi/50;
     var vr=volR*(1-vf*0.85);
-    var va=vf*Math.PI*5;
-    var vax=volX+Math.cos(va)*vr;
-    var vay=volY+Math.sin(va)*vr;
-    if(vi===0){X.beginPath();X.moveTo(vax,vay);}
-    else X.lineTo(vax,vay);
+    var va=vf*Math.PI*6;
+    X.fillStyle=c4('0.08)');
+    X.beginPath();X.arc(volX+Math.cos(va)*vr,volY+Math.sin(va)*vr,0.6*s,0,Math.PI*2);X.fill();
   }
-  X.strokeStyle=c3('0.04)');X.lineWidth=lw*0.3;X.stroke();
 
-  // Egg-and-dart molding
-  for(var ei=0;ei<8;ei++){
-    var ex=panelX+panelW*0.1+ei*panelW*0.1;
+  // Egg-and-dart
+  for(var ei=0;ei<7;ei++){
+    var ex=panelX+panelW*0.12+ei*panelW*0.12;
     var ey=panelTop+panelH*0.65;
-    // Egg shape
     F([
-      [ex,ey],[ex+panelW*0.03,ey-panelW*0.06,ex,ey-panelW*0.1],
-      [ex-panelW*0.03,ey-panelW*0.06,ex,ey]
-    ],c4('0.03)'));
-    // Dart between eggs
-    if(ei<7){
-      S([
-        [ex+panelW*0.05,ey-panelW*0.04],[ex+panelW*0.08,ey-panelW*0.08]
-      ],c3('0.03)'),lw*0.3);
-    }
+      [ex,ey],[ex+panelW*0.04,ey-panelW*0.08,ex,ey-panelW*0.12],
+      [ex-panelW*0.04,ey-panelW*0.08,ex,ey]
+    ],c5('0.06)'));
   }
 
-  // Acanthus leaf capital — bottom of panel
-  for(var ai2=0;ai2<5;ai2++){
-    var lx2=panelX+panelW*0.15+ai2*panelW*0.15;
-    var ly2=panelTop+panelH*0.85;
-    S([
-      [lx2,ly2],[lx2-panelW*0.05,ly2-panelH*0.08,lx2,ly2-panelH*0.15],
-      [lx2+panelW*0.05,ly2-panelH*0.08,lx2+panelW*0.08,ly2]
-    ],c3('0.035)'),lw*0.3);
-  }
-
-  // Right ornate panel — mirror
-  var panelXR=cx+W*0.38-panelW;
+  // Right panel mirror
+  var panelXR=cx+W*0.4-panelW;
   S([
     [panelXR,panelTop],[panelXR+panelW,panelTop],
     [panelXR+panelW,panelTop+panelH],[panelXR,panelTop+panelH]
-  ],c3('0.04)'),lw*0.5);
-  // Right spiral
+  ],c3('0.08)'),lw*0.5);
   var volXR=panelXR+panelW/2;
-  for(var vi2=0;vi2<80;vi2++){
-    var vf2=vi2/80;
+  for(var vi2=0;vi2<50;vi2++){
+    var vf2=vi2/50;
     var vr2=volR*(1-vf2*0.85);
-    var va2=vf2*Math.PI*5;
-    var vax2=volXR+Math.cos(-va2)*vr2;
-    var vay2=volY+Math.sin(-va2)*vr2;
-    if(vi2===0){X.beginPath();X.moveTo(vax2,vay2);}
-    else X.lineTo(vax2,vay2);
-  }
-  X.strokeStyle=c3('0.04)');X.lineWidth=lw*0.3;X.stroke();
-
-  // ====== AMBIENT ======
-  // Dust motes
-  for(var pi=0;pi<30;pi++){
-    var ppx=cx+Math.sin(t*0.2+pi*2.3)*W*0.45;
-    var ppy=cy+Math.cos(t*0.15+pi*1.9)*H*0.45;
-    var pr=0.3+Math.sin(t+pi)*0.4;
-    X.fillStyle='rgba(200,200,190,'+(0.02+0.015*Math.sin(t*1.5+pi))+')';
-    X.beginPath();X.arc(ppx,ppy,pr*s,0,Math.PI*2);X.fill();
+    var va2=vf2*Math.PI*6;
+    X.fillStyle=c4('0.08)');
+    X.beginPath();X.arc(volXR+Math.cos(-va2)*vr2,volY+Math.sin(va2)*vr2,0.6*s,0,Math.PI*2);X.fill();
   }
 
-  // Light shaft from above — Piranesi dramatic lighting
-  X.globalAlpha=0.015+0.005*Math.sin(t*0.7);
-  var lg=X.createLinearGradient(cx,cy-H*0.4,cx,cy+H*0.3);
-  lg.addColorStop(0,'rgba(255,250,230,0.3)');lg.addColorStop(0.5,'rgba(255,250,230,0.05)');lg.addColorStop(1,'rgba(255,250,230,0)');
+  // ====== LIGHT EFFECTS ======
+  // Dramatic light shaft from above
+  X.globalAlpha=0.025+0.008*Math.sin(t*0.6);
+  var lg=X.createLinearGradient(cx,cy-H*0.45,cx,cy+H*0.3);
+  lg.addColorStop(0,'rgba(255,250,230,0.4)');lg.addColorStop(0.4,'rgba(255,250,230,0.08)');lg.addColorStop(1,'rgba(255,250,230,0)');
   X.fillStyle=lg;
   X.beginPath();
-  X.moveTo(cx-40*s,cy-H*0.4);X.lineTo(cx+40*s,cy-H*0.4);
-  X.lineTo(cx+120*s,cy+H*0.3);X.lineTo(cx-120*s,cy+H*0.3);
+  X.moveTo(cx-50*s,cy-H*0.45);X.lineTo(cx+50*s,cy-H*0.45);
+  X.lineTo(cx+140*s,cy+H*0.3);X.lineTo(cx-140*s,cy+H*0.3);
   X.closePath();X.fill();
   X.globalAlpha=1;
 
-  // Glow on helmet
+  // Dust particles
+  for(var pi=0;pi<35;pi++){
+    var ppx=cx+Math.sin(t*0.2+pi*2.1)*W*0.42;
+    var ppy=cy+Math.cos(t*0.15+pi*1.7)*H*0.42;
+    var pr=0.5+Math.sin(t+pi)*0.5;
+    X.fillStyle='rgba(220,215,200,'+(0.04+0.03*Math.sin(t*1.5+pi))+')';
+    X.beginPath();X.arc(ppx,ppy,pr*s,0,Math.PI*2);X.fill();
+  }
+
+  // Glow effects
   if(gl>0.05){
-    var hg=X.createRadialGradient(hlX,hlY-headR*0.5,0,hlX,hlY-headR*0.5,20*s*gl);
-    hg.addColorStop(0,'rgba(200,210,230,'+(0.05*gl)+')');hg.addColorStop(1,'rgba(200,210,230,0)');
-    X.fillStyle=hg;X.beginPath();X.arc(hlX,hlY-headR*0.5,20*s*gl,0,Math.PI*2);X.fill();
+    // Helmet glow
+    var hg=X.createRadialGradient(hlX,hlY-headR,0,hlX,hlY-headR,25*s*gl);
+    hg.addColorStop(0,'rgba(180,200,240,'+(0.08*gl)+')');hg.addColorStop(1,'rgba(180,200,240,0)');
+    X.fillStyle=hg;X.beginPath();X.arc(hlX,hlY-headR,25*s*gl,0,Math.PI*2);X.fill();
+
+    // High-vis glow
+    var hvG=X.createRadialGradient(bx,tBot-torsoH*0.4,0,bx,tBot-torsoH*0.4,40*s*gl);
+    hvG.addColorStop(0,'rgba(255,180,30,'+(0.06*gl)+')');hvG.addColorStop(1,'rgba(255,180,30,0)');
+    X.fillStyle=hvG;X.beginPath();X.arc(bx,tBot-torsoH*0.4,40*s*gl,0,Math.PI*2);X.fill();
+
+    // Hand glow (pointing gesture)
+    var handG=X.createRadialGradient(htx+8*s,hty,0,htx+8*s,hty,15*s*gl);
+    handG.addColorStop(0,'rgba(255,240,200,'+(0.06*gl)+')');handG.addColorStop(1,'rgba(255,240,200,0)');
+    X.fillStyle=handG;X.beginPath();X.arc(htx+8*s,hty,15*s*gl,0,Math.PI*2);X.fill();
   }
 
   requestAnimationFrame(draw);
