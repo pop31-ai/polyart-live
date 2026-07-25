@@ -1,0 +1,446 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>45 — Доки Морские — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060608;overflow:hidden;font-family:sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #0af;color:#0af;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(0,170,255,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #0af5;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#0af;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:600px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Доки Морские</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">&#9664;</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">&#9654;</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="speed" min="0" max="100" value="0" style="width:70px;accent-color:#0af"><span class="val" id="speedV">0</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+var stage=0,autoMode=false,autoTimer=0,maxStage=12,t=0;
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ'};
+document.getElementById('speed').oninput=function(){document.getElementById('speedV').textContent=this.value};
+
+var pts=['Землечерпание · дноуглубление · 18м ·ucket · 20000м³/день','Свайное поле · 200 свай · 25м · сваебой · 120 тонн','Причальная стенка · бетон · 1500м · 12м высота · морозостойкий','Крановый пути · рельсы · 800м · колея 30м · 64 колёсной пары','Контейнерный кран · STS · 65м · подъём 50 тонн · 40 контейнеров/час','Навигация · AIS · GPS · Radar · VTS · 24/7 · автомат','Швартовка · лебёдка · 8 причальных канатов · 200 тонн · отливы','Погрузка · контейнер · 40 футов · 30 тонн · 15 минут · стивидор','Сортировка · yard · 12 рядов · 5000 TEU · штабелёр · 5 ярусов','Холодильник · рефрижератор · -25°С · 150 точек · фрукты · мясо','Таможня · декларация · досмотр · 4 часа · сканер · рентген','Отправка · автопоезд · 2000 контейнеров/день · 150 стран'];
+
+function container(cx2,cy2,cw2,ch2,col){
+  X.fillStyle=col;X.fillRect(cx2-cw2/2,cy2-ch2/2,cw2,ch2);
+  X.strokeStyle='rgba(0,0,0,0.04)';X.lineWidth=0.5;X.strokeRect(cx2-cw2/2,cy2-ch2/2,cw2,ch2);
+  // Corrugation
+  for(var cg=0;cg<3;cg++){
+    X.strokeStyle='rgba(0,0,0,0.02)';X.lineWidth=0.2;
+    X.beginPath();X.moveTo(cx2-cw2/2,cy2-ch2/2+ch2*0.2+cg*ch2*0.3);
+    X.lineTo(cx2+cw2/2,cy2-ch2/2+ch2*0.2+cg*ch2*0.3);X.stroke();
+  }
+}
+
+function ship(sx,sy,sw,sh,col){
+  // Hull
+  X.fillStyle=col;
+  X.beginPath();X.moveTo(sx-sw/2,sy);X.lineTo(sx-sw/2+sw*0.15,sy-sh);
+  X.lineTo(sx+sw/2-sw*0.1,sy-sh);X.lineTo(sx+sw/2,sy-sh*0.7);
+  X.lineTo(sx+sw/2,sy);X.closePath();X.fill();
+  X.strokeStyle='rgba(0,0,0,0.04)';X.lineWidth=0.5;X.stroke();
+  // Deck line
+  X.strokeStyle='rgba(200,200,210,0.04)';X.lineWidth=0.3;
+  X.beginPath();X.moveTo(sx-sw/2+sw*0.15,sy-sh);X.lineTo(sx+sw/2-sw*0.1,sy-sh);X.stroke();
+  // Bridge
+  X.fillStyle='rgba(180,180,190,0.04)';X.fillRect(sx+sw*0.3,sy-sh-8*s,sw*0.08,8*s);
+}
+
+function crane(crX,crY,crH,col){
+  // Tower
+  X.fillStyle=col;X.fillRect(crX-3*s,crY-crH,6*s,crH);
+  X.strokeStyle='rgba(0,0,0,0.04)';X.lineWidth=0.5;X.strokeRect(crX-3*s,crY-crH,6*s,crH);
+  // Boom
+  X.strokeStyle=col;X.lineWidth=2*s;
+  X.beginPath();X.moveTo(crX,crY-crH);X.lineTo(crX+40*s,crY-crH+5*s);X.stroke();
+  // Back boom
+  X.lineWidth=1.5*s;
+  X.beginPath();X.moveTo(crX,crY-crH);X.lineTo(crX-15*s,crY-crH+2*s);X.stroke();
+  // Counterweight
+  X.fillStyle='rgba(100,100,110,0.05)';X.fillRect(crX-18*s,crY-crH,6*s,6*s);
+  // Cable
+  X.strokeStyle='rgba(150,150,160,0.04)';X.lineWidth=0.3;
+  X.beginPath();X.moveTo(crX+20*s,crY-crH+3*s);X.lineTo(crX+20*s,crY-crH+25*s);X.stroke();
+  // Spreader
+  X.fillStyle='rgba(200,200,210,0.04)';X.fillRect(crX+16*s,crY-crH+25*s,8*s,2*s);
+  // Trolley
+  X.fillStyle='rgba(180,180,190,0.05)';X.fillRect(crX+18*s,crY-crH,4*s,3*s);
+  // Wheels
+  for(var wh=0;wh<4;wh++){
+    X.fillStyle='rgba(60,60,70,0.05)';X.beginPath();X.arc(crX-2*s+wh*2*s,crY+2*s,1.5*s,0,Math.PI*2);X.fill();
+  }
+}
+
+function wave(wx,wy,ww,amp,ph){
+  X.strokeStyle='rgba(50,100,180,0.04)';X.lineWidth=0.5;
+  X.beginPath();
+  for(var wp=0;wp<ww;wp+=3){
+    var wpy=wy+Math.sin(wp*0.05+t*2+ph)*amp;
+    if(wp===0)X.moveTo(wx+wp,wpy);else X.lineTo(wx+wp,wpy);
+  }
+  X.stroke();
+}
+
+function lbl(t2,x,y,c,sz){X.globalAlpha=0.55;X.font=(sz||6)+'px monospace';X.fillStyle=c||'rgba(50,150,255,0.8)';X.textAlign='center';X.fillText(t2,x,y);X.textAlign='left';X.globalAlpha=1}
+
+function draw(){
+  var spd=parseInt(document.getElementById('speed').value);
+  if(autoMode){autoTimer+=0.016;if(autoTimer>2.5){autoTimer=0;if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ'}}}
+  t+=0.016;
+  X.fillStyle='#060608';X.fillRect(0,0,W,H);
+  var cx=W/2,gy=H*0.55,s=Math.min(W,H)/650;
+
+  // Sky
+  var sg=X.createLinearGradient(0,0,0,gy);
+  sg.addColorStop(0,'rgba(15,20,40,0.04)');sg.addColorStop(1,'rgba(20,30,50,0.03)');
+  X.fillStyle=sg;X.fillRect(0,0,W,gy);
+
+  // Stars
+  for(var st=0;st<40;st++){
+    X.fillStyle='rgba(255,255,255,'+(0.01+Math.sin(t+st)*0.005)+')';
+    X.beginPath();X.arc((Math.sin(st*7.3)*0.5+0.5)*W,(Math.cos(st*4.7)*0.3+0.05)*H,0.3,0,Math.PI*2);X.fill();
+  }
+
+  // Sea
+  X.fillStyle='rgba(15,25,50,0.04)';X.fillRect(0,gy,W,H-gy);
+  // Waves
+  for(var wl=0;wl<6;wl++){
+    wave(0,gy+5*s+wl*15*s,W,3*s+wl,wl*1.5);
+  }
+
+  // Quay wall
+  X.fillStyle='rgba(80,80,90,0.04)';X.fillRect(0,gy-10*s,W,15*s);
+  X.strokeStyle='rgba(100,100,110,0.06)';X.lineWidth=0.5;X.strokeRect(0,gy-10*s,W,15*s);
+
+  // === STAGE 0: Dredging ===
+  if(stage>=0){
+    // Dredger
+    var drX=W*0.3,drY=gy+20*s;
+    ship(drX,drY,50*s,15*s,'rgba(80,80,90,0.05)');
+    // Bucket ladder
+    X.strokeStyle='rgba(120,120,130,0.06)';X.lineWidth=1;
+    X.beginPath();X.moveTo(drX-15*s,drY-15*s);X.lineTo(drX-25*s,drY+30*s);X.stroke();
+    // Buckets
+    for(var bk=0;bk<4;bk++){
+      var bkFrac=(bk+((t*2)%1))/4;
+      var bkX=drX-15*s-bkFrac*10*s;
+      var bkY=drY-15*s+bkFrac*45*s;
+      X.fillStyle='rgba(150,130,100,0.04)';X.fillRect(bkX-2*s,bkY-1*s,4*s,3*s);
+    }
+    // Mud cloud
+    for(var mc=0;mc<8;mc++){
+      X.fillStyle='rgba(120,100,60,'+(0.02+Math.sin(t+mc)*0.01)+')';
+      X.beginPath();X.arc(drX-25*s+Math.sin(mc*2)*8*s,drY+30*s+Math.cos(mc*3)*5*s,3*s+mc,0,Math.PI*2);X.fill();
+    }
+    // Depth indicator
+    X.strokeStyle='rgba(50,150,255,0.06)';X.lineWidth=0.3;
+    X.beginPath();X.moveTo(drX-30*s,gy+5*s);X.lineTo(drX-30*s,gy+35*s);X.stroke();
+    X.font=(2.5*s)+'px monospace';X.fillStyle='rgba(50,150,255,0.12)';X.textAlign='center';
+    X.fillText('18м',drX-36*s,gy+20*s);X.textAlign='left';
+    lbl('дноуглубление · 18м · 20000м³/день',drX,gy+45*s,'rgba(50,150,255,0.5)',6);
+  }
+
+  // === STAGE 1: Pile driving ===
+  if(stage>=1){
+    // Pile driver
+    var pdX=W*0.7,pdY=gy-10*s;
+    // Frame
+    X.strokeStyle='rgba(150,150,160,0.06)';X.lineWidth=1;
+    X.beginPath();X.moveTo(pdX-5*s,pdY);X.lineTo(pdX-5*s,pdY-40*s);X.stroke();
+    X.beginPath();X.moveTo(pdX+5*s,pdY);X.lineTo(pdX+5*s,pdY-40*s);X.stroke();
+    X.beginPath();X.moveTo(pdX-5*s,pdY-40*s);X.lineTo(pdX+5*s,pdY-40*s);X.stroke();
+    // Hammer
+    var hammerY=pdY-35*s+Math.abs(Math.sin(t*3))*10*s;
+    X.fillStyle='rgba(100,100,110,0.06)';X.fillRect(pdX-4*s,hammerY,8*s,5*s);
+    // Pile
+    X.strokeStyle='rgba(180,180,190,0.06)';X.lineWidth=1.5;
+    X.beginPath();X.moveTo(pdX,pdY);X.lineTo(pdX,pdY+25*s);X.stroke();
+    // Driven piles
+    for(var dp=0;dp<6;dp++){
+      var dpX2=W*0.55+dp*8*s;
+      X.strokeStyle='rgba(150,150,160,0.04)';X.lineWidth=1;
+      X.beginPath();X.moveTo(dpX2,gy-8*s);X.lineTo(dpX2,gy+17*s);X.stroke();
+    }
+    // Impact flash
+    if(Math.sin(t*3)>0.95){
+      X.fillStyle='rgba(255,200,100,0.04)';X.beginPath();X.arc(pdX,hammerY+5*s,5*s,0,Math.PI*2);X.fill();
+    }
+    X.font=(2.5*s)+'px monospace';X.fillStyle='rgba(200,200,210,0.12)';X.textAlign='center';
+    X.fillText('200 свай · 25м · 120 тонн',pdX,pdY+35*s);X.textAlign='left';
+    lbl('свайное поле · 200 свай · сваебой · 120 тонн',pdX,pdY-48*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 2: Quay wall ===
+  if(stage>=2){
+    // Concrete wall
+    X.fillStyle='rgba(160,160,170,0.04)';X.fillRect(0,gy-10*s,W*0.7,12*s);
+    X.strokeStyle='rgba(180,180,190,0.06)';X.lineWidth=0.5;X.strokeRect(0,gy-10*s,W*0.7,12*s);
+    // Formwork lines
+    for(var fl=0;fl<15;fl++){
+      X.strokeStyle='rgba(140,140,150,0.03)';X.lineWidth=0.2;
+      X.beginPath();X.moveTo(fl*(W*0.7/15),gy-10*s);X.lineTo(fl*(W*0.7/15),gy+2*s);X.stroke();
+    }
+    // Bollards
+    for(var bl=0;bl<5;bl++){
+      var blX=W*0.07+bl*W*0.13;
+      X.fillStyle='rgba(180,180,190,0.05)';X.fillRect(blX-2*s,gy-14*s,4*s,5*s);
+      X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.3;X.strokeRect(blX-2*s,gy-14*s,4*s,5*s);
+    }
+    // Fenders
+    for(var fe=0;fe<4;fe++){
+      var feX=W*0.1+fe*W*0.15;
+      X.fillStyle='rgba(40,40,50,0.04)';X.fillRect(feX-3*s,gy-2*s,6*s,12*s);
+    }
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(200,200,210,0.12)';X.textAlign='center';
+    X.fillText('1500м · 12м · морозостойкий',W*0.35,gy+20*s);X.textAlign='left';
+    lbl('причная стенка · бетон · 1500м · морозостойкий',W*0.35,gy-18*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 3: Crane rails ===
+  if(stage>=3){
+    // Rail tracks
+    for(var rt=0;rt<2;rt++){
+      var rty=gy-8*s+rt*3*s;
+      X.strokeStyle='rgba(120,120,130,0.06)';X.lineWidth=0.8;
+      X.beginPath();X.moveTo(0,rty);X.lineTo(W*0.7,rty);X.stroke();
+    }
+    // Sleepers
+    for(var sl=0;sl<25;sl++){
+      var slX=sl*(W*0.7/25);
+      X.strokeStyle='rgba(100,80,50,0.03)';X.lineWidth=0.5;
+      X.beginPath();X.moveTo(slX,gy-8*s);X.lineTo(slX,gy-5*s);X.stroke();
+    }
+    // Crane wheels
+    for(var cw=0;cw<3;cw++){
+      var cwx=W*0.1+cw*W*0.2;
+      X.fillStyle='rgba(60,60,70,0.05)';
+      X.beginPath();X.arc(cwx,gy-6*s,3*s,0,Math.PI*2);X.fill();
+      X.strokeStyle='rgba(80,80,90,0.06)';X.lineWidth=0.3;X.beginPath();X.arc(cwx,gy-6*s,3*s,0,Math.PI*2);X.stroke();
+    }
+    lbl('крановые пути · рельсы · 800м · 64 колёсных пары',cx,gy-15*s,'rgba(120,120,130,0.5)',6);
+  }
+
+  // === STAGE 4: Container crane ===
+  if(stage>=4){
+    crane(W*0.5,gy-10*s,80*s,'rgba(255,200,50,0.06)');
+    // Multiple cranes
+    crane(W*0.2,gy-10*s,70*s,'rgba(255,200,50,0.04)');
+    crane(W*0.8,gy-10*s,75*s,'rgba(255,200,50,0.04)');
+    // Speed
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(255,200,50,0.12)';X.textAlign='center';
+    X.fillText('STS · 65м · 50 тонн · 40 конт/час',W*0.5,gy+15*s);X.textAlign='left';
+    lbl('контейнерный кран · STS · 65м · 40 контейнеров/час',cx,gy-100*s,'rgba(255,200,50,0.5)',6);
+  }
+
+  // === STAGE 5: Navigation ===
+  if(stage>=5){
+    // AIS display
+    var aiX=cx+50*s,aiY=H*0.15;
+    X.fillStyle='rgba(10,20,40,0.06)';X.fillRect(aiX-25*s,aiY-20*s,50*s,40*s);
+    X.strokeStyle='rgba(0,170,255,0.06)';X.lineWidth=0.4;X.strokeRect(aiX-25*s,aiY-20*s,50*s,40*s);
+    // Grid
+    for(var gx=0;gx<5;gx++){
+      X.strokeStyle='rgba(0,170,255,0.03)';X.lineWidth=0.2;
+      X.beginPath();X.moveTo(aiX-25*s+gx*10*s,aiY-20*s);X.lineTo(aiX-25*s+gx*10*s,aiY+20*s);X.stroke();
+      X.beginPath();X.moveTo(aiX-25*s,aiY-20*s+gx*10*s);X.lineTo(aiX+25*s,aiY-20*s+gx*10*s);X.stroke();
+    }
+    // Ship targets
+    for(var tg=0;tg<5;tg++){
+      var tgX=aiX-15*s+Math.sin(tg*2.7)*15*s;
+      var tgY=aiY-10*s+Math.cos(tg*3.1)*10*s;
+      X.fillStyle='rgba(0,255,100,'+(0.04+Math.sin(t+tg)*0.02)+')';
+      X.beginPath();X.moveTo(tgX,tgY-3*s);X.lineTo(tgX-2*s,tgY+2*s);X.lineTo(tgX+2*s,tgY+2*s);X.closePath();X.fill();
+    }
+    // Own ship
+    X.fillStyle='rgba(255,200,50,0.06)';X.beginPath();X.arc(aiX,aiY,2*s,0,Math.PI*2);X.fill();
+    // Labels
+    X.font=(2*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.12)';X.textAlign='center';
+    X.fillText('AIS · GPS · Radar · VTS · 24/7',aiX,aiY+28*s);X.textAlign='left';
+    lbl('навигация · AIS · GPS · Radar · VTS · 24/7',aiX,aiY-28*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 6: Mooring ===
+  if(stage>=6){
+    // Ship at berth
+    ship(W*0.35,gy+25*s,80*s,20*s,'rgba(60,60,70,0.05)');
+    // Mooring lines
+    for(var ml=0;ml<4;ml++){
+      var mlX=W*0.15+ml*15*s;
+      X.strokeStyle='rgba(180,180,190,0.05)';X.lineWidth=0.8;
+      X.beginPath();X.moveTo(mlX,gy-5*s);X.quadraticCurveTo(mlX+5*s,gy+10*s,W*0.2+ml*10*s,gy+15*s);X.stroke();
+    }
+    // Bollards
+    for(var mb=0;mb<4;mb++){
+      var mbX=W*0.15+mb*15*s;
+      X.fillStyle='rgba(180,180,190,0.06)';X.fillRect(mbX-2*s,gy-8*s,4*s,5*s);
+    }
+    // Winch
+    X.fillStyle='rgba(100,100,110,0.05)';X.beginPath();X.arc(W*0.08,gy-5*s,5*s,0,Math.PI*2);X.fill();
+    X.strokeStyle='rgba(120,120,130,0.06)';X.lineWidth=0.4;X.beginPath();X.arc(W*0.08,gy-5*s,5*s,0,Math.PI*2);X.stroke();
+    // Tide indicator
+    X.strokeStyle='rgba(50,150,255,0.04)';X.lineWidth=0.3;
+    var tideY=gy+Math.sin(t*0.2)*3*s;
+    X.beginPath();X.moveTo(W*0.05,tideY);X.lineTo(W*0.12,tideY);X.stroke();
+    lbl('швартовка · лебёдка · 8 канатов · 200 тонн',W*0.35,gy+40*s,'rgba(180,180,190,0.5)',6);
+  }
+
+  // === STAGE 7: Loading ===
+  if(stage>=7){
+    // Container being loaded
+    var loadX=W*0.5,loadY=gy-5*s;
+    container(loadX,loadY-20*s+Math.sin(t)*2*s,12*s,8*s,'rgba(0,100,200,0.06)');
+    // Spreaders
+    X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.5;
+    X.beginPath();X.moveTo(loadX-6*s,loadY-20*s+Math.sin(t)*2*s-4*s);X.lineTo(loadX+6*s,loadY-20*s+Math.sin(t)*2*s-4*s);X.stroke();
+    // Container on ship
+    container(W*0.3,gy+15*s,10*s,6*s,'rgba(0,120,180,0.05)');
+    container(W*0.4,gy+15*s,10*s,6*s,'rgba(200,50,50,0.05)');
+    container(W*0.5,gy+15*s,10*s,6*s,'rgba(50,180,50,0.05)');
+    // Stevedore
+    X.fillStyle='rgba(255,200,50,0.04)';X.beginPath();X.arc(W*0.6,gy-3*s,2*s,0,Math.PI*2);X.fill();
+    X.fillStyle='rgba(50,50,150,0.04)';X.fillRect(W*0.6-2*s,gy-1*s,4*s,5*s);
+    // Timer
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.12)';X.textAlign='center';
+    X.fillText('40 футов · 30 тонн · 15 минут',loadX,loadY+15*s);X.textAlign='left';
+    lbl('погрузка · контейнер · 40 футов · стивидор',cx,loadY-35*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 8: Yard sorting ===
+  if(stage>=8){
+    // Container yard
+    var yaX=W*0.15,yaY=gy+25*s;
+    for(var yr=0;yr<8;yr++){
+      for(var yc=0;yc<5;yc++){
+        var ycx=yaX+yc*14*s;
+        var ycy=yaY-yr*6*s;
+        var yaCol=['rgba(0,100,200,0.04)','rgba(200,50,50,0.04)','rgba(50,180,50,0.04)','rgba(200,180,50,0.04)','rgba(150,50,150,0.04)'];
+        container(ycx,ycy,10*s,5*s,yaCol[yc%5]);
+      }
+    }
+    // Straddle carrier
+    X.strokeStyle='rgba(150,150,160,0.05)';X.lineWidth=0.8;
+    X.beginPath();X.moveTo(W*0.6,gy+5*s);X.lineTo(W*0.6,gy+25*s);X.stroke();
+    X.beginPath();X.moveTo(W*0.55,gy+25*s);X.lineTo(W*0.65,gy+25*s);X.stroke();
+    // Wheels
+    X.fillStyle='rgba(60,60,70,0.04)';X.beginPath();X.arc(W*0.55,gy+27*s,2*s,0,Math.PI*2);X.fill();
+    X.beginPath();X.arc(W*0.65,gy+27*s,2*s,0,Math.PI*2);X.fill();
+    X.font=(2.5*s)+'px monospace';X.fillStyle='rgba(200,200,210,0.12)';X.textAlign='center';
+    X.fillText('12 рядов · 5000 TEU · 5 ярусов',W*0.4,gy+35*s);X.textAlign='left';
+    lbl('сортировка · yard · 5000 TEU · 5 ярусов',W*0.4,gy+5*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 9: Reefer ===
+  if(stage>=9){
+    // Reefer containers with power
+    var rfX=W*0.75,rfY=gy+15*s;
+    for(var rc=0;rc<6;rc++){
+      var rcx=rfX+rc*14*s;
+      container(rcx,rfY,10*s,6*s,'rgba(200,220,240,0.04)');
+      // Power indicator
+      X.fillStyle='rgba(50,200,50,'+(0.04+Math.sin(t+rc)*0.02)+')';
+      X.beginPath();X.arc(rcx+4*s,rfY-2*s,1,0,Math.PI*2);X.fill();
+      // Temperature
+      X.font=(2*s)+'px monospace';X.fillStyle='rgba(100,200,255,0.1)';X.textAlign='center';
+      X.fillText('-25°',rcx,rfY+5*s);
+    }
+    X.textAlign='left';
+    // Power cables
+    for(var pc=0;pc<6;pc++){
+      X.strokeStyle='rgba(50,200,50,0.03)';X.lineWidth=0.3;
+      X.beginPath();X.moveTo(rfX+pc*14*s+4*s,rfY-3*s);X.lineTo(rfX+pc*14*s+4*s,rfY-10*s);X.stroke();
+    }
+    // Temperature graph
+    X.strokeStyle='rgba(100,200,255,0.04)';X.lineWidth=0.3;
+    X.beginPath();
+    for(var tg2=0;tg2<30;tg2++){
+      var tgx=rfX-10*s+tg2*1.5*s;
+      var tgy=rfY+15*s+Math.sin(tg2*0.3)*2*s;
+      if(tg2===0)X.moveTo(tgx,tgy);else X.lineTo(tgx,tgy);
+    }
+    X.stroke();
+    lbl('рефрижератор · -25°С · 150 точек · фрукты · мясо',W*0.75,gy+30*s,'rgba(100,200,255,0.5)',6);
+  }
+
+  // === STAGE 10: Customs ===
+  if(stage>=10){
+    // Scanner
+    var scX=W*0.5,scY=gy+20*s;
+    X.fillStyle='rgba(80,80,90,0.04)';X.fillRect(scX-20*s,scY-10*s,40*s,20*s);
+    X.strokeStyle='rgba(100,100,110,0.06)';X.lineWidth=0.5;X.strokeRect(scX-20*s,scY-10*s,40*s,20*s);
+    // Container inside
+    container(scX,scY,15*s,8*s,'rgba(0,100,200,0.04)');
+    // X-ray scan effect
+    for(var xr=0;xr<5;xr++){
+      var xrX=scX-15*s+((t*20+xr*6)%30)*s;
+      X.strokeStyle='rgba(100,200,255,'+(0.04+Math.sin(t*3+xr)*0.02)+')';X.lineWidth=0.5;
+      X.beginPath();X.moveTo(xrX,scY-10*s);X.lineTo(xrX,scY+10*s);X.stroke();
+    }
+    // Customs officer
+    X.fillStyle='rgba(50,50,150,0.04)';X.fillRect(scX+30*s,scY-5*s,5*s,10*s);
+    X.fillStyle='rgba(255,200,150,0.04)';X.beginPath();X.arc(scX+32*s,scY-8*s,3*s,0,Math.PI*2);X.fill();
+    // Document
+    X.fillStyle='rgba(200,200,210,0.04)';X.fillRect(scX+35*s,scY-3*s,8*s,6*s);
+    X.font=(2.5*s)+'px monospace';X.fillStyle='rgba(200,200,210,0.12)';X.textAlign='center';
+    X.fillText('4 часа · сканер · рентген',scX,scY+18*s);X.textAlign='left';
+    lbl('таможня · декларация · досмотр · рентген',scX,scY-18*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 11: Final ===
+  if(stage>=11){
+    // Trucks departing
+    for(var tr=0;tr<4;tr++){
+      var trX2=W*0.1+tr*W*0.22;
+      var trY2=gy+35*s;
+      // Truck body
+      X.fillStyle='rgba(80,80,90,0.04)';X.fillRect(trX2-12*s,trY2-8*s,24*s,10*s);
+      X.strokeStyle='rgba(100,100,110,0.06)';X.lineWidth=0.3;X.strokeRect(trX2-12*s,trY2-8*s,24*s,10*s);
+      // Cab
+      X.fillStyle='rgba(90,90,100,0.04)';X.fillRect(trX2+12*s,trY2-6*s,8*s,8*s);
+      // Wheels
+      X.fillStyle='rgba(60,60,70,0.04)';X.beginPath();X.arc(trX2-6*s,trY2+3*s,2*s,0,Math.PI*2);X.fill();
+      X.beginPath();X.arc(trX2+6*s,trY2+3*s,2*s,0,Math.PI*2);X.fill();
+      // Container on truck
+      container(trX2,trY2-12*s,18*s,6*s,['rgba(0,100,200,0.04)','rgba(200,50,50,0.04)','rgba(50,180,50,0.04)','rgba(200,180,50,0.4)'][tr]);
+    }
+    // Route map
+    var mpX=W*0.8,mpY=H*0.15;
+    X.strokeStyle='rgba(0,170,255,0.04)';X.lineWidth=0.3;
+    X.beginPath();X.arc(mpX,mpY,20*s,0,Math.PI*2);X.stroke();
+    for(var mr=0;mr<8;mr++){
+      var mra=mr*Math.PI/4;
+      X.beginPath();X.moveTo(mpX,mpY);X.lineTo(mpX+Math.cos(mra)*18*s,mpY+Math.sin(mra)*18*s);X.stroke();
+    }
+    X.font=(2.5*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.12)';X.textAlign='center';
+    X.fillText('150 стран',mpX,mpY+28*s);X.textAlign='left';
+    // Stats
+    X.font=(5*s)+'px monospace';X.fillStyle='rgba(255,255,255,0.1)';X.textAlign='center';
+    X.fillText('2000 контейнеров/день · 150 стран',cx,gy+50*s);X.textAlign='left';
+    lbl('отправка · автопоезд · 2000 конт/день · 150 стран',cx,gy+58*s,'rgba(255,255,255,0.6)',7);
+  }
+
+  document.getElementById('part-label').textContent=pts[stage]||'';
+  X.fillStyle='rgba(50,150,255,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(50,150,255,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd=0;sd<=maxStage;sd++){X.fillStyle=sd<=stage?'rgba(50,150,255,0.25)':'rgba(50,150,255,0.06)';X.beginPath();X.arc(W*0.1+W*0.8*(sd/maxStage),H-6.5,2,0,Math.PI*2);X.fill()}
+  requestAnimationFrame(draw);
+}
+draw();
+</script></body></html>
