@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>19 — Танго — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0610;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:10}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl input[type=range]{width:90px;accent-color:#fc0;cursor:pointer}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:16px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fc05;z-index:10}
+#info{position:absolute;top:42px;left:50%;transform:translateX(-50%);color:#666;font-size:9px;letter-spacing:2px;z-index:10}
+button.tog{background:none;border:1px solid #fc0;color:#fc0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Танго</div>
+<div id="info">Два тела — Одна линия — Полиномиальное движение — Баланс и напряжение</div>
+<div id="ui">
+<div class="ctrl"><label>Обводка</label><input type="range" id="lw" min="0" max="3" value="1" step="0.5"><span class="val" id="lwV">1</span></div>
+<div class="ctrl"><label>Шаг</label><button class="tog" id="togStep">ОСНОВНОЙ</button></div>
+<div class="ctrl"><label>След</label><button class="tog" id="togTrail">ВКЛ</button></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+document.getElementById('lw').oninput=function(){document.getElementById('lwV').textContent=this.value;};
+
+var step=0;var stepNames=['ОСНОВНОЙ','ОБОРОТ','ГОДОВАЯ','ОСАЖИВАНИЕ','ПАУЗА'];
+var trailOn=1;
+document.getElementById('togStep').onclick=function(){step=(step+1)%5;this.textContent=stepNames[step];};
+document.getElementById('togTrail').onclick=function(){trailOn=trailOn?0:1;this.textContent=trailOn?'ВКЛ':'ВЫКЛ';};
+
+var PHI=1.618033988749895;
+var t=0;
+var trail=[]; // movement trail points
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
+
+function draw(){
+  var lw=parseFloat(document.getElementById('lw').value);
+  t+=0.016;
+
+  X.fillStyle='#0a0610';X.fillRect(0,0,W,H);
+
+  var cx=W/2, cy=H*0.5, s=Math.min(W,H)/600;
+
+  // Floor — reflective dark surface
+  var floorY=cy+H*0.22;
+  // Floor gradient
+  var fGrad=X.createLinearGradient(0,floorY,0,H);
+  fGrad.addColorStop(0,'rgba(30,25,40,0.3)');
+  fGrad.addColorStop(1,'rgba(10,8,16,0)');
+  X.fillStyle=fGrad;X.fillRect(0,floorY,W,H-floorY);
+  // Floor line
+  X.globalAlpha=0.08;
+  S([[0,floorY],[W,floorY]],'rgba(200,180,160,0.5)',lw*0.5);
+  X.globalAlpha=1;
+
+  // Floor reflection lines — receding
+  for(var fl=0;fl<8;fl++){
+    var flY=floorY+fl*fl*3*s;
+    X.globalAlpha=0.02-fl*0.002;
+    S([[cx-W*0.3,flY],[cx+W*0.3,flY]],'rgba(200,180,160,0.3)',lw*0.3);
+  }
+  X.globalAlpha=1;
+
+  // Spotlight — circular pool of light
+  var spotR=W*0.25;
+  var spotGrad=X.createRadialGradient(cx,floorY-spotR*0.3,0,cx,floorY,spotR);
+  spotGrad.addColorStop(0,'rgba(255,220,150,0.06)');
+  spotGrad.addColorStop(0.5,'rgba(255,200,120,0.02)');
+  spotGrad.addColorStop(1,'rgba(255,200,120,0)');
+  X.fillStyle=spotGrad;X.fillRect(cx-spotR,floorY-spotR*2,spotR*2,spotR*3);
+
+  // ====== DANCE MOVEMENT CALCULATION ======
+  // Each step defines different body positions as polynomial time functions
+  var phase=t*0.8; // base movement speed
+  var lean,stepAngle,armExtend,lift,rotation;
+
+  if(step===0){
+    // Basic step — side-to-side with slight lean
+    lean=Math.sin(phase)*0.15;
+    stepAngle=Math.sin(phase)*0.3;
+    armExtend=0.5+Math.sin(phase*0.5)*0.1;
+    lift=Math.abs(Math.sin(phase*2))*0.08;
+    rotation=0;
+  }else if(step===1){
+    // Turn — rotational movement
+    lean=Math.sin(phase)*0.1;
+    stepAngle=Math.sin(phase*2)*0.4;
+    armExtend=0.6+Math.sin(phase)*0.05;
+    lift=Math.abs(Math.sin(phase*3))*0.12;
+    rotation=Math.sin(phase)*0.3;
+  }else if(step===2){
+    // Ganchos — leg hooks
+    lean=Math.sin(phase)*0.2;
+    stepAngle=Math.sin(phase*1.5)*0.5;
+    armExtend=0.55;
+    lift=Math.abs(Math.sin(phase*2))*0.15;
+    rotation=Math.sin(phase*0.7)*0.15;
+  }else if(step===3){
+    // Sacadas — stepping through
+    lean=Math.sin(phase)*0.25;
+    stepAngle=Math.cos(phase)*0.35;
+    armExtend=0.5+Math.sin(phase*0.8)*0.15;
+    lift=Math.abs(Math.sin(phase*2.5))*0.1;
+    rotation=Math.sin(phase*1.2)*0.2;
+  }else{
+    // Pause — dramatic stillness with micro-movement
+    lean=Math.sin(phase*0.3)*0.03;
+    stepAngle=Math.sin(phase*0.2)*0.05;
+    armExtend=0.55;
+    lift=Math.sin(phase*0.15)*0.02;
+    rotation=Math.sin(phase*0.1)*0.02;
+  }
+
+  // ====== FIGURES ======
+  // He (lead) — left, slightly taller
+  // She (follow) — right, arched back
+  var heX=cx-s*30+lean*s*40;
+  var sheX=cx+s*30+lean*s*30;
+  var baseY=floorY;
+
+  // Shared embrace center
+  var embraceX=(heX+sheX)/2;
+  var embraceY=baseY-H*0.28;
+
+  // Movement trail
+  if(trailOn){
+    trail.push({x:embraceX,y:embraceY,t:t});
+    if(trail.length>80)trail.shift();
+    // Draw trail
+    for(var ti=1;ti<trail.length;ti++){
+      var ta=ti/trail.length;
+      X.globalAlpha=ta*0.15;
+      S([
+        [trail[ti-1].x,trail[ti-1].y,trail[ti].x,trail[ti].y]
+      ],'rgba(200,150,255,0.5)',lw*ta*1.5);
+    }
+    X.globalAlpha=1;
+  }
+
+  // ====== HE — Lead figure ======
+  var heBaseY=baseY;
+  var heHeadY=baseY-H*0.52+lift*s*50;
+  var heLean=lean*0.5;
+
+  // Shadow
+  X.globalAlpha=0.1;
+  X.fillStyle='rgba(0,0,0,0.8)';
+  X.beginPath();X.ellipse(heX+3*s,heBaseY+3*s,s*25,s*5,0,0,Math.PI*2);X.fill();
+  X.globalAlpha=1;
+
+  // Legs
+  var heLegSpread=stepAngle*30*s;
+  // Left leg — standing
+  S([
+    [heX-heLegSpread*0.3,heBaseY,
+     heX-heLegSpread*0.2-heLean*20*s,heBaseY-H*0.18,
+     heX-heLean*30*s,heBaseY-H*0.35]
+  ],'rgba(180,180,200,0.4)',lw*1.5);
+  // Right leg — extended
+  S([
+    [heX+heLegSpread*0.5,heBaseY,
+     heX+heLegSpread*0.3-heLean*15*s,heBaseY-H*0.15,
+     heX+heLegSpread*0.1-heLean*25*s,heBaseY-H*0.35]
+  ],'rgba(180,180,200,0.4)',lw*1.5);
+  // Shoe
+  X.fillStyle='rgba(40,40,50,0.2)';
+  X.beginPath();X.ellipse(heX-heLegSpread*0.3,heBaseY,s*8,s*2.5,0,0,Math.PI*2);X.fill();
+
+  // Torso — upright, slight forward lean
+  var heTorsoTop=heBaseY-H*0.35;
+  var heTorsoBot=heBaseY-H*0.35;
+  S([
+    [heX-heLean*25*s,heBaseY-H*0.35,
+     heX-heLean*35*s,heBaseY-H*0.5]
+  ],'rgba(180,180,200,0.45)',lw*1.5);
+  // Shoulders
+  var heShoulderY=heBaseY-H*0.48;
+  S([
+    [heX-heLean*38*s-s*15,heShoulderY,
+     heX-heLean*38*s+s*15,heShoulderY]
+  ],'rgba(180,180,200,0.4)',lw*1.2);
+
+  // Left arm — on her back (embrace)
+  var heArmLX=heX-heLean*38*s-s*12;
+  var heArmLY=heShoulderY;
+  S([
+    [heArmLX,heArmLY,
+     heArmLX+s*20,heArmLY+s*10,
+     sheX+s*5,embraceY+s*15]
+  ],'rgba(180,180,200,0.4)',lw*1.2);
+
+  // Right arm — holding her hand (extended)
+  var heArmRX=heX-heLean*38*s+s*12;
+  var heArmRY=heShoulderY;
+  S([
+    [heArmRX,heArmRY,
+     heArmRX+s*25*armExtend,heArmRY-s*5*armExtend,
+     sheX-s*25,embraceY-s*5]
+  ],'rgba(180,180,200,0.4)',lw*1.2);
+
+  // Head
+  var heHeadR=s*10;
+  X.fillStyle='rgba(200,190,180,0.12)';X.beginPath();
+  X.arc(heX-heLean*40*s,heShoulderY-heHeadR*1.5,heHeadR,0,Math.PI*2);X.fill();
+  X.strokeStyle='rgba(200,190,180,0.5)';X.lineWidth=lw;X.beginPath();
+  X.arc(heX-heLean*40*s,heShoulderY-heHeadR*1.5,heHeadR,0,Math.PI*2);X.stroke();
+  // Hair
+  S([
+    [heX-heLean*40*s-heHeadR*1.2,heShoulderY-heHeadR*1.3,
+     heX-heLean*40*s,heShoulderY-heHeadR*2.8,
+     heX-heLean*40*s+heHeadR*1.2,heShoulderY-heHeadR*1.3]
+  ],'rgba(40,30,30,0.2)',lw*0.8);
+
+  // ====== SHE — Follow figure ======
+  // Arched back, dramatic pose
+  var sheArch=rotation*60*s; // back arch
+  var sheLean2=-lean*0.8;
+  var sheBaseY=baseY;
+
+  // Shadow
+  X.globalAlpha=0.1;
+  X.fillStyle='rgba(0,0,0,0.8)';
+  X.beginPath();X.ellipse(sheX+3*s,sheBaseY+3*s,s*22,s*5,0,0,Math.PI*2);X.fill();
+  X.globalAlpha=1;
+
+  // Legs — one extended in line
+  var sheLegSpread=stepAngle*25*s;
+  // Standing leg
+  S([
+    [sheX-sheLegSpread*0.2+sheLean2*20*s,sheBaseY,
+     sheX-sheLegSpread*0.15+sheLean2*25*s,sheBaseY-H*0.17,
+     sheX+sheLean2*30*s,sheBaseY-H*0.33]
+  ],'rgba(220,100,100,0.4)',lw*1.5);
+  // Extended leg — pointed
+  S([
+    [sheX+sheLegSpread*0.6+sheLean2*10*s,sheBaseY,
+     sheX+sheLegSpread*0.4+sheLean2*15*s,sheBaseY-H*0.08,
+     sheX+sheLegSpread*0.7+sheLean2*20*s,sheBaseY-H*0.02]
+  ],'rgba(220,100,100,0.35)',lw*1.2);
+  // Shoe — stiletto
+  X.fillStyle='rgba(40,20,20,0.2)';
+  X.beginPath();X.ellipse(sheX+sheLegSpread*0.6,sheBaseY,s*7,s*2,-0.2,0,Math.PI*2);X.fill();
+  // Heel line
+  S([
+    [sheX+sheLegSpread*0.6,sheBaseY,
+     sheX+sheLegSpread*0.6,sheBaseY+s*4]
+  ],'rgba(40,20,20,0.25)',lw*0.5);
+
+  // Dress — flowing polynomial
+  var sheDressWave=Math.sin(t*1.5)*3*s;
+  var dressTop=sheBaseY-H*0.33;
+  F([
+    [sheX+sheLean2*25*s,dressTop,
+     sheX+sheLean2*30*s+s*8,dressTop+s*15,
+     sheX+sheLegSpread*0.3+sheLean2*15*s+s*20+sheDressWave,sheBaseY,
+     sheX+sheLegSpread*0.1+sheLean2*10*s-s*15-sheDressWave,sheBaseY]
+  ],'rgba(180,40,40,0.06)');
+  S([
+    [sheX+sheLean2*25*s,dressTop,
+     sheX+sheLean2*30*s+s*8,dressTop+s*15,
+     sheX+sheLegSpread*0.3+sheLean2*15*s+s*20+sheDressWave,sheBaseY,
+     sheX+sheLegSpread*0.1+sheLean2*10*s-s*15-sheDressWave,sheBaseY]
+  ],'rgba(200,60,60,0.4)',lw*1);
+  // Dress fold
+  S([
+    [sheX+sheLean2*28*s,dressTop+s*5,
+     sheX+sheLean2*20*s+s*10,dressTop+s*20,
+     sheX+sheLegSpread*0.2+sheLean2*12*s+s*15,sheBaseY-s*10]
+  ],'rgba(180,40,40,0.15)',lw*0.5);
+
+  // Torso — arched back
+  var sheShoulderY=sheBaseY-H*0.48+lift*s*30;
+  S([
+    [sheX+sheLean2*30*s,sheBaseY-H*0.33,
+     sheX+sheArch+sheLean2*35*s,sheShoulderY]
+  ],'rgba(220,100,100,0.45)',lw*1.5);
+  // Shoulders — tilted
+  S([
+    [sheX+sheArch+sheLean2*35*s-s*13,sheShoulderY-s*2,
+     sheX+sheArch+sheLean2*35*s+s*13,sheShoulderY+s*2]
+  ],'rgba(220,100,100,0.4)',lw*1.2);
+
+  // Left arm — on his shoulder
+  var sheArmLX=sheX+sheArch+sheLean2*35*s-s*10;
+  S([
+    [sheArmLX,sheShoulderY-s*2,
+     sheArmLX-s*20,sheShoulderY-s*8,
+     heX-heLean*38*s+s*8,heShoulderY+s*3]
+  ],'rgba(220,100,100,0.4)',lw*1.1);
+
+  // Right arm — held by him
+  var sheArmRX=sheX+sheArch+sheLean2*35*s+s*10;
+  S([
+    [sheArmRX,sheShoulderY+s*2,
+     sheArmRX-s*15,sheShoulderY-s*12,
+     sheX-s*25,embraceY-s*5]
+  ],'rgba(220,100,100,0.4)',lw*1.1);
+
+  // Head — tilted back
+  var sheHeadR=s*9;
+  var sheHeadX=sheX+sheArch+sheLean2*38*s;
+  var sheHeadY=sheShoulderY-sheHeadR*1.8;
+  X.fillStyle='rgba(220,180,160,0.12)';X.beginPath();
+  X.arc(sheHeadX,sheHeadY,sheHeadR,0,Math.PI*2);X.fill();
+  X.strokeStyle='rgba(220,180,160,0.5)';X.lineWidth=lw;X.beginPath();
+  X.arc(sheHeadX,sheHeadY,sheHeadR,0,Math.PI*2);X.stroke();
+  // Hair — flowing
+  var hairWave=Math.sin(t*1.2)*4*s;
+  S([
+    [sheHeadX-sheHeadR*0.8,sheHeadY-sheHeadR*0.3,
+     sheHeadX-sheHeadR*1.5,sheHeadY+hairWave,
+     sheHeadX-sheHeadR*2,sheHeadY+s*15+hairWave*0.5,
+     sheHeadX-sheHeadR*1.8,sheHeadY+s*25-hairWave]
+  ],'rgba(30,20,20,0.25)',lw*0.8);
+  S([
+    [sheHeadX-sheHeadR*0.5,sheHeadY-sheHeadR*0.8,
+     sheHeadX,sheHeadY-sheHeadR*1.5,
+     sheHeadX+sheHeadR*0.5,sheHeadY-sheHeadR*0.8]
+  ],'rgba(30,20,20,0.2)',lw*0.6);
+
+  // ====== HAND CLASP — center of connection ======
+  var handX=(heArmRX+s*25*armExtend+sheArmRX-s*15)/2;
+  var handY=(heArmRY-s*5*armExtend+sheShoulderY-s*12)/2;
+  // Glow at connection
+  X.globalAlpha=0.06+0.02*Math.sin(t*2);
+  var hGrad=X.createRadialGradient(handX,handY,0,handX,handY,s*15);
+  hGrad.addColorStop(0,'rgba(255,200,150,0.4)');
+  hGrad.addColorStop(1,'rgba(255,200,150,0)');
+  X.fillStyle=hGrad;X.fillRect(handX-s*20,handY-s*20,s*40,s*40);
+  X.globalAlpha=1;
+
+  // ====== MOVEMENT ARC — polynomial curve of motion ======
+  if(trail.length>3){
+    X.globalAlpha=0.08;
+    // Draw a smooth curve through trail points
+    for(var arc=2;arc<trail.length;arc++){
+      var a0=trail[arc-2],a1=trail[arc-1],a2=trail[arc];
+      S([
+        [a0.x,a0.y,a1.x,a1.y,a2.x,a2.y]
+      ],'rgba(200,150,255,0.3)',lw*0.5);
+    }
+    X.globalAlpha=1;
+  }
+
+  // ====== AMBIENT — dust motes in spotlight ======
+  for(var dm=0;dm<20;dm++){
+    var dmx=cx+Math.sin(t*0.2+dm*2.3)*spotR*0.8;
+    var dmy=floorY-H*0.1+Math.cos(t*0.15+dm*1.7)*H*0.15;
+    var dmr=0.3+Math.sin(t+dm)*0.2;
+    X.fillStyle='rgba(255,220,180,'+(0.02+0.01*Math.sin(t*1.5+dm))+')';
+    X.beginPath();X.arc(dmx,dmy,dmr*s,0,Math.PI*2);X.fill();
+  }
+
+  // ====== REFLECTIONS on floor ======
+  X.globalAlpha=0.04;
+  // He reflection
+  S([
+    [heX-heLean*38*s,baseY+5*s,
+     heX-heLean*35*s,baseY+H*0.12]
+  ],'rgba(180,180,200,0.3)',lw*0.8);
+  // She reflection
+  S([
+    [sheX+sheArch+sheLean2*35*s,baseY+5*s,
+     sheX+sheArch+sheLean2*30*s,baseY+H*0.12]
+  ],'rgba(220,100,100,0.3)',lw*0.8);
+  X.globalAlpha=1;
+
+  // Step name — subtle
+  X.globalAlpha=0.06;X.font=(10*s)+'px serif';X.fillStyle='rgba(255,220,180,0.5)';X.textAlign='center';
+  X.fillText(stepNames[step],cx,H-50*s);
+  X.textAlign='left';X.globalAlpha=1;
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
