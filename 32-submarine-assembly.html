@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>32 — Сборка Подлодки — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#030508;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #fc0;color:#fc0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(255,200,0,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fc05;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#fc0;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:450px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Сборка Подлодки</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">◀</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">▶</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Глубина</label><input type="range" id="depth" min="0" max="100" value="0" step="1" style="width:70px;accent-color:#fc0"><span class="val" id="depthV">0м</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+var stage=0;
+var autoMode=false;
+var autoTimer=0;
+var maxStage=12;
+
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ';};
+document.getElementById('depth').oninput=function(){document.getElementById('depthV').textContent=this.value+'м';};
+
+var parts=[
+  'Корпус — двойной · прочный +轻量 обшивка',
+  'Рубка — надстройка · люки · перископы',
+  'Реакторная — ВВЭР-1000 · 190МВт',
+  'Турбинное отделение · редуктор · гребной вал',
+  'Отсек вооружения — 4 ТА · 533мм',
+  'Балластные цистерны · система заглубления',
+  'Гребной винт — 7-лопастной · титан',
+  'Антенны — ГАК · Гидролокатор · радио',
+  'Навигация —惯性ная + спутниковая',
+  'Жизнеобеспечение — 53 моряка · 90 суток',
+  'Теплозащита · акустическое покрытие',
+  'Ракетное вооружение — «Калибр» · «Оникс»',
+  'Готов — проект 885М «Ясень-М»'
+];
+
+var t=0;
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
+
+function label(text,x,y,color,size){
+  X.globalAlpha=0.6;X.font=(size||7)+'px monospace';X.fillStyle=color||'rgba(255,220,180,0.8)';X.textAlign='center';X.fillText(text,x,y);X.textAlign='left';X.globalAlpha=1;
+}
+
+// Water with depth
+function drawWater(depth2,t2){
+  var waterY=H*0.3+depth2*H*0.004;
+  
+  // Gradient based on depth
+  var waterColor;
+  if(depth2<30)waterColor='rgba(20,50,80,0.15)';
+  else if(depth2<60)waterColor='rgba(10,30,60,0.2)';
+  else waterColor='rgba(5,15,40,0.25)';
+  
+  F([0,waterY,W,waterY,W,H,0,H],waterColor);
+  
+  // Surface waves
+  if(depth2<50){
+    for(var wv=0;wv<4;wv++){
+      var wvy=waterY+3+wv*5;
+      var alpha=Math.max(0.06-wv*0.012-depth2*0.001);
+      X.strokeStyle='rgba(60,120,180,'+alpha+')';
+      X.lineWidth=0.5;
+      X.beginPath();
+      for(var wx=0;wx<W;wx+=3){
+        var wy=wvy+Math.sin(wx*0.01+t2*0.5+wv*0.5)*2*(1-depth2*0.01);
+        if(wx===0)X.moveTo(wx,wy);else X.lineTo(wx,wy);
+      }
+      X.stroke();
+    }
+  }
+  
+  // Bubbles
+  for(var bb=0;bb<15;bb++){
+    var bbx=Math.sin(t2*0.2+bb*2.1)*W*0.4+W*0.5;
+    var bby=waterY+20+Math.sin(t2*0.3+bb*1.7)*H*0.3;
+    if(bby>waterY&&bby<H){
+      var bbr=0.5+Math.sin(bb)*0.3;
+      X.fillStyle='rgba(100,160,220,'+(0.03+0.01*Math.sin(t2+bb))+')';
+      X.beginPath();X.arc(bbx,bby,bbr*(1-depth2*0.005),0,Math.PI*2);X.fill();
+    }
+  }
+  
+  // Deep pressure effect
+  if(depth2>50){
+    X.globalAlpha=(depth2-50)*0.003;
+    F([0,0,W,0,W,H,0,H],'rgba(0,0,20,0.3)');
+    X.globalAlpha=1;
+  }
+}
+
+// Submarine — builds up
+function drawSub(cx,cy,s,stage2,t2,depth2){
+  var subLen=140*s;
+  var subH=18*s;
+  var subY=cy;
+  var dive=Math.sin(t2*0.2)*depth2*0.3;
+  
+  // Stage 0: Hull
+  if(stage2>=0){
+    // Outer hull
+    F([[-subLen*0.6,subY-subH],[-subLen*0.2,subY-subH*1.2],[subLen*0.3,subY-subH*1.1],[subLen*0.6,subY-subH*0.5],[subLen*0.65,0],[subLen*0.6,subH*0.5],[subLen*0.3,subH*1.1],[-subLen*0.2,subH*1.2],[-subLen*0.6,subH]],'rgba(50,55,65,0.08)');
+    S([[-subLen*0.6,subY-subH],[-subLen*0.2,subY-subH*1.2],[subLen*0.3,subY-subH*1.1],[subLen*0.6,subY-subH*0.5],[subLen*0.65,0],[subLen*0.6,subH*0.5],[subLen*0.3,subH*1.1],[-subLen*0.2,subH*1.2],[-subLen*0.6,subH]],'rgba(70,75,85,0.2)',0.6);
+    // Pressure hull inner line
+    X.strokeStyle='rgba(80,85,95,0.08)';X.lineWidth=0.5;
+    X.beginPath();X.ellipse(cx,subY+subY*0,subLen*0.55,subH*0.7,0,0,Math.PI*2);X.stroke();
+    label('корпус · двойной ·高强度钢',cx,subY+subH+15*s,'rgba(150,155,165,0.5)',6);
+  }
+  
+  // Stage 1: Sail/conning tower
+  if(stage2>=1){
+    var sailX=cx-subLen*0.15;
+    var sailW=15*s;
+    var sailH=20*s;
+    var sailY=subY-subH*1.1;
+    
+    F([sailX-sailW,sailY,sailX+sailW,sailY,sailX+sailW*0.8,sailY-sailH,sailX-sailW*0.8,sailY-sailH],'rgba(55,60,70,0.08)');
+    S([sailX-sailW,sailY,sailX+sailW,sailY,sailX+sailW*0.8,sailY-sailH,sailX-sailW*0.8,sailY-sailH],'rgba(75,80,90,0.2)',0.5);
+    
+    // Periscopes
+    S([[sailX-3*s,sailY-sailH],[sailX-3*s,sailY-sailH-15*s]],'rgba(80,85,95,0.1)',0.4);
+    S([[sailX+3*s,sailY-sailH],[sailX+3*s,sailY-sailH-12*s]],'rgba(80,85,95,0.1)',0.4);
+    // Mast heads
+    X.fillStyle='rgba(90,95,105,0.06)';X.beginPath();X.arc(sailX-3*s,sailY-sailH-15*s,1.5*s,0,Math.PI*2);X.fill();
+    X.beginPath();X.arc(sailX+3*s,sailY-sailH-12*s,1*s,0,Math.PI*2);X.fill();
+    
+    // Sail windows
+    for(var sw=0;sw<3;sw++){
+      var swx=sailX-8*s+sw*8*s;
+      F([swx,sailY-sailH+3*s,swx+4*s,sailY-sailH+3*s,swx+4*s,sailY-sailH+7*s,swx,sailY-sailH+7*s],'rgba(40,60,80,0.05)');
+    }
+    
+    label('рубка · перископы · люки',sailX,sailY-sailH-20*s,'rgba(100,120,160,0.4)',5);
+  }
+  
+  // Stage 2: Reactor
+  if(stage2>=2){
+    var rX=cx-subLen*0.1;
+    var rW=20*s;
+    var rH=subH*0.6;
+    // Reactor vessel
+    F([rX-rW,subY-rH,rX+rW,subY-rH,rX+rW,subY+rH,rX-rW,subY+rH],'rgba(60,80,60,0.06)');
+    S([rX-rW,subY-rH,rX+rW,subY-rH,rX+rW,subY+rH,rX-rW,subY+rH],'rgba(80,100,80,0.15)',0.4);
+    // Core glow
+    X.fillStyle='rgba(255,100,50,'+(0.02+Math.sin(t2*0.5)*0.005)+')';
+    X.beginPath();X.arc(rX,subY,5*s,0,Math.PI*2);X.fill();
+    // Cooling pipes
+    S([[rX-rW,subY-rH*0.5],[rX-rW-10*s,subY-rH*0.5]],'rgba(80,100,80,0.08)',0.3);
+    S([[rX+rW,subY-rH*0.5],[rX+rW+10*s,subY-rH*0.5]],'rgba(80,100,80,0.08)',0.3);
+    label('ВВЭР-1000 · 190МВт',rX,subY+rH+10*s,'rgba(255,150,100,0.4)',5);
+  }
+  
+  // Stage 3: Turbines
+  if(stage2>=3){
+    var tX=cx+subLen*0.15;
+    var tW=25*s;
+    var tH=subH*0.5;
+    F([tX-tW,subY-tH,tX+tW,subY-tH,tX+tW,subY+tH,tX-tW,subY+tH],'rgba(55,60,70,0.06)');
+    S([tX-tW,subY-tH,tX+tW,subY-tH,tX+tW,subY+tH,tX-tW,subY+tH],'rgba(75,80,90,0.12)',0.4);
+    // Turbine rotor hint
+    X.strokeStyle='rgba(80,85,95,0.08)';X.lineWidth=0.4;
+    X.beginPath();X.arc(tX,subY,8*s,0,Math.PI*2);X.stroke();
+    // Shaft
+    S([[tX+tW,subY],[subLen*0.55,subY]],'rgba(80,85,95,0.1)',0.4);
+    label('ТЗМ · турбина · вал',tX,subY+tH+10*s,'rgba(140,150,160,0.4)',5);
+  }
+  
+  // Stage 4: Torpedo tubes
+  if(stage2>=4){
+    var ttX=cx-subLen*0.55;
+    for(var tt=0;tt<4;tt++){
+      var tty=subY-5*s+tt*4*s;
+      S([[ttX,tty],[ttX-10*s,tty]],'rgba(90,95,105,0.12)',0.5);
+      X.fillStyle='rgba(50,55,65,0.05)';X.beginPath();X.arc(ttX-10*s,tty,1.5*s,0,Math.PI*2);X.fill();
+    }
+    // Tube doors
+    S([[ttX-5*s,subY-7*s],[ttX-5*s,subY+10*s]],'rgba(80,85,95,0.08)',0.3);
+    label('4×ТА · 533мм',ttX-15*s,subY+15*s,'rgba(160,150,120,0.4)',5);
+  }
+  
+  // Stage 5: Ballast tanks
+  if(stage2>=5){
+    // Side tanks
+    for(var bt=0;bt<3;bt++){
+      var btx=cx-subLen*0.3+bt*subLen*0.3;
+      S([[btx,subY-subH*1.1],[btx,subY-subH*1.1+8*s]],'rgba(60,70,80,0.08)',0.3);
+      S([[btx+5*s,subY-subH*1.1],[btx+5*s,subY-subH*1.1+8*s]],'rgba(60,70,80,0.08)',0.3);
+      S([[btx,subY-subH*1.1+8*s],[btx+5*s,subY-subH*1.1+8*s]],'rgba(60,70,80,0.06)',0.3);
+    }
+    // Tank filling animation
+    if(depth2>0){
+      var fillH=Math.min(depth2*0.06,1);
+      X.fillStyle='rgba(40,80,120,'+(fillH*0.05)+')';
+      X.fillRect(cx-subLen*0.3,subY-subH*1.1+8*s*(1-fillH),subLen*0.6,8*s*fillH);
+    }
+    label('балласт · цистерны · заглубление',cx,subY-subH*1.2-10*s,'rgba(80,120,160,0.4)',5);
+  }
+  
+  // Stage 6: Propeller
+  if(stage2>=6){
+    var prX=cx+subLen*0.58;
+    var prR=10*s;
+    // Hub
+    X.fillStyle='rgba(80,85,95,0.08)';X.beginPath();X.arc(prX,subY,3*s,0,Math.PI*2);X.fill();
+    // Blades
+    for(var pb=0;pb<7;pb++){
+      var pba=t2*0.8+pb*Math.PI*2/7;
+      var pbx=prX+Math.cos(pba)*prR;
+      var pby=subY+Math.sin(pba)*prR*0.3;
+      X.strokeStyle='rgba(100,105,115,0.12)';X.lineWidth=1.5*s;
+      X.beginPath();X.moveTo(prX,subY);X.lineTo(pbx,pby);X.stroke();
+    }
+    // Shaft housing
+    S([[cx+subLen*0.4,subY-subH*0.3],[prX,subY-3*s]],'rgba(70,75,85,0.08)',0.3);
+    S([[cx+subLen*0.4,subY+subH*0.3],[prX,subY+3*s]],'rgba(70,75,85,0.08)',0.3);
+    label('7-лопастной · титан',prX+12*s,subY,'rgba(140,150,160,0.4)',5);
+  }
+  
+  // Stage 7: Sonar/antennas
+  if(stage2>=7){
+    // Bow sonar dome
+    X.fillStyle='rgba(60,80,100,0.05)';X.beginPath();X.arc(cx-subLen*0.55,subY,6*s,0,Math.PI*2);X.fill();
+    X.strokeStyle='rgba(80,100,120,0.1)';X.lineWidth=0.4;
+    X.beginPath();X.arc(cx-subLen*0.55,subY,6*s,0,Math.PI*2);X.stroke();
+    // Array lines
+    for(var al=0;al<5;al++){
+      var aa=al*Math.PI*2/5;
+      var ax=cx-subLen*0.55+Math.cos(aa)*5*s;
+      var ay=subY+Math.sin(aa)*5*s;
+      S([[cx-subLen*0.55,subY],[ax,ay]],'rgba(80,100,120,0.05)',0.2);
+    }
+    // Side arrays
+    S([[cx-subLen*0.3,subY-subH*1.1-2*s],[cx+subLen*0.2,subY-subH*1.1-2*s]],'rgba(70,90,110,0.06)',0.3);
+    S([[cx-subLen*0.3,subY+subH*1.1+2*s],[cx+subLen*0.2,subY+subH*1.1+2*s]],'rgba(70,90,110,0.06)',0.3);
+    label('ГАК · ГИРС · бортовые антенны',cx,subY-subH*1.3-15*s,'rgba(100,130,170,0.4)',5);
+  }
+  
+  // Stage 8: Navigation
+  if(stage2>=8){
+    var navX=cx-subLen*0.05;
+    // INS unit
+    F([navX-4*s,subY-subH*0.8,navX+4*s,subY-subH*0.8,navX+4*s,subY-subH*0.5,navX-4*s,subY-subH*0.5],'rgba(60,70,80,0.05)');
+    S([navX-4*s,subY-subH*0.8,navX+4*s,subY-subH*0.8,navX+4*s,subY-subH*0.5,navX-4*s,subY-subH*0.5],'rgba(80,90,100,0.1)',0.3);
+    // GPS antenna on sail
+    if(stage2>=1){
+      X.fillStyle='rgba(90,95,105,0.04)';X.beginPath();X.arc(cx-subLen*0.15,subY-subH*1.1-22*s,2*s,0,Math.PI*2);X.fill();
+    }
+    label('ИНС · ГПС · эхолот',navX,subY-subH*0.9,'rgba(120,130,140,0.4)',5);
+  }
+  
+  // Stage 9: Life support
+  if(stage2>=9){
+    var lsX=cx+subLen*0.05;
+    // O2 generators
+    for(var og=0;og<3;og++){
+      var ogx=lsX-6*s+og*6*s;
+      S([[ogx,subY+subH*0.5],[ogx,subY+subH*0.8]],'rgba(80,100,80,0.06)',0.3);
+    }
+    // CO2 scrubbers
+    S([[lsX+10*s,subY+subH*0.5],[lsX+10*s,subY+subH*0.8]],'rgba(100,80,80,0.06)',0.3);
+    // Crew bunks hint
+    for(var cb=0;cb<4;cb++){
+      var cbx=lsX-8*s+cb*5*s;
+      S([[cbx,subY+subH*0.3],[cbx+3*s,subY+subH*0.3]],'rgba(80,80,90,0.04)',0.3);
+    }
+    label('53 моряка · 90 суток · О₂ · H₂O',lsX,subY+subH+12*s,'rgba(120,150,120,0.4)',5);
+  }
+  
+  // Stage 10: Acoustic coating
+  if(stage2>=10){
+    // Anechoic tiles
+    for(var at=0;at<12;at++){
+      var atx=cx-subLen*0.4+at*subLen*0.07;
+      var ath=subH*0.3+Math.abs(at-6)*subH*0.05;
+      X.globalAlpha=0.015;
+      F([atx,subY-ath,atx+subLen*0.06,subY-ath,atx+subLen*0.06,subY+ath,atx,subY+ath],'rgba(40,50,60,0.5)');
+      X.globalAlpha=1;
+    }
+    label('анэхическое покрытие · RAM',cx,subY+subH+20*s,'rgba(100,110,130,0.4)',5);
+  }
+  
+  // Stage 11: Missiles
+  if(stage2>=11){
+    var msX=cx+subLen*0.05;
+    var msY=subY-subH*0.5;
+    // Vertical launch tubes
+    for(var vl=0;vl<8;vl++){
+      var vlx=msX-15*s+vl*4*s;
+      S([[vlx,msY],[vlx,msY-12*s]],'rgba(90,95,105,0.08)',0.3);
+      X.fillStyle='rgba(60,65,75,0.04)';X.beginPath();X.arc(vlx,msY-12*s,1.5*s,0,Math.PI*2);X.fill();
+    }
+    label('«Калибр» · «Оникс» · 8 ПУ',msX,msY-18*s,'rgba(180,160,120,0.4)',5);
+  }
+  
+  // Stage 12: Complete
+  if(stage2>=12){
+    // Wake when moving
+    if(depth2<20){
+      X.globalAlpha=0.01;
+      for(var wk=0;wk<5;wk++){
+        var wkx=cx-subLen*0.6-wk*8*s;
+        var wky=subY+Math.sin(t2+wk)*2*s;
+        X.beginPath();X.ellipse(wkx,wky,5*s+wk*3*s,1*s,0,0,Math.PI*2);X.fill();
+      }
+      X.globalAlpha=1;
+    }
+    
+    label('К-571 «Красноярск» · проект 885М',cx,subY+subH+30*s,'rgba(255,220,180,0.6)',7);
+    label('13800т · 18км/ч · глубина 520м · 64 ракеты',cx,subY+subH+40*s,'rgba(200,180,140,0.35)',5);
+  }
+}
+
+function draw(){
+  var depth2=parseInt(document.getElementById('depth').value);
+  
+  if(autoMode){
+    autoTimer+=0.016;
+    if(autoTimer>2){
+      autoTimer=0;
+      if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}
+      else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ';}
+    }
+  }
+  
+  t+=0.016;
+  
+  X.fillStyle='#030508';X.fillRect(0,0,W,H);
+  
+  var cx=W/2;
+  var cy=H*0.48;
+  var s=Math.min(W,H)/600;
+  
+  drawWater(depth2,t);
+  drawSub(cx,cy,s,stage,t,depth2);
+  
+  document.getElementById('part-label').textContent=parts[stage]||'';
+  
+  // Progress
+  X.fillStyle='rgba(255,200,100,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(255,200,100,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd=0;sd<=maxStage;sd++){
+    var sdx=W*0.1+W*0.8*(sd/maxStage);
+    X.fillStyle=sd<=stage?'rgba(255,200,100,0.25)':'rgba(255,200,100,0.06)';
+    X.beginPath();X.arc(sdx,H-6.5,2,0,Math.PI*2);X.fill();
+  }
+  
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>

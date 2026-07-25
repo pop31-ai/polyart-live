@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>33 — Сборка Локомотива — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060608;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #fc0;color:#fc0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(255,200,0,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fc05;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#fc0;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:450px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Сборка Локомотива</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">◀</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">▶</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="speed" min="0" max="100" value="0" step="1" style="width:70px;accent-color:#fc0"><span class="val" id="speedV">0</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+var stage=0;
+var autoMode=false;
+var autoTimer=0;
+var maxStage=12;
+
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ';};
+document.getElementById('speed').oninput=function(){document.getElementById('speedV').textContent=this.value;};
+
+var parts=[
+  'Рама — цельностальна · 25 тонн',
+  'Тележки — 2× three-axle · пружинная подвеска',
+  'Колёса — 6 пар · обточка · бандажи',
+  'Тяговые двигатели — 6×ДТ-9 · 900кВт',
+  'Кузов — кабина машиниста · моторный отсек',
+  'Крыша · вентиляция · кондиционер',
+  'Оборудование — компрессор · генератор · выпрямитель',
+  'Пульт управления — 2 кабины · автостоп',
+  'Пневматика — тормоза · подвеска · песочница',
+  'Электроснабжение — токоприёмник · 3кВ · постоянный ток',
+  'Автоматика — САУТ · АЛСН · радиосвязь',
+  'Окраска — красно-серая · логотип РЖД',
+  'Готов — 2ЭС6 «Ермак» · 6000л.с.'
+];
+
+var t=0;
+var wheelAngle=0;
+var trackOffset=0;
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
+
+function label(text,x,y,color,size){
+  X.globalAlpha=0.6;X.font=(size||7)+'px monospace';X.fillStyle=color||'rgba(255,220,180,0.8)';X.textAlign='center';X.fillText(text,x,y);X.textAlign='left';X.globalAlpha=1;
+}
+
+// Railway tracks
+function drawTracks(y,t2,speed2){
+  trackOffset=(trackOffset+speed2*0.3)%40;
+  
+  // Rail bed
+  F([0,y+8,W,y+8,W,y+14,0,y+14],'rgba(80,70,55,0.08)');
+  
+  // Sleepers
+  for(var sl=0;sl<W/15+1;sl++){
+    var slx=sl*15-trackOffset;
+    S([[slx,y+6],[slx,y+12]],'rgba(100,85,65,0.08)',0.5);
+  }
+  
+  // Rails
+  S([[0,y+7],[W,y+7]],'rgba(140,130,120,0.15)',0.8);
+  S([[0,y+11],[W,y+11]],'rgba(140,130,120,0.15)',0.8);
+}
+
+// Locomotive — builds up
+function drawLoco(cx,cy,s,stage2,t2,speed2){
+  var locoLen=100*s;
+  var locoH=35*s;
+  var locoY=cy;
+  
+  wheelAngle+=speed2*0.05;
+  
+  // Stage 0: Frame/chassis
+  if(stage2>=0){
+    F([[-locoLen,locoY],[locoLen,locoY],[locoLen*0.95,locoY+8*s],[-locoLen*0.95,locoY+8*s]],'rgba(60,60,65,0.1)');
+    S([[-locoLen,locoY],[locoLen,locoY],[locoLen*0.95,locoY+8*s],[-locoLen*0.95,locoY+8*s]],'rgba(80,80,90,0.2)',0.6);
+    // Frame details
+    for(var fd=0;fd<8;fd++){
+      var fdx=-locoLen+fd*locoLen*0.25;
+      S([[fdx,locoY],[fdx,locoY+8*s]],'rgba(70,70,75,0.06)',0.3);
+    }
+    label('рама · цельностальна · 25т',cx,locoY+18*s,'rgba(150,150,160,0.5)',6);
+  }
+  
+  // Stage 1: Bogies
+  if(stage2>=1){
+    for(var bg=0;bg<2;bg++){
+      var bgX=cx-locoLen*0.6+bg*locoLen*1.2;
+      // Bogie frame
+      F([bgX-25*s,locoY+8*s,bgX+25*s,locoY+8*s,bgX+23*s,locoY+14*s,bgX-23*s,locoY+14*s],'rgba(55,55,60,0.08)');
+      S([bgX-25*s,locoY+8*s,bgX+25*s,locoY+8*s,bgX+23*s,locoY+14*s,bgX-23*s,locoY+14*s],'rgba(75,75,80,0.15)',0.4);
+      // Spring suspension
+      for(var sp=0;sp<3;sp++){
+        var spx=bgX-15*s+sp*15*s;
+        S([[spx,locoY+8*s],[spx+2*s,locoY+10*s],[spx-2*s,locoY+12*s],[spx,locoY+14*s]],'rgba(80,80,85,0.08)',0.3);
+      }
+    }
+    label('тележки · 2×3 оси · пружины',cx,locoY+22*s,'rgba(140,140,150,0.4)',5);
+  }
+  
+  // Stage 2: Wheels
+  if(stage2>=2){
+    for(var wh=0;wh<6;wh++){
+      var whX=cx-locoLen*0.6+wh*locoLen*0.24;
+      var whR=6*s;
+      // Wheel
+      X.fillStyle='rgba(50,50,55,0.1)';X.beginPath();X.arc(whX,locoY+12*s,whR,0,Math.PI*2);X.fill();
+      X.strokeStyle='rgba(90,90,95,0.2)';X.lineWidth=0.6;
+      X.beginPath();X.arc(whX,locoY+12*s,whR,0,Math.PI*2);X.stroke();
+      // Spokes
+      for(var ws=0;ws<6;ws++){
+        var wsa=wheelAngle+ws*Math.PI/3;
+        S([[whX,locoY+12*s],[whX+Math.cos(wsa)*whR*0.8,locoY+12*s+Math.sin(wsa)*whR*0.8]],'rgba(80,80,85,0.06)',0.3);
+      }
+      // Hub
+      X.fillStyle='rgba(70,70,75,0.08)';X.beginPath();X.arc(whX,locoY+12*s,2*s,0,Math.PI*2);X.fill();
+      // Traction motor hint
+      if(wh<6){
+        F([whX-4*s,locoY+8*s,whX+4*s,locoY+8*s,whX+4*s,locoY+10*s,whX-4*s,locoY+10*s],'rgba(50,55,50,0.05)');
+      }
+    }
+    label('6 колёсных пар · бандажи',cx,locoY+25*s,'rgba(130,130,140,0.4)',5);
+  }
+  
+  // Stage 3: Traction motors
+  if(stage2>=3){
+    for(var tm=0;tm<6;tm++){
+      var tmX=cx-locoLen*0.6+tm*locoLen*0.24;
+      // Motor body
+      F([tmX-5*s,locoY+8*s,tmX+5*s,locoY+8*s,tmX+5*s,locoY+10*s,tmX-5*s,locoY+10*s],'rgba(55,60,55,0.05)');
+      S([tmX-5*s,locoY+8*s,tmX+5*s,locoY+8*s,tmX+5*s,locoY+10*s,tmX-5*s,locoY+10*s],'rgba(75,80,75,0.1)',0.2);
+      // Connection to wheel
+      S([[tmX,locoY+10*s],[tmX,locoY+12*s]],'rgba(70,75,70,0.06)',0.3);
+    }
+    label('ДТ-9 · 6×150кВт · 900кВт',cx,locoY-8*s,'rgba(140,160,140,0.4)',5);
+  }
+  
+  // Stage 4: Body/cab
+  if(stage2>=4){
+    // Main body
+    F([[-locoLen*0.9,locoY-locoH],[-locoLen*0.3,locoY-locoH],[-locoLen*0.3,locoY],[-locoLen*0.9,locoY]],'rgba(60,60,65,0.06)');
+    S([[-locoLen*0.9,locoY-locoH],[-locoLen*0.3,locoY-locoH],[-locoLen*0.3,locoY],[-locoLen*0.9,locoY]],'rgba(80,80,85,0.15)',0.5);
+    
+    // Machine room
+    F([[-locoLen*0.3,locoY-locoH],[locoLen*0.85,locoY-locoH],[locoLen*0.85,locoY],[-locoLen*0.3,locoY]],'rgba(55,55,60,0.05)');
+    S([[-locoLen*0.3,locoY-locoH],[locoLen*0.85,locoY-locoH],[locoLen*0.85,locoY],[-locoLen*0.3,locoY]],'rgba(75,75,80,0.12)',0.4);
+    
+    // Cab windows
+    for(var cw=0;cw<2;cw++){
+      var cwx=-locoLen*0.85+cw*20*s;
+      F([cwx,locoY-locoH+5*s,cwx+15*s,locoY-locoH+5*s,cwx+15*s,locoY-locoH+15*s,cwx,locoY-locoH+15*s],'rgba(40,60,80,0.06)');
+      S([cwx,locoY-locoH+5*s,cwx+15*s,locoY-locoH+5*s,cwx+15*s,locoY-locoH+15*s,cwx,locoY-locoH+15*s],'rgba(80,120,160,0.12)',0.4);
+    }
+    
+    // Body panel lines
+    for(var bl=0;bl<6;bl++){
+      var blx=-locoLen*0.85+bl*locoLen*0.25;
+      S([[blx,locoY-locoH],[blx,locoY]],'rgba(70,70,75,0.05)',0.3);
+    }
+    
+    label('кузов · кабина · моторный',cx-locoLen*0.3,locoY-locoH-8*s,'rgba(150,150,160,0.4)',5);
+  }
+  
+  // Stage 5: Roof
+  if(stage2>=5){
+    S([[-locoLen*0.9,locoY-locoH],[locoLen*0.85,locoY-locoH]],'rgba(80,80,85,0.15)',0.5);
+    // Roof equipment
+    for(var re=0;re<4;re++){
+      var rex=-locoLen*0.7+re*locoLen*0.35;
+      F([rex-8*s,locoY-locoH-3*s,rex+8*s,locoY-locoH-3*s,rex+8*s,locoY-locoH,rex-8*s,locoY-locoH],'rgba(55,55,60,0.04)');
+      S([rex-8*s,locoY-locoH-3*s,rex+8*s,locoY-locoH-3*s,rex+8*s,locoY-locoH,rex-8*s,locoY-locoH],'rgba(70,70,75,0.08)',0.3);
+    }
+    // Ventilation grilles
+    for(var vg=0;vg<5;vg++){
+      var vgx=-locoLen*0.5+vg*locoLen*0.2;
+      S([[vgx,locoY-locoH-1*s],[vgx,locoY-locoH-3*s]],'rgba(65,65,70,0.06)',0.3);
+    }
+    label('крыша · вентиляция · кондиционер',cx,locoY-locoH-8*s,'rgba(130,130,140,0.4)',5);
+  }
+  
+  // Stage 6: Equipment
+  if(stage2>=6){
+    var eqX=cx+locoLen*0.3;
+    // Compressor
+    F([eqX-10*s,locoY-locoH*0.7,eqX+10*s,locoY-locoH*0.7,eqX+10*s,locoY-locoH*0.3,eqX-10*s,locoY-locoH*0.3],'rgba(50,55,55,0.05)');
+    S([eqX-10*s,locoY-locoH*0.7,eqX+10*s,locoY-locoH*0.7,eqX+10*s,locoY-locoH*0.3,eqX-10*s,locoY-locoH*0.3],'rgba(70,75,75,0.1)',0.3);
+    // Generator
+    F([eqX+15*s,locoY-locoH*0.8,eqX+30*s,locoY-locoH*0.8,eqX+30*s,locoY-locoH*0.3,eqX+15*s,locoY-locoH*0.3],'rgba(50,55,50,0.05)');
+    S([eqX+15*s,locoY-locoH*0.8,eqX+30*s,locoY-locoH*0.8,eqX+30*s,locoY-locoH*0.3,eqX+15*s,locoY-locoH*0.3],'rgba(70,75,70,0.1)',0.3);
+    // Pipes
+    S([[eqX+10*s,locoY-locoH*0.5],[eqX+15*s,locoY-locoH*0.5]],'rgba(80,80,85,0.06)',0.3);
+    label('компрессор · генератор · выпрямитель',eqX+10*s,locoY-locoH*0.9,'rgba(140,140,150,0.4)',5);
+  }
+  
+  // Stage 7: Control desk
+  if(stage2>=7){
+    var dsX=-locoLen*0.65;
+    var dsY=locoY-locoH*0.5;
+    // Desk surface
+    F([dsX-12*s,dsY,dsX+12*s,dsY,dsX+12*s,dsY+3*s,dsX-12*s,dsY+3*s],'rgba(60,60,65,0.05)');
+    S([dsX-12*s,dsY,dsX+12*s,dsY,dsX+12*s,dsY+3*s,dsX-12*s,dsY+3*s],'rgba(80,80,85,0.1)',0.3);
+    // Levers
+    S([[dsX-8*s,dsY],[dsX-8*s,dsY-5*s]],'rgba(90,80,60,0.08)',0.4);
+    S([[dsX,dsY],[dsX,dsY-6*s]],'rgba(90,80,60,0.08)',0.4);
+    S([[dsX+8*s,dsY],[dsX+8*s,dsY-4*s]],'rgba(90,80,60,0.08)',0.4);
+    // Screens
+    for(var sc=0;sc<2;sc++){
+      var scx=dsX-6*s+sc*10*s;
+      F([scx,dsY-12*s,scx+7*s,dsY-12*s,scx+7*s,dsY-7*s,scx,dsY-7*s],'rgba(30,50,30,0.04)');
+      S([scx,dsY-12*s,scx+7*s,dsY-12*s,scx+7*s,dsY-7*s,scx,dsY-7*s],'rgba(60,100,60,0.08)',0.3);
+    }
+    label('пульт · 2 кабины · автостоп',dsX,dsY-18*s,'rgba(120,140,120,0.4)',5);
+  }
+  
+  // Stage 8: Pneumatics
+  if(stage2>=8){
+    // Air tanks
+    for(var at=0;at<2;at++){
+      var atx=cx+locoLen*0.1+at*20*s;
+      var aty=locoY+8*s;
+      X.strokeStyle='rgba(80,85,90,0.1)';X.lineWidth=0.4;
+      X.beginPath();X.ellipse(atx,aty+3*s,8*s,3*s,0,0,Math.PI*2);X.stroke();
+    }
+    // Brake cylinders
+    S([[cx-locoLen*0.5,locoY+8*s],[cx-locoLen*0.5,locoY+10*s]],'rgba(80,85,90,0.08)',0.3);
+    S([[cx+locoLen*0.5,locoY+8*s],[cx+locoLen*0.5,locoY+10*s]],'rgba(80,85,90,0.08)',0.3);
+    // Sand pipes
+    S([[cx-locoLen*0.4,locoY+8*s],[cx-locoLen*0.4,locoY+14*s]],'rgba(140,120,80,0.06)',0.3);
+    label('пневматика · тормоза · песочница',cx+locoLen*0.1,locoY+18*s,'rgba(130,135,140,0.4)',5);
+  }
+  
+  // Stage 9: Power pickup
+  if(stage2>=9){
+    // Pantograph
+    var panX=cx-locoLen*0.5;
+    var panY=locoY-locoH;
+    // Base
+    S([[panX,panY],[panX,panY-8*s]],'rgba(90,90,95,0.12)',0.4);
+    // Lower arm
+    S([[panX,panY-8*s],[panX-10*s,panY-20*s]],'rgba(90,90,95,0.1)',0.4);
+    // Upper arm
+    S([[panX-10*s,panY-20*s],[panX+5*s,panY-30*s]],'rgba(90,90,95,0.1)',0.4);
+    // Contact shoe
+    S([[panX,panY-30*s],[panX+15*s,panY-30*s]],'rgba(100,100,105,0.12)',0.5);
+    // Power line
+    S([[0,panY-32*s],[W,panY-32*s]],'rgba(140,140,150,0.06)',0.3);
+    // Spark hint
+    if(speed2>0){
+      X.fillStyle='rgba(255,200,100,'+(0.02+Math.sin(t2*5)*0.01)+')';
+      X.beginPath();X.arc(panX+7*s,panY-30*s,2*s,0,Math.PI*2);X.fill();
+    }
+    label('токоприёмник · 3кВ · пост.',panX+7*s,panY-38*s,'rgba(200,180,100,0.4)',5);
+  }
+  
+  // Stage 10: Automation
+  if(stage2>=10){
+    var auX=-locoLen*0.4;
+    // Antenna
+    S([[auX,locoY-locoH-3*s],[auX+3*s,locoY-locoH-10*s]],'rgba(100,100,110,0.08)',0.3);
+    // Radio box
+    F([auX-3*s,locoY-locoH-8*s,auX+3*s,locoY-locoH-8*s,auX+3*s,locoY-locoH-5*s,auX-3*s,locoY-locoH-5*s],'rgba(55,60,65,0.04)');
+    S([auX-3*s,locoY-locoH-8*s,auX+3*s,locoY-locoH-8*s,auX+3*s,locoY-locoH-5*s,auX-3*s,locoY-locoH-5*s],'rgba(75,80,85,0.08)',0.2);
+    // Signal indicator
+    X.fillStyle='rgba(100,180,100,'+(0.03+0.01*Math.sin(t2*2))+')';
+    X.beginPath();X.arc(auX+8*s,locoY-locoH+5*s,1.5*s,0,Math.PI*2);X.fill();
+    label('САУТ · АЛСН · радиосвязь',auX+5*s,locoY-locoH-15*s,'rgba(120,140,160,0.4)',5);
+  }
+  
+  // Stage 11: Paint
+  if(stage2>=11){
+    // Color scheme
+    X.globalAlpha=0.02;
+    F([[-locoLen*0.9,locoY-locoH],[-locoLen*0.3,locoY-locoH],[-locoLen*0.3,locoY],[-locoLen*0.9,locoY]],'rgba(200,50,50,0.5)');
+    F([[-locoLen*0.3,locoY-locoH],[locoLen*0.85,locoY-locoH],[locoLen*0.85,locoY],[-locoLen*0.3,locoY]],'rgba(180,180,180,0.3)');
+    // Red stripe
+    F([[-locoLen*0.9,locoY-5*s],[locoLen*0.85,locoY-5*s],[locoLen*0.85,locoY],[-locoLen*0.9,locoY]],'rgba(200,50,50,0.04)');
+    X.globalAlpha=1;
+    // Logo hint
+    label('РЖД',cx,locoY-locoH*0.5,'rgba(200,50,50,0.08)',12);
+    label('окраска · красно-серая · логотип',cx,locoY+28*s,'rgba(160,140,140,0.4)',5);
+  }
+  
+  // Stage 12: Complete
+  if(stage2>=12){
+    // Motion blur when moving
+    if(speed2>20){
+      X.globalAlpha=(speed2-20)*0.0005;
+      for(var mb=0;mb<3;mb++){
+        var mbx=-locoLen*0.5-mb*10*s;
+        S([[mbx,locoY-locoH*0.3],[mbx-locoLen*0.3,locoY-locoH*0.3]],'rgba(150,150,160,0.1)',2);
+      }
+      X.globalAlpha=1;
+    }
+    
+    // Headlight
+    if(speed2>0){
+      X.fillStyle='rgba(255,240,200,'+(0.03+Math.sin(t2*3)*0.01)+')';
+      X.beginPath();X.arc(cx-locoLen*0.9,locoY-locoH*0.5,3*s,0,Math.PI*2);X.fill();
+      // Light beam
+      X.globalAlpha=0.01;
+      X.beginPath();X.moveTo(cx-locoLen*0.9,locoY-locoH*0.5);
+      X.lineTo(cx-locoLen*0.9-40*s,locoY-locoH*0.7);
+      X.lineTo(cx-locoLen*0.9-40*s,locoY-locoH*0.3);
+      X.closePath();X.fill();
+      X.globalAlpha=1;
+    }
+    
+    label('2ЭС6 «Ермак» · 6000л.с.',cx,locoY+35*s,'rgba(255,220,180,0.6)',7);
+    label('3кВ · 120км/ч · 200т тяги · Свердловск',cx,locoY+45*s,'rgba(200,180,140,0.35)',5);
+  }
+}
+
+function draw(){
+  var speed2=parseInt(document.getElementById('speed').value);
+  
+  if(autoMode){
+    autoTimer+=0.016;
+    if(autoTimer>2){
+      autoTimer=0;
+      if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}
+      else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ';}
+    }
+  }
+  
+  t+=0.016;
+  
+  X.fillStyle='#060608';X.fillRect(0,0,W,H);
+  
+  // Station roof hint
+  S([[W*0.1,H*0.1],[W*0.9,H*0.1]],'rgba(60,60,65,0.04)',0.5);
+  S([[W*0.1,H*0.1],[W*0.05,H*0.2]],'rgba(60,60,65,0.03)',0.4);
+  S([[W*0.9,H*0.1],[W*0.95,H*0.2]],'rgba(60,60,65,0.03)',0.4);
+  
+  var cx=W/2;
+  var cy=H*0.52;
+  var s=Math.min(W,H)/600;
+  
+  drawTracks(cy+20*s,t,speed2);
+  drawLoco(cx,cy,s,stage,t,speed2);
+  
+  document.getElementById('part-label').textContent=parts[stage]||'';
+  
+  // Progress
+  X.fillStyle='rgba(255,200,100,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(255,200,100,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd=0;sd<=maxStage;sd++){
+    var sdx=W*0.1+W*0.8*(sd/maxStage);
+    X.fillStyle=sd<=stage?'rgba(255,200,100,0.25)':'rgba(255,200,100,0.06)';
+    X.beginPath();X.arc(sdx,H-6.5,2,0,Math.PI*2);X.fill();
+  }
+  
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
