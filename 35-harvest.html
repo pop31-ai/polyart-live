@@ -1,0 +1,157 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>35 — Сбор Урожая — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060608;overflow:hidden;font-family:sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #fc0;color:#fc0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(255,200,0,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fc05;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#fc0;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:550px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Сбор Урожая</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">&#9664;</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">&#9654;</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Режим</label><button class="tog" id="modeBtn">РУЧНОЙ</button></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="speed" min="0" max="100" value="0" style="width:70px;accent-color:#fc0"><span class="val" id="speedV">0</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+var stage=0,autoMode=false,autoTimer=0,maxStage=12,mode='hand',t=0;
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ'};
+document.getElementById('speed').oninput=function(){document.getElementById('speedV').textContent=this.value};
+document.getElementById('modeBtn').onclick=function(){mode=mode==='hand'?'machine':'hand';this.textContent=mode==='hand'?'РУЧНОЙ':'КОМБАЙН'};
+
+var pH=['Поле — пшеница вызрела · колосья золотые · стебли сухие','Коса — ручная · сталь · заточка · ритм движений','Серп — для срезки колосьев · хват · наклон · поворот','Сноп — связывание · верёвка · ручная сшибка · укладка','Молотьба — цепь · оббивка · зерно на току','Продувка — веялка · зерно от соломы · ветер · чистота','Сортировка — решето · крупное / мелкое · отходы','Склад — амбар · мешки · бочка · запас на зиму','Семена — отбор лучших · для посева · цикл жизни','Земля — отдых · пар · осенняя вспашка · плуг','Посев — ручной бросок · борозда · надежда','Дождь и солнце — полив · рост · ожидание','Новый урожай — цикл замкнулся · хлеб — всему голова'];
+var pM=['Поле — пшеница вызрела · 50 гектаров · пора!','Комбайн — Дон-1500 · ротор · молотильный барабан','Жатка — 7.5м · 6 мотовил · режущий аппарат','Подача — шнек · конвейер · в бункер · поток зерна','Молотьба — ротор 550 об/мин · сепарация · солома','Бункер — 12 тонн · датчик уровня · авто-выгрузка','Перевозка — ЗİL-5313 · 20 тонн · поле → элеватор','Элеватор — приёмка · сушка · влажность 12% · хранение','Лаборатория — белок · клейковина · номер партии · ГОСТ','Экспорт — вагоны · порт · корабль · 40 стран мира','Техобслуживание — замена ремней · смазка · фрезы · масло','Сезон — 14 дней · 500 га · 3500 тонн · рекорд','Итог — 1 комбайн = 200 косарей · технологии кормят мир'];
+
+function lbl(t2,x,y,c,sz){X.globalAlpha=0.6;X.font=(sz||7)+'px monospace';X.fillStyle=c||'rgba(255,220,180,0.8)';X.textAlign='center';X.fillText(t2,x,y);X.textAlign='left';X.globalAlpha=1}
+
+function stalk(x,by,h,sw,ripe,cut){
+  if(cut)return;
+  var ty=by-h,sx2=Math.sin(t*1.5+x*0.01+sw)*3;
+  X.strokeStyle='rgba('+(160+ripe*60)+','+(140+ripe*40)+','+(50+ripe*20)+',0.15)';
+  X.lineWidth=0.8;X.beginPath();X.moveTo(x,by);X.quadraticCurveTo(x+sx2*0.5,by-h*0.5,x+sx2,ty);X.stroke();
+  if(ripe){X.fillStyle='rgba(220,180,60,0.12)';X.beginPath();X.ellipse(x+sx2,ty-3,2,5,sx2*0.05,0,Math.PI*2);X.fill()}
+}
+
+function worker(cx,cy,s,act,t2){
+  var hy=cy-25*s;
+  X.fillStyle='rgba(200,170,130,0.1)';X.beginPath();X.arc(cx,hy,4*s,0,Math.PI*2);X.fill();
+  X.strokeStyle='rgba(180,150,110,0.15)';X.lineWidth=0.5;X.beginPath();X.arc(cx,hy,4*s,0,Math.PI*2);X.stroke();
+  X.fillStyle='rgba(180,160,100,0.08)';X.beginPath();X.ellipse(cx,hy-4*s,6*s,2*s,0,0,Math.PI*2);X.fill();
+  X.strokeStyle='rgba(120,130,140,0.12)';X.lineWidth=1;X.beginPath();X.moveTo(cx,hy+4*s);X.lineTo(cx,cy);X.stroke();
+  if(act==='scythe'){
+    var sw2=Math.sin(t2*3)*0.3;
+    X.beginPath();X.moveTo(cx,hy+8*s);X.lineTo(cx+15*s+sw2*10,hy+12*s+sw2*5);X.stroke();
+    X.beginPath();X.moveTo(cx,hy+8*s);X.lineTo(cx-5*s,hy+14*s);X.stroke();
+    X.strokeStyle='rgba(160,160,170,0.15)';X.lineWidth=0.8;X.beginPath();X.moveTo(cx+15*s+sw2*10,hy+12*s+sw2*5);X.quadraticCurveTo(cx+25*s+sw2*8,cy+2*s,cx+20*s,cy+5*s);X.stroke();
+    X.strokeStyle='rgba(140,120,80,0.1)';X.lineWidth=0.6;X.beginPath();X.moveTo(cx+5*s,cy-5*s);X.lineTo(cx+15*s+sw2*10,hy+12*s+sw2*5);X.stroke();
+  }else if(act==='sickle'){
+    var r2=Math.sin(t2*2)*0.4;
+    X.beginPath();X.moveTo(cx,hy+8*s);X.lineTo(cx+10*s+r2*5,hy+15*s);X.stroke();
+    X.beginPath();X.moveTo(cx,hy+8*s);X.lineTo(cx-8*s,hy+12*s);X.stroke();
+    X.strokeStyle='rgba(160,160,170,0.12)';X.lineWidth=0.6;X.beginPath();X.arc(cx+12*s+r2*5,hy+17*s,4*s,-Math.PI*0.8,-Math.PI*0.2);X.stroke();
+  }else if(act==='bundle'){
+    X.beginPath();X.moveTo(cx,hy+8*s);X.lineTo(cx-8*s,hy+14*s);X.lineTo(cx-5*s,cy);X.stroke();
+    X.beginPath();X.moveTo(cx,hy+8*s);X.lineTo(cx+8*s,hy+14*s);X.lineTo(cx+5*s,cy);X.stroke();
+    X.strokeStyle='rgba(200,170,60,0.1)';X.lineWidth=0.6;
+    for(var w2=0;w2<5;w2++){X.beginPath();X.moveTo(cx+(-4+w2*2)*s,cy-5*s);X.lineTo(cx+(-4+w2*2)*s,cy-20*s);X.stroke()}
+  }else if(act==='load'){
+    X.beginPath();X.moveTo(cx,hy+8*s);X.lineTo(cx+10*s,hy-2*s);X.stroke();
+    X.beginPath();X.moveTo(cx,hy+8*s);X.lineTo(cx-10*s,hy-2*s);X.stroke();
+    X.fillStyle='rgba(180,160,120,0.08)';X.beginPath();X.ellipse(cx,hy-8*s,8*s,6*s,0,0,Math.PI*2);X.fill();
+  }else if(act==='carry'){
+    X.beginPath();X.moveTo(cx,hy+8*s);X.lineTo(cx+10*s,hy+15*s);X.stroke();
+    X.beginPath();X.moveTo(cx,hy+8*s);X.lineTo(cx-5*s,hy+15*s);X.stroke();
+    X.strokeStyle='rgba(140,120,80,0.1)';X.lineWidth=0.5;X.beginPath();X.moveTo(cx+10*s,hy+15*s);X.lineTo(cx+10*s,cy+5*s);X.stroke();
+  }
+  X.strokeStyle='rgba(100,100,120,0.1)';X.lineWidth=0.7;
+  X.beginPath();X.moveTo(cx,cy);X.lineTo(cx-4*s,cy+8*s);X.moveTo(cx,cy);X.lineTo(cx+4*s,cy+8*s);X.stroke();
+}
+
+function combine(cx,cy,s,prog){
+  var cW=90*s,cH=35*s;
+  X.fillStyle='rgba(50,80,50,0.1)';X.fillRect(cx-cW*0.3,cy-cH*0.8,cW*0.7,cH*0.8);
+  X.strokeStyle='rgba(70,100,70,0.2)';X.lineWidth=0.7;X.strokeRect(cx-cW*0.3,cy-cH*0.8,cW*0.7,cH*0.8);
+  X.fillStyle='rgba(60,80,100,0.08)';X.fillRect(cx-cW*0.3,cy-cH*1.2,cW*0.25,cH*0.45);
+  X.strokeStyle='rgba(80,100,120,0.15)';X.lineWidth=0.5;X.strokeRect(cx-cW*0.3,cy-cH*1.2,cW*0.25,cH*0.45);
+  X.fillStyle='rgba(80,120,160,0.06)';X.fillRect(cx-cW*0.28,cy-cH*1.15,cW*0.21,cH*0.35);
+  X.fillStyle='rgba(60,70,50,0.06)';X.fillRect(cx-cW*0.05,cy-cH*0.9,cW*0.4,cH*0.4);
+  X.strokeStyle='rgba(80,90,60,0.1)';X.lineWidth=0.4;X.strokeRect(cx-cW*0.05,cy-cH*0.9,cW*0.4,cH*0.4);
+  var gl2=0.3+Math.sin(t*0.5)*0.1;
+  X.fillStyle='rgba(200,170,60,0.06)';X.fillRect(cx-cW*0.03,cy-cH*0.9+cH*0.4*(1-gl2),cW*0.36,cH*0.4*gl2);
+  X.strokeStyle='rgba(70,80,60,0.1)';X.lineWidth=2*s;X.beginPath();X.moveTo(cx+cW*0.3,cy-cH*0.7);X.lineTo(cx+cW*0.8,cy-cH*1.1);X.stroke();
+  X.fillStyle='rgba(60,70,50,0.08)';X.fillRect(cx-cW*0.6,cy-cH*0.15,cW*0.35,cH*0.2);
+  X.strokeStyle='rgba(80,90,60,0.15)';X.lineWidth=0.5;X.strokeRect(cx-cW*0.6,cy-cH*0.15,cW*0.35,cH*0.2);
+  X.strokeStyle='rgba(80,90,60,0.12)';X.lineWidth=0.4;X.beginPath();X.arc(cx-cW*0.42,cy-cH*0.25,cH*0.3,0,Math.PI*2);X.stroke();
+  for(var rt=0;rt<8;rt++){var rta=t*2+rt*Math.PI/4;X.strokeStyle='rgba(90,100,70,0.08)';X.lineWidth=0.3;X.beginPath();X.moveTo(cx-cW*0.42,cy-cH*0.25);X.lineTo(cx-cW*0.42+Math.cos(rta)*cH*0.28,cy-cH*0.25+Math.sin(rta)*cH*0.28);X.stroke()}
+  X.fillStyle='rgba(30,30,35,0.08)';X.fillRect(cx-cW*0.35,cy,cW*0.25,cH*0.15);X.fillRect(cx+cW*0.1,cy,cW*0.25,cH*0.15);
+  X.strokeStyle='rgba(50,50,55,0.12)';X.lineWidth=0.5;X.strokeRect(cx-cW*0.35,cy,cW*0.25,cH*0.15);X.strokeRect(cx+cW*0.1,cy,cW*0.25,cH*0.15);
+  if(prog>0){X.globalAlpha=0.03;for(var d2=0;d2<5;d2++){X.fillStyle='rgba(180,160,100,0.5)';X.beginPath();X.arc(cx-cW*0.6-d2*8*s,cy+cH*0.1+Math.sin(t*3+d2)*5*s,4*s+d2*2,0,Math.PI*2);X.fill()}X.globalAlpha=1}
+}
+function draw(){
+  var spd=parseInt(document.getElementById('speed').value);
+  if(autoMode){autoTimer+=0.016;if(autoTimer>2){autoTimer=0;if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ'}}}
+  t+=0.016;
+  X.fillStyle='#060608';X.fillRect(0,0,W,H);
+  var cx=W/2,gy=H*0.68,s=Math.min(W,H)/650;
+  var pts=mode==='hand'?pH:pM;
+  X.fillStyle='rgba(255,200,80,0.02)';X.beginPath();X.arc(W*0.85,H*0.15,30*s,0,Math.PI*2);X.fill();
+  X.fillStyle='rgba(60,50,30,0.04)';X.fillRect(0,gy,W,H-gy);
+  var fs=mode==='hand'?W*0.05:W*0.02,fe=mode==='hand'?W*0.95:W*0.98,sp=mode==='hand'?8:6;
+
+  if(mode==='hand'){
+    if(stage>=0){for(var i2=fs;i2<fe;i2+=sp)stalk(i2,gy,25*s+Math.sin(i2*0.3)*5*s,i2*0.1,true,false);lbl('пшеница вызрела · колосья золотые',cx,gy-35*s,'rgba(255,220,100,0.5)')}
+    if(stage>=1){var wc=Math.min(3,stage);for(var w1=0;w1<wc;w1++)worker(cx-wc*30*s+w1*60*s,gy+5*s,s,'scythe',t+w1*1.5);lbl('коса · ритм · 30 снопов в час',cx,gy-35*s,'rgba(200,180,140,0.5)')}
+    if(stage>=2){var wc2=Math.min(5,stage);for(var w2=0;w2<wc2;w2++)worker(cx-wc2*25*s+w2*50*s,gy+5*s,s,'sickle',t+w2*1.2);lbl('серп · точность · древний метод',cx,gy-35*s,'rgba(220,180,120,0.5)')}
+    if(stage>=3){var wc3=Math.min(4,stage);for(var w3=0;w3<wc3;w3++)worker(cx-wc3*30*s+w3*60*s,gy+5*s,s,'bundle',t+w3*1.8);for(var b=0;b<3;b++){X.fillStyle='rgba(200,170,60,0.08)';X.beginPath();X.ellipse(cx-50*s+b*50*s,gy+8*s,8*s,5*s,0,0,Math.PI*2);X.fill()}lbl('сноп · верёвка · 20 кг каждый',cx,gy-35*s,'rgba(200,180,100,0.5)')}
+    if(stage>=4){X.fillStyle='rgba(160,140,100,0.05)';X.fillRect(cx-40*s,gy-10*s,80*s,25*s);X.strokeStyle='rgba(160,140,100,0.1)';X.lineWidth=0.4;X.strokeRect(cx-40*s,gy-10*s,80*s,25*s);worker(cx-20*s,gy+5*s,s,'load',t);worker(cx+20*s,gy+5*s,s,'load',t+2);lbl('молотьба · цеп · оббивка',cx,gy-35*s,'rgba(200,180,100,0.5)')}
+    if(stage>=5){worker(cx-15*s,gy+5*s,s,'carry',t);for(var ch=0;ch<8;ch++){X.fillStyle='rgba(200,180,120,0.04)';X.beginPath();X.ellipse(cx+30*s+ch*8*s+Math.sin(t+ch)*5,gy-15*s+ch*5*s+Math.sin(t*1.5+ch)*3,3,1,t+ch,0,Math.PI*2);X.fill()}lbl('веялка · ветер · чистота',cx,gy-35*s,'rgba(180,200,160,0.5)')}
+    if(stage>=6){X.strokeStyle='rgba(140,130,100,0.1)';X.lineWidth=0.5;X.beginPath();X.arc(cx-10*s,gy-12*s,12*s,0,Math.PI);X.stroke();X.fillStyle='rgba(220,180,60,0.06)';X.beginPath();X.ellipse(cx-25*s,gy+3*s,8*s,4*s,0,0,Math.PI*2);X.fill();lbl('решето · крупное / мелкое',cx,gy-35*s,'rgba(200,190,140,0.5)')}
+    if(stage>=7){X.fillStyle='rgba(100,80,50,0.05)';X.fillRect(cx-50*s,gy-40*s,100*s,40*s);X.strokeStyle='rgba(120,100,60,0.1)';X.lineWidth=0.5;X.strokeRect(cx-50*s,gy-40*s,100*s,40*s);X.beginPath();X.moveTo(cx-55*s,gy-40*s);X.lineTo(cx,gy-55*s);X.lineTo(cx+55*s,gy-40*s);X.stroke();worker(cx+60*s,gy+5*s,s,'load',t);lbl('амбар · мешки · запас на зиму',cx,gy-60*s,'rgba(200,170,120,0.5)')}
+    if(stage>=8){for(var ss=0;ss<5;ss++){X.fillStyle='rgba(220,180,60,0.08)';X.beginPath();X.ellipse(cx-8*s+ss*4*s,gy-17*s,1.5,2.5,0,0,Math.PI*2);X.fill()}lbl('отбор лучших · для посева',cx,gy-35*s,'rgba(200,200,160,0.5)')}
+    if(stage>=9){X.strokeStyle='rgba(140,140,150,0.08)';X.lineWidth=0.6;X.beginPath();X.moveTo(cx,gy-5*s);X.lineTo(cx,gy+5*s);X.lineTo(cx-10*s,gy+5*s);X.stroke();worker(cx+30*s,gy+5*s,s,'carry',t);lbl('осенняя вспашка · плуг',cx,gy-25*s,'rgba(180,160,120,0.5)')}
+    if(stage>=10){worker(cx,gy+5*s,s,'bundle',t);for(var sd=0;sd<8;sd++){X.fillStyle='rgba(220,180,60,0.06)';X.beginPath();X.ellipse(cx+Math.sin(t*2+sd*0.8)*15*s+sd*3*s,gy-10*s+sd*3*s+Math.sin(t*3+sd)*2,1,1.5,0,0,Math.PI*2);X.fill()}lbl('ручной бросок · борозда · надежда',cx,gy-25*s,'rgba(200,200,140,0.5)')}
+    if(stage>=11){for(var gs=0;gs<8;gs++){X.strokeStyle='rgba(100,180,80,0.08)';X.lineWidth=0.5;X.beginPath();X.moveTo(cx-30*s+gs*8*s,gy);X.lineTo(cx-30*s+gs*8*s,gy-(3+Math.sin(t+gs))*s);X.stroke()}lbl('дождь и солнце · рост',cx,gy-25*s,'rgba(150,200,180,0.5)')}
+    if(stage>=12){for(var i3=fs;i3<fe;i3+=sp)stalk(i3,gy,25*s+Math.sin(i3*0.3)*5*s,i3*0.1,true,false);X.strokeStyle='rgba(255,200,100,0.08)';X.lineWidth=0.8;X.beginPath();X.arc(cx,gy-30*s,12*s,0,Math.PI*2);X.stroke();lbl('цикл замкнулся · хлеб — всему голова',cx,gy-50*s,'rgba(255,220,140,0.6)',7)}
+  }else{
+    if(stage>=0){for(var i4=fs;i4<fe;i4+=sp)stalk(i4,gy,25*s+Math.sin(i4*0.3)*5*s,i4*0.1,true,false);lbl('50 гектаров · пора!',cx,gy-35*s,'rgba(255,220,100,0.5)')}
+    if(stage>=1){combine(W*0.7,gy+5*s,s,0);lbl('Дон-1500 · ротор · 240 л.с.',cx,gy-35*s,'rgba(180,220,180,0.5)')}
+    if(stage>=2){combine(W*0.55,gy+5*s,s,0.8);for(var i5=fs;i5<W*0.5;i5+=sp)stalk(i5,gy,25*s+Math.sin(i5*0.3)*5*s,i5*0.1,true,true);for(var i6=W*0.7;i6<fe;i6+=sp)stalk(i6,gy,25*s+Math.sin(i6*0.3)*5*s,i6*0.1,true,false);lbl('жатка 7.5м · 6 мотовил',cx,gy-35*s,'rgba(180,200,180,0.5)')}
+    if(stage>=3){combine(W*0.45,gy+5*s,s,1);for(var gp=0;gp<10;gp++){X.fillStyle='rgba(220,180,60,0.06)';X.beginPath();X.arc(W*0.45+Math.sin(t*3+gp)*5*s,gy-20*s-gp*3*s,1,0,Math.PI*2);X.fill()}lbl('шнек · поток зерна · 10 тонн/час',cx,gy-35*s,'rgba(200,200,160,0.5)')}
+    if(stage>=4){combine(W*0.4,gy+5*s,s,1);var thX=W*0.4,thY=gy-15*s;X.strokeStyle='rgba(100,100,110,0.08)';X.lineWidth=0.3;X.beginPath();X.arc(thX,thY,8*s,0,Math.PI*2);X.stroke();for(var rr=0;rr<6;rr++){var rra=t*3+rr*Math.PI/3;X.strokeStyle='rgba(120,120,130,0.06)';X.lineWidth=0.3;X.beginPath();X.moveTo(thX,thY);X.lineTo(thX+Math.cos(rra)*7*s,thY+Math.sin(rra)*7*s);X.stroke()}lbl('ротор 550 об/мин · сепарация',cx,gy-35*s,'rgba(200,200,180,0.5)')}
+    if(stage>=5){combine(W*0.35,gy+5*s,s,1);var tl=Math.min(1,(stage-4)*0.3);X.fillStyle='rgba(220,180,60,0.04)';X.fillRect(W*0.35+15*s,gy-30*s+20*s*(1-tl),25*s,20*s*tl);X.strokeStyle='rgba(220,180,60,0.08)';X.lineWidth=0.3;X.strokeRect(W*0.35+15*s,gy-30*s,25*s,20*s);lbl('бункер 12 тонн · авто-выгрузка',cx,gy-35*s,'rgba(220,200,120,0.5)')}
+    if(stage>=6){var trX=W*0.55,trY=gy+8*s;X.fillStyle='rgba(60,60,70,0.06)';X.fillRect(trX-30*s,trY-15*s,60*s,15*s);X.strokeStyle='rgba(80,80,90,0.1)';X.lineWidth=0.4;X.strokeRect(trX-30*s,trY-15*s,60*s,15*s);X.strokeStyle='rgba(220,180,60,0.06)';X.lineWidth=1;X.beginPath();X.moveTo(W*0.35+40*s,gy-20*s);X.lineTo(trX-10*s,trY-15*s);X.stroke();X.fillStyle='rgba(30,30,35,0.06)';X.beginPath();X.arc(trX-20*s,trY,5*s,0,Math.PI*2);X.fill();X.beginPath();X.arc(trX+20*s,trY,5*s,0,Math.PI*2);X.fill();combine(W*0.3,gy+5*s,s,1);lbl('ЗİL-5313 · 20 тонн · поле → элеватор',cx,gy-35*s,'rgba(180,200,220,0.5)')}
+    if(stage>=7){for(var es=0;es<3;es++){var esx=cx-40*s+es*35*s,esy=gy-50*s;X.fillStyle='rgba(100,100,110,0.05)';X.fillRect(esx-10*s,esy,20*s,50*s);X.strokeStyle='rgba(120,120,130,0.1)';X.lineWidth=0.4;X.strokeRect(esx-10*s,esy,20*s,50*s);X.beginPath();X.arc(esx,esy,10*s,Math.PI,0);X.stroke();var gl=0.5+es*0.15;X.fillStyle='rgba(220,180,60,0.04)';X.fillRect(esx-9*s,esy+50*s*(1-gl),18*s,50*s*gl)}lbl('приёмка · сушка · 12% влажности',cx,gy-65*s,'rgba(200,200,220,0.5)')}
+    if(stage>=8){X.fillStyle='rgba(80,90,100,0.04)';X.fillRect(cx-30*s,gy-30*s,60*s,30*s);X.strokeStyle='rgba(100,110,120,0.08)';X.lineWidth=0.4;X.strokeRect(cx-30*s,gy-30*s,60*s,30*s);for(var lw=0;lw<3;lw++){X.fillStyle='rgba(100,140,180,0.04)';X.fillRect(cx-25*s+lw*18*s,gy-25*s,12*s,10*s)}lbl('лаборатория · белок · ГОСТ',cx,gy-45*s,'rgba(180,200,220,0.5)')}
+    if(stage>=9){var trnY=gy-5*s;for(var tc=0;tc<4;tc++){var tcx=cx-60*s+tc*35*s;X.fillStyle='rgba(60,60,70,0.05)';X.fillRect(tcx,trnY-12*s,30*s,12*s);X.strokeStyle='rgba(80,80,90,0.08)';X.lineWidth=0.3;X.strokeRect(tcx,trnY-12*s,30*s,12*s);X.fillStyle='rgba(40,40,45,0.05)';X.beginPath();X.arc(tcx+5*s,trnY,3*s,0,Math.PI*2);X.fill();X.beginPath();X.arc(tcx+25*s,trnY,3*s,0,Math.PI*2);X.fill()}X.strokeStyle='rgba(100,100,110,0.06)';X.lineWidth=0.5;X.beginPath();X.moveTo(0,trnY+3*s);X.lineTo(W,trnY+3*s);X.stroke();lbl('вагоны · порт · 40 стран',cx,gy-25*s,'rgba(200,200,220,0.5)')}
+    if(stage>=10){X.fillStyle='rgba(180,60,40,0.05)';X.fillRect(cx-20*s,gy-15*s,40*s,15*s);X.strokeStyle='rgba(200,80,50,0.08)';X.lineWidth=0.4;X.strokeRect(cx-20*s,gy-15*s,40*s,15*s);lbl('ТО · ремни · смазка · масло',cx,gy-30*s,'rgba(200,180,160,0.5)')}
+    if(stage>=11){for(var cg=0;cg<14;cg++){X.fillStyle='rgba(100,180,100,0.06)';X.fillRect(cx-30*s+cg*4.3*s,gy-30*s,4*s,8*s);X.strokeStyle='rgba(120,200,120,0.08)';X.lineWidth=0.3;X.strokeRect(cx-30*s+cg*4.3*s,gy-30*s,4*s,8*s)}lbl('14 дней · 500 га · 3500 тонн',cx,gy-45*s,'rgba(200,220,180,0.5)')}
+    if(stage>=12){X.strokeStyle='rgba(255,200,100,0.08)';X.lineWidth=0.8;X.beginPath();X.arc(cx,gy-30*s,15*s,0,Math.PI*2);X.stroke();X.fillStyle='rgba(50,80,50,0.08)';X.fillRect(cx-8*s,gy-34*s,16*s,8*s);lbl('1 комбайн = 200 косарей · технологии кормят мир',cx,gy-55*s,'rgba(255,220,140,0.6)',7)}
+  }
+  document.getElementById('part-label').textContent=pts[stage]||'';
+  X.fillStyle='rgba(255,200,0,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(255,200,0,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd=0;sd<=maxStage;sd++){X.fillStyle=sd<=stage?'rgba(255,200,0,0.25)':'rgba(255,200,0,0.06)';X.beginPath();X.arc(W*0.1+W*0.8*(sd/maxStage),H-6.5,2,0,Math.PI*2);X.fill()}
+  requestAnimationFrame(draw);
+}
+draw();
+</script></body></html>
