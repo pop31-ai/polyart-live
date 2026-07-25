@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>14 — CV-Анализ: Минин и Пожарский — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#06060e;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#888;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl input[type=range]{width:90px;accent-color:#999;cursor:pointer}
+.ctrl .val{color:#ccc;font-size:11px;font-weight:bold}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:16px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fff3;z-index:10}
+#info{position:absolute;top:42px;left:50%;transform:translateX(-50%);color:#444;font-size:9px;letter-spacing:2px;z-index:10}
+#colorBtn{position:absolute;top:14px;left:14px;z-index:10;padding:4px 10px;background:rgba(255,255,255,0.04);border:1px solid #fff3;color:#aaa;font-size:9px;cursor:pointer;border-radius:3px;text-transform:uppercase;letter-spacing:1px}
+#colorBtn.on{background:rgba(255,200,0,0.1);color:#fc0;border-color:#fc03}
+#cvBtn{position:absolute;top:14px;right:14px;z-index:10;padding:4px 10px;background:rgba(255,255,255,0.04);border:1px solid #fff3;color:#aaa;font-size:9px;cursor:pointer;border-radius:3px;text-transform:uppercase;letter-spacing:1px}
+#cvBtn.on{background:rgba(0,200,255,0.1);color:#0cf;border-color:#0cf3}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">CV-Анализ: Минин и Пожарский</div>
+<div id="info">OpenCV Canny + Hough — Полиномиальные кривые — 1612</div>
+<button id="colorBtn" onclick="toggleColor()">Цвет</button>
+<button id="cvBtn" onclick="toggleCV()">CV-сетка</button>
+<div id="ui">
+<div class="ctrl"><label>Обводка</label><input type="range" id="lw" min="0" max="3" value="1" step="0.5"><span class="val" id="lwV">1</span></div>
+<div class="ctrl"><label>Свечение</label><input type="range" id="gl" min="0" max="100" value="45"><span class="val" id="glV">0.45</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+var col=false, showCV=false;
+function toggleColor(){col=!col;document.getElementById('colorBtn').classList.toggle('on',col);}
+function toggleCV(){showCV=!showCV;document.getElementById('cvBtn').classList.toggle('on',showCV);}
+document.getElementById('lw').oninput=function(){document.getElementById('lwV').textContent=this.value;};
+document.getElementById('gl').oninput=function(){document.getElementById('glV').textContent=(this.value/100).toFixed(2);};
+
+var PHI=1.618033988749895;
+var t=0;
+
+function c1(a){return col?'rgba(210,170,90,'+a+')':'rgba(190,200,220,'+a+')';}
+function c2(a){return col?'rgba(180,140,80,'+a+')':'rgba(150,160,185,'+a+')';}
+function c3(a){return col?'rgba(150,120,70,'+a+')':'rgba(115,120,150,'+a+')';}
+function c4(a){return col?'rgba(220,180,60,'+a+')':'rgba(230,235,245,'+a+')';}
+function c5(a){return col?'rgba(190,60,40,'+a+')':'rgba(180,80,60,'+a+')';}
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
+
+function draw(){
+  var lw=parseFloat(document.getElementById('lw').value);
+  var gl=parseFloat(document.getElementById('gl').value)/100;
+  t+=0.016;
+  X.fillStyle='#06060e';X.fillRect(0,0,W,H);
+
+  var cx=W/2, cy=H/2, s=Math.min(W,H)/600;
+
+  // ====== CV GRID OVERLAY ======
+  if(showCV){
+    X.globalAlpha=0.15;
+    // Silhouette vertices from CV: (0.558,0.039)(0.314,0.112)(0.354,0.377)(0.442,0.139)(0.658,0.164)
+    var cvPts=[[0.558,0.039],[0.314,0.112],[0.442,0.139],[0.658,0.164],[0.354,0.377]];
+    X.strokeStyle='#0cf';X.lineWidth=1;
+    X.beginPath();
+    for(var i=0;i<cvPts.length;i++){
+      var px=cx+(cvPts[i][0]-0.5)*W*0.85, py=cy+(cvPts[i][1]-0.5)*H*0.85;
+      if(i===0)X.moveTo(px,py);else X.lineTo(px,py);
+    }
+    X.closePath();X.stroke();
+
+    // Hough dominant lines
+    var houghLines=[[0.458,0.044,0.484,0.999],[0.170,0.0,0.798,0.857],[0.0,0.097,0.546,0.999],[0.008,0.004,0.584,0.869]];
+    X.strokeStyle='#0f6';X.lineWidth=0.5;
+    for(var i=0;i<houghLines.length;i++){
+      var l=houghLines[i];
+      X.beginPath();
+      X.moveTo(cx+(l[0]-0.5)*W*0.85,cy+(l[1]-0.5)*H*0.85);
+      X.lineTo(cx+(l[2]-0.5)*W*0.85,cy+(l[3]-0.5)*H*0.85);
+      X.stroke();
+    }
+
+    // CV zone labels
+    X.font='9px monospace';X.fillStyle='#0cf';
+    X.fillText('silhouette',cx+(0.558-0.5)*W*0.85-20,cy+(0.039-0.5)*H*0.85-6);
+    X.fillText('Minin',cx+(0.314-0.5)*W*0.85,cy+(0.112-0.5)*H*0.85-6);
+    X.fillText('Pozharsky',cx+(0.658-0.5)*W*0.85,cy+(0.164-0.5)*H*0.85-6);
+    X.fillText('podium',cx-20,cy+(0.86-0.5)*H*0.85);
+    X.globalAlpha=1;
+  }
+
+  // ====== COMPOSITION: golden ratio + CV data ======
+  // CV says: center-of-mass at (0.56, 0.38), two figures side by side
+  // Minin: left third (0.17-0.35 x), Pozharsky: center-right (0.44-0.66 x)
+
+  var figH=s*155;
+  var torsoH=figH/PHI;
+  var legH=figH-torsoH;
+  var headR=torsoH/PHI/4;
+
+  // Podium from CV: wide base (0.0-0.83 x, 0.86-0.99 y)
+  var podY=cy+H*0.35;
+  var podW=W*0.6;
+  var podH=podW/PHI/3;
+  var podTop=podY-podH*0.3;
+
+  // Podium shape — polynomial with CV proportions
+  F([
+    [cx-podW/2,podY+podH*0.3],
+    [cx-podW*0.4,podY-podH*0.1,cx-podW*0.2,podY-podH*0.25],
+    [cx,podTop],
+    [cx+podW*0.2,podY-podH*0.25,cx+podW*0.4,podY-podH*0.1],
+    [cx+podW/2,podY+podH*0.3]
+  ],c3('0.1)'));
+  S([
+    [cx-podW/2,podY+podH*0.3],
+    [cx-podW*0.4,podY-podH*0.1,cx-podW*0.2,podY-podH*0.25],
+    [cx,podTop],
+    [cx+podW*0.2,podY-podH*0.25,cx+podW*0.4,podY-podH*0.1],
+    [cx+podW/2,podY+podH*0.3]
+  ],c3('0.15)'),lw);
+
+  // Plaque on podium
+  var plcW=podW*0.35, plcH=podH*0.12;
+  F([
+    [cx-plcW/2,podTop+plcH],[cx-plcW/2,podTop],[cx+plcW/2,podTop],[cx+plcW/2,podTop+plcH]
+  ],c4('0.04)'));
+  S([
+    [cx-plcW/2,podTop+plcH],[cx-plcW/2,podTop],[cx+plcW/2,podTop],[cx+plcW/2,podTop+plcH]
+  ],c4('0.08)'),lw*0.3);
+
+  // ====== POZHARSKY (right) — CV zone (0.44-0.66 x, center-right) ======
+  var px=cx+figH*0.32;
+  var py=podTop;
+
+  // Legs
+  F([
+    [px-5*s,py],[px-4*s,py-legH*0.35,px-2*s,py-legH*0.65],
+    [px+1*s,py-legH*0.95],[px+4*s,py-legH*0.65,px+5*s,py-legH*0.35],[px+7*s,py]
+  ],c1('0.25)'));
+  F([
+    [px+2*s,py],[px+3*s,py-legH*0.35,px+5*s,py-legH*0.65],
+    [px+7*s,py-legH*0.95],[px+10*s,py-legH*0.65,px+10*s,py-legH*0.35],[px+11*s,py]
+  ],c1('0.2)'));
+  S([
+    [px-5*s,py],[px-4*s,py-legH*0.35,px-2*s,py-legH*0.65],
+    [px+1*s,py-legH*0.95],[px+4*s,py-legH*0.65,px+5*s,py-legH*0.35],[px+7*s,py]
+  ],c1('0.1)'),lw*0.5);
+
+  // Torso — broad, hero's build
+  var tBot=py-legH;
+  var tTop=tBot-torsoH;
+  F([
+    [px,tBot],[px+6*s,tBot-torsoH*0.15,px+11*s,tBot-torsoH*0.55],
+    [px+9*s,tTop,px+2*s,tTop-4*s],
+    [px-5*s,tTop,px-9*s,tBot-torsoH*0.55],
+    [px-7*s,tBot-torsoH*0.15],[px,tBot]
+  ],c1('0.35)'));
+  S([
+    [px,tBot],[px+6*s,tBot-torsoH*0.15,px+11*s,tBot-torsoH*0.55],
+    [px+9*s,tTop,px+2*s,tTop-4*s],
+    [px-5*s,tTop,px-9*s,tBot-torsoH*0.55],
+    [px-7*s,tBot-torsoH*0.15],[px,tBot]
+  ],c1('0.15)'),lw);
+
+  // Toga drapery — CV identified as smooth flowing contour
+  var wf=Math.sin(t*0.8)*5*s;
+  F([
+    [px-9*s,tBot-torsoH*0.55],
+    [px-14*s,tBot-torsoH*0.3,px-18*s+wf,tBot-torsoH*0.1],
+    [px-20*s+wf*1.3,py-legH*0.2,px-16*s+wf,py+2*s],
+    [px-10*s,py+4*s,px-6*s,tBot]
+  ],c2('0.08)'));
+  S([
+    [px-9*s,tBot-torsoH*0.55],
+    [px-14*s,tBot-torsoH*0.3,px-18*s+wf,tBot-torsoH*0.1],
+    [px-20*s+wf*1.3,py-legH*0.2,px-16*s+wf,py+2*s]
+  ],c2('0.08)'),lw*0.4);
+
+  // Left arm — holds shield
+  F([
+    [px-7*s,tTop+5*s],
+    [px-14*s,tTop+torsoH*0.15,px-24*s,tBot-torsoH*0.25],
+    [px-28*s,tBot-torsoH*0.1,px-26*s,py-legH*0.65]
+  ],c1('0.25)'));
+
+  // Shield — CV detected oval area (0.41-0.50 x, 0.33-0.45 y) → translate to local coords
+  var sx=px-28*s, sy=py-legH*0.7;
+  var sR=torsoH*0.25;
+  F([
+    [sx,sy-sR],[sx+sR*0.75,sy-sR*0.5,sx+sR*0.85,sy+sR*0.1],
+    [sx+sR*0.55,sy+sR*0.75,sx,sy+sR],
+    [sx-sR*0.55,sy+sR*0.75,sx-sR*0.85,sy+sR*0.1],
+    [sx-sR*0.75,sy-sR*0.5,sx,sy-sR]
+  ],c1('0.18)'));
+  S([
+    [sx,sy-sR],[sx+sR*0.75,sy-sR*0.5,sx+sR*0.85,sy+sR*0.1],
+    [sx+sR*0.55,sy+sR*0.75,sx,sy+sR],
+    [sx-sR*0.55,sy+sR*0.75,sx-sR*0.85,sy+sR*0.1],
+    [sx-sR*0.75,sy-sR*0.5,sx,sy-sR]
+  ],c1('0.12)'),lw);
+  // Shield emblem — cross
+  S([[sx,sy-sR*0.5],[sx,sy+sR*0.5]],c4('0.1)'),lw*0.4);
+  S([[sx-sR*0.4,sy],[sx+sR*0.4,sy]],c4('0.1)'),lw*0.4);
+
+  // Right arm — raised with sword (CV: sword tip at top 0.039)
+  F([
+    [px+7*s,tTop+5*s],
+    [px+14*s,tTop-8*s,px+18*s,tTop-torsoH*0.35],
+    [px+20*s,tTop-torsoH*0.5,px+18*s,tTop-torsoH*0.6]
+  ],c1('0.3)'));
+
+  // Sword — longest vertical element from CV
+  var swx=px+18*s, swy=tTop-torsoH*0.6;
+  var swordL=torsoH*0.65;
+  // Blade
+  F([
+    [swx-1.5*s,swy],[swx-0.5*s,swy-swordL*0.5,swx,swy-swordL],
+    [swx+0.5*s,swy-swordL*0.5,swx+1.5*s,swy]
+  ],c4('0.3)'));
+  S([[swx,swy+3*s],[swx,swy-swordL]],c4('0.25)'),lw*0.7);
+  // Guard
+  S([[swx-5*s,swy+3*s],[swx+5*s,swy+3*s]],c4('0.2)'),lw*0.8);
+  // Tip glow
+  var tg=X.createRadialGradient(swx,swy-swordL,0,swx,swy-swordL,12*s);
+  tg.addColorStop(0,'rgba(255,255,220,'+(0.1+0.06*Math.sin(t*3))+')');
+  tg.addColorStop(1,'rgba(255,255,220,0)');
+  X.fillStyle=tg;X.beginPath();X.arc(swx,swy-swordL,12*s,0,Math.PI*2);X.fill();
+
+  // Head
+  var hx=px+2*s, hy=tTop-8*s;
+  X.fillStyle=c1('0.35)');X.beginPath();X.ellipse(hx,hy,headR*1.1,headR*1.3,0,0,Math.PI*2);X.fill();
+  X.strokeStyle=c1('0.12)');X.lineWidth=lw*0.5;X.beginPath();X.ellipse(hx,hy,headR*1.1,headR*1.3,0,0,Math.PI*2);X.stroke();
+
+  // ====== MININ (left) — CV zone (0.17-0.35 x) ======
+  var mx=cx-figH*0.32;
+  var my=podTop;
+
+  // Legs
+  F([
+    [mx-4*s,my],[mx-3*s,my-legH*0.35,mx-1*s,my-legH*0.65],
+    [mx+2*s,my-legH*0.95],[mx+5*s,my-legH*0.65,mx+6*s,my-legH*0.35],[mx+7*s,my]
+  ],c2('0.25)'));
+  F([
+    [mx+1*s,my],[mx+2*s,my-legH*0.35,mx+4*s,my-legH*0.65],
+    [mx+6*s,my-legH*0.95],[mx+9*s,my-legH*0.65,mx+9*s,my-legH*0.35],[mx+10*s,my]
+  ],c2('0.2)'));
+
+  // Torso — simpler garment (Minin was merchant, not prince)
+  var mtBot=my-legH;
+  var mtTop=mtBot-torsoH;
+  F([
+    [mx,mtBot],[mx+5*s,mtBot-torsoH*0.15,mx+9*s,mtBot-torsoH*0.55],
+    [mx+8*s,mtTop,mx+1*s,mtTop-3*s],
+    [mx-5*s,mtTop,mx-8*s,mtBot-torsoH*0.55],
+    [mx-6*s,mtBot-torsoH*0.15],[mx,mtBot]
+  ],c2('0.35)'));
+  S([
+    [mx,mtBot],[mx+5*s,mtBot-torsoH*0.15,mx+9*s,mtBot-torsoH*0.55],
+    [mx+8*s,mtTop,mx+1*s,mtTop-3*s],
+    [mx-5*s,mtTop,mx-8*s,mtBot-torsoH*0.55],
+    [mx-6*s,mtBot-torsoH*0.15],[mx,mtBot]
+  ],c2('0.15)'),lw);
+
+  // Belt / sash
+  var beltY=mtBot-torsoH*0.1;
+  S([
+    [mx-7*s,beltY-2*s],[mx+9*s,beltY-2*s]
+  ],c4('0.08)'),lw*0.5);
+
+  // Robe flare — CV detected large area on left (area=3856)
+  F([
+    [mx,mtBot],[mx-10*s,mtBot+5*s,mx-15*s,mtBot+12*s],
+    [mx-12*s,mtBot+7*s,mx-3*s,mtBot]
+  ],c2('0.08)'));
+  F([
+    [mx+5*s,mtBot],[mx+12*s,mtBot+5*s,mx+14*s,mtBot+12*s],
+    [mx+10*s,mtBot+7*s,mx+6*s,mtBot]
+  ],c2('0.08)'));
+
+  // Left arm — down
+  F([
+    [mx-5*s,mtTop+5*s],
+    [mx-11*s,mtTop+torsoH*0.2,mx-16*s,mtBot-torsoH*0.25],
+    [mx-18*s,mtBot-torsoH*0.1,mx-16*s,my-legH*0.65]
+  ],c2('0.2)'));
+
+  // RIGHT ARM — THE ICONIC POINTING GESTURE
+  // CV: strong horizontal line from left (0.17) through center to right (0.50)
+  var armWave=Math.sin(t*1.5)*2*s;
+  F([
+    [mx+5*s,mtTop+3*s],
+    [mx+14*s,mtTop-2*s+armWave,mx+30*s,mtTop+torsoH*0.02+armWave],
+    [mx+45*s,mtTop+torsoH*0.08+armWave,mx+55*s,mtTop+torsoH*0.12+armWave]
+  ],c2('0.3)'));
+  S([
+    [mx+5*s,mtTop+3*s],
+    [mx+14*s,mtTop-2*s+armWave,mx+30*s,mtTop+torsoH*0.02+armWave],
+    [mx+45*s,mtTop+torsoH*0.08+armWave,mx+55*s,mtTop+torsoH*0.12+armWave]
+  ],c2('0.12)'),lw*0.5);
+
+  // Extended finger — tip of the gesture vector
+  var ftx=mx+55*s, fty=mtTop+torsoH*0.11+armWave;
+  F([[ftx,fty-1.2*s],[ftx+12*s,fty-1.8*s],[ftx+12*s,fty+1.8*s],[ftx,fty+1.2*s]],c2('0.35)'));
+  S([[ftx,fty-1.2*s],[ftx+12*s,fty-1.8*s],[ftx+12*s,fty+1.8*s],[ftx,fty+1.2*s]],c2('0.15)'),lw*0.4);
+
+  // Energy rays from finger — like CV gradient vectors
+  for(var ei=0;ei<7;ei++){
+    var ea=0.04+0.03*Math.sin(t*3+ei*1.2);
+    var er=12*s+ei*6*s;
+    var eang=-0.15+ei*0.04+Math.sin(t*2+ei)*0.02;
+    S([
+      [ftx+12*s,fty],
+      [ftx+12*s+er*0.6,fty+Math.sin(t*2.5+ei)*3*s+eang*er,ftx+12*s+er,fty+Math.sin(t*3+ei)*4*s+eang*er]
+    ],c5(ea+')'),lw*0.3);
+  }
+
+  // Head
+  var mhx=mx+1*s, mhy=mtTop-5*s;
+  X.fillStyle=c2('0.35)');X.beginPath();X.ellipse(mhx,mhy,headR*0.95,headR*1.15,0,0,Math.PI*2);X.fill();
+  // Beard — Minin was older
+  F([
+    [mhx-3*s,mhy+headR*0.4,mhx-1*s,mhy+headR*0.85],
+    [mhx,mhy+headR*1.4],
+    [mhx+1*s,mhy+headR*0.85,mhx+3*s,mhy+headR*0.4]
+  ],c3('0.15)'));
+
+  // ====== KREMLIN BACKGROUND (CV: diagonal lines at -65° to -86°) ======
+  X.globalAlpha=0.025;
+  for(var k=-4;k<=4;k++){
+    var kx=cx+k*55*s, ky=podTop-figH*0.8;
+    // Tower shape
+    F([
+      [kx-5*s,ky+figH*0.35],[kx-5*s,ky-5*s],
+      [kx,ky-18*s],[kx+5*s,ky-5*s],[kx+5*s,ky+figH*0.35]
+    ],c1('1)'));
+    // Spire
+    S([[kx,ky-18*s],[kx,ky-28*s]],c1('1)'),lw*0.5);
+  }
+  // Kremlin wall
+  S([[cx-4*55*s-5*s,podTop-figH*0.8+figH*0.35],[cx+4*55*s+5*s,podTop-figH*0.8+figH*0.35]],c1('1)'),lw*0.3);
+  X.globalAlpha=1;
+
+  // ====== GLOW EFFECTS ======
+  if(gl>0.05){
+    // Sword glow
+    var g1=X.createRadialGradient(swx,swy-swordL,0,swx,swy-swordL,28*s*gl);
+    g1.addColorStop(0,'rgba(255,255,200,'+(0.06*gl)+')');g1.addColorStop(1,'rgba(255,255,200,0)');
+    X.fillStyle=g1;X.beginPath();X.arc(swx,swy-swordL,28*s*gl,0,Math.PI*2);X.fill();
+
+    // Finger glow
+    var g2=X.createRadialGradient(ftx+12*s,fty,0,ftx+12*s,fty,20*s*gl);
+    g2.addColorStop(0,'rgba(255,200,80,'+(0.05*gl)+')');g2.addColorStop(1,'rgba(255,200,80,0)');
+    X.fillStyle=g2;X.beginPath();X.arc(ftx+12*s,fty,20*s*gl,0,Math.PI*2);X.fill();
+
+    // Ambient glow behind figures
+    var g3=X.createRadialGradient(cx,cy-20*s,0,cx,cy-20*s,figH*gl);
+    g3.addColorStop(0,'rgba(100,120,180,'+(0.02*gl)+')');g3.addColorStop(1,'rgba(100,120,180,0)');
+    X.fillStyle=g3;X.beginPath();X.arc(cx,cy-20*s,figH*gl,0,Math.PI*2);X.fill();
+  }
+
+  // ====== FLOATING PARTICLES (dust / historical atmosphere) ======
+  for(var pi=0;pi<25;pi++){
+    var ppx=cx+Math.sin(t*0.3+pi*2.5)*W*0.4;
+    var ppy=cy+Math.cos(t*0.2+pi*1.8)*H*0.4;
+    var pr=0.5+Math.sin(t+pi)*0.5;
+    X.fillStyle='rgba(200,210,230,'+(0.03+0.02*Math.sin(t*2+pi))+')';
+    X.beginPath();X.arc(ppx,ppy,pr*s,0,Math.PI*2);X.fill();
+  }
+
+  // Year text
+  X.globalAlpha=0.06;X.font=(14*s)+'px serif';X.fillStyle=c4('1)');X.textAlign='center';
+  X.fillText('1612',cx,podTop+podH*0.5);X.textAlign='left';
+  X.globalAlpha=1;
+
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

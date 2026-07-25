@@ -25,7 +25,7 @@ canvas{display:block}
 <body>
 <canvas id="c"></canvas>
 <div id="title">Минин и Пожарский</div>
-<div id="info">Полигоны и дуги — 1612</div>
+<div id="info">φ = 1.618 — Полиномиальные кривые — 1612</div>
 <button id="colorBtn" onclick="toggleColor()">Цвет</button>
 <div id="preset">
 <button class="pb active" onclick="lp(0)">Памятник</button>
@@ -33,258 +33,318 @@ canvas{display:block}
 <button class="pb" onclick="lp(2)">Гравюра</button>
 </div>
 <div id="ui">
-<div class="ctrl"><label>Толщина</label><input type="range" id="lw" min="0" max="5" value="1" step="0.5"><span class="val" id="lwV">1</span></div>
+<div class="ctrl"><label>Обводка</label><input type="range" id="lw" min="0" max="3" value="1" step="0.5"><span class="val" id="lwV">1</span></div>
 <div class="ctrl"><label>Свечение</label><input type="range" id="gl" min="0" max="100" value="40"><span class="val" id="glV">0.40</span></div>
 </div>
 <script>
-const C=document.getElementById('c'),X=C.getContext('2d');
-let W,H;
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
 function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
 resize();addEventListener('resize',resize);
 
-let col=false;
+var col=false;
 function toggleColor(){col=!col;document.getElementById('colorBtn').classList.toggle('on',col);}
-
 document.getElementById('lw').oninput=function(){document.getElementById('lwV').textContent=this.value;};
 document.getElementById('gl').oninput=function(){document.getElementById('glV').textContent=(this.value/100).toFixed(2);};
-
-const presets=[
-  {lw:1,gl:40,stroke:true,fill:true},
-  {lw:0,gl:20,stroke:false,fill:true},
-  {lw:2,gl:50,stroke:true,fill:false},
-];
 function lp(i){
-  document.getElementById('lw').value=presets[i].lw;
-  document.getElementById('lwV').textContent=presets[i].lw;
-  document.getElementById('gl').value=presets[i].gl;
-  document.getElementById('glV').textContent=(presets[i].gl/100).toFixed(2);
-  document.querySelectorAll('.pb').forEach((b,j)=>b.classList.toggle('active',j===i));
+  var P=[[1,40],[0,20],[2,50]][i];
+  document.getElementById('lw').value=P[0];document.getElementById('lwV').textContent=P[0];
+  document.getElementById('gl').value=P[1];document.getElementById('glV').textContent=(P[1]/100).toFixed(2);
+  document.querySelectorAll('.pb').forEach(function(b,j){b.classList.toggle('active',j===i);});
 }
 
-let t=0;
+var PHI=1.618033988749895;
+var t=0;
 
-function fillPoly(pts,color){
-  X.fillStyle=color;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);
-  for(let i=1;i<pts.length;i++)X.lineTo(pts[i][0],pts[i][1]);
+// Golden ratio subdivisions
+function gDiv(total){return[total/PHI,total-total/PHI];}
+
+// Polynomial curve path: [[x,y], [cpx1,cpy1, x2,y2], [cpx2,cpy2, x3,y3], ...]
+// First point is moveTo, subsequent pairs are quadratic control+end
+function P(pts,c){
+  X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);
+  for(var i=1;i<pts.length;i++){
+    var p=pts[i];
+    if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);
+    else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);
+    else X.lineTo(p[0],p[1]);
+  }
   X.closePath();X.fill();
 }
-function strokePoly(pts,color,w){
-  if(w<=0)return;X.strokeStyle=color;X.lineWidth=w;X.beginPath();
-  X.moveTo(pts[0][0],pts[0][1]);
-  for(let i=1;i<pts.length;i++)X.lineTo(pts[i][0],pts[i][1]);
+function Q(pts,c,w){
+  if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);
+  for(var i=1;i<pts.length;i++){
+    var p=pts[i];
+    if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);
+    else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);
+    else X.lineTo(p[0],p[1]);
+  }
   X.closePath();X.stroke();
 }
-function fillArc(cx,cy,r,start,end,color){
-  X.fillStyle=color;X.beginPath();X.moveTo(cx,cy);
-  X.arc(cx,cy,r,start,end);X.closePath();X.fill();
+
+// Golden spiral points for composition
+function goldenSpiral(cx,cy,a,n,dir){
+  var pts=[];
+  for(var i=0;i<=n;i++){
+    var f=i/n;
+    var r=a*Math.pow(PHI,f*2)*dir;
+    var ang=f*Math.PI*2;
+    pts.push([cx+Math.cos(ang)*r,cy+Math.sin(ang)*r]);
+  }
+  return pts;
 }
-function fillEllipse(cx,cy,rx,ry,color){
-  X.fillStyle=color;X.beginPath();X.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);X.fill();
-}
+
 function draw(){
-  const lw=parseFloat(document.getElementById('lw').value);
-  const gl=parseFloat(document.getElementById('gl').value)/100;
+  var lw=parseFloat(document.getElementById('lw').value);
+  var gl=parseFloat(document.getElementById('gl').value)/100;
   t+=0.016;
-  X.clearRect(0,0,W,H);
   X.fillStyle='#080810';X.fillRect(0,0,W,H);
 
-  const cx=W/2,cy=H/2;
-  const s=Math.min(W,H)/520;
-  const BX=cx, BY=cy+50*s;
+  var cx=W/2, cy=H/2, s=Math.min(W,H)/500;
 
-  const c1=col?'rgba(220,180,100,':'rgba(200,200,210,';
-  const c2=col?'rgba(180,150,100,':'rgba(170,170,185,';
-  const c3=col?'rgba(160,130,90,':'rgba(140,140,160,';
-  const c4=col?'rgba(140,120,200,':'rgba(160,160,180,';
-  const c5=col?'rgba(200,180,60,':'rgba(220,220,230,';
+  // Golden ratio grid positions
+  var gx=gDiv(W);  // horizontal split
+  var gy=gDiv(H);  // vertical split
 
-  // === PODIUM ===
-  fillPoly([
-    [BX-90*s,BY+30*s],[BX-70*s,BY+10*s],[BX-30*s,BY],[BX,BY-5*s],
-    [BX+30*s,BY],[BX+70*s,BY+10*s],[BX+90*s,BY+30*s]
-  ],c3('0.25)'));
-  strokePoly([
-    [BX-90*s,BY+30*s],[BX-70*s,BY+10*s],[BX-30*s,BY],[BX,BY-5*s],
-    [BX+30*s,BY],[BX+70*s,BY+10*s],[BX+90*s,BY+30*s]
-  ],c3('0.3)'),lw);
+  // Base reference point — golden section of canvas
+  var BX=cx;
+  var BY=gy[0]+30*s; // golden section Y + small offset
 
-  // === POZHARSKY (right) ===
-  var px=BX+40*s, py=BY-5*s;
+  // Figure height based on golden ratio
+  var figH=s*140;  // base height
+  var torsoH=figH/PHI;     // torso = figH/phi
+  var legH=figH-torsoH;     // legs = figH - torso
+  var headR=torsoH/PHI/4;   // head radius
 
-  // Legs — two filled trapezoids
-  fillPoly([[px-6*s,py],[px-2*s,py],[px+2*s,py-80*s],[px-4*s,py-80*s]],c1('0.4)'));
-  fillPoly([[px+2*s,py],[px+8*s,py],[px+12*s,py-80*s],[px+6*s,py-80*s]],c1('0.35)'));
-  strokePoly([[px-6*s,py],[px+8*s,py],[px+12*s,py-80*s],[px-4*s,py-80*s]],c1('0.2)'),lw*0.5);
+  // Color palette — functions, not strings
+  function c1(a){return col?'rgba(210,170,90,'+a+')':'rgba(200,200,215,'+a+')';}
+  function c2(a){return col?'rgba(180,140,80,'+a+')':'rgba(165,165,180,'+a+')';}
+  function c3(a){return col?'rgba(150,120,70,'+a+')':'rgba(130,130,155,'+a+')';}
+  function c4(a){return col?'rgba(220,180,60,'+a+')':'rgba(220,220,230,'+a+')';}
 
-  // Torso — filled polygon
-  fillPoly([
-    [px-4*s,py-80*s],[px+6*s,py-80*s],
-    [px+14*s,py-110*s],[px+16*s,py-130*s],[px+12*s,py-145*s],
-    [px-2*s,py-145*s],[px-10*s,py-130*s],[px-12*s,py-110*s]
-  ],c1('0.5)'));
-  strokePoly([
-    [px-4*s,py-80*s],[px+6*s,py-80*s],
-    [px+14*s,py-110*s],[px+16*s,py-130*s],[px+12*s,py-145*s],
-    [px-2*s,py-145*s],[px-10*s,py-130*s],[px-12*s,py-110*s]
-  ],c1('0.3)'),lw);
+  // === GOLDEN SPIRAL background (faint) ===
+  X.globalAlpha=0.03+0.01*Math.sin(t*0.5);
+  var sp=goldenSpiral(BX,BY-figH*0.3,4*s,60,1);
+  Q(sp,c4('1)'),lw*0.3);
+  X.globalAlpha=1;
 
-  // Armor line
-  for(var i=0;i<4;i++){
-    var ay=py-85*s-i*14*s;
-    strokePoly([[px-9*s+i*s,ay],[px+10*s-i*s,ay]],c1('0.1)'),lw*0.3);
-  }
-
-  // Cape — filled triangle with wind
-  var wf=Math.sin(t*1.5)*8*s;
-  fillPoly([
-    [px-8*s,py-140*s],[px-14*s,py-100*s],[px-20*s+wf,py-60*s],
-    [px-30*s+wf*1.5,py-40*s],[px-15*s,py-100*s+10*s]
+  // === PODIUM — polynomial curve ===
+  var podW=figH*1.2;
+  var podH=podW/PHI/PHI; // golden section of width
+  P([
+    [BX-podW/2,BY+podH*0.4],
+    [BX-podW*0.35,BY-podH*0.1, BX-podW*0.15,BY-podH*0.35],
+    [BX,BY-podH*0.4],
+    [BX+podW*0.15,BY-podH*0.35, BX+podW*0.35,BY-podH*0.1],
+    [BX+podW/2,BY+podH*0.4]
   ],c3('0.15)'));
-  strokePoly([
-    [px-8*s,py-140*s],[px-14*s,py-100*s],[px-20*s+wf,py-60*s],
-    [px-30*s+wf*1.5,py-40*s]
-  ],c3('0.15)'),lw*0.5);
+  Q([
+    [BX-podW/2,BY+podH*0.4],
+    [BX-podW*0.35,BY-podH*0.1, BX-podW*0.15,BY-podH*0.35],
+    [BX,BY-podH*0.4],
+    [BX+podW*0.15,BY-podH*0.35, BX+podW*0.35,BY-podH*0.1],
+    [BX+podW/2,BY+podH*0.4]
+  ],c3('0.2)'),lw);
 
-  // Left arm — polygon down to shield
-  fillPoly([
-    [px-10*s,py-140*s],[px-16*s,py-130*s],[px-22*s,py-115*s],
-    [px-26*s,py-100*s],[px-24*s,py-88*s],[px-18*s,py-88*s],
-    [px-14*s,py-100*s],[px-10*s,py-115*s],[px-6*s,py-130*s]
+  // === POZHARSKY (right) — positioned at golden section ===
+  var px=BX+figH*0.35;  // offset by golden ratio fraction
+  var py=BY-podH*0.4;
+
+  // Legs — polynomial curves
+  P([
+    [px-4*s,py],[px-3*s,py-legH*0.4,px-1*s,py-legH*0.7],
+    [px,py-legH],[px+3*s,py-legH*0.7,px+4*s,py-legH*0.4],[px+6*s,py]
+  ],c1('0.3)'));
+  P([
+    [px+1*s,py],[px+2*s,py-legH*0.4,px+4*s,py-legH*0.7],
+    [px+5*s,py-legH],[px+8*s,py-legH*0.7,px+9*s,py-legH*0.4],[px+10*s,py]
+  ],c1('0.25)'));
+  Q([
+    [px-4*s,py],[px-3*s,py-legH*0.4,px-1*s,py-legH*0.7],
+    [px,py-legH],[px+3*s,py-legH*0.7,px+4*s,py-legH*0.4],[px+6*s,py]
+  ],c1('0.12)'),lw*0.5);
+  Q([
+    [px+1*s,py],[px+2*s,py-legH*0.4,px+4*s,py-legH*0.7],
+    [px+5*s,py-legH],[px+8*s,py-legH*0.7,px+9*s,py-legH*0.4],[px+10*s,py]
+  ],c1('0.12)'),lw*0.5);
+
+  // Torso — bezier curves
+  var tBot=py-legH;
+  var tTop=tBot-torsoH;
+  P([
+    [px,tBot],[px+5*s,tBot-torsoH*0.2,px+10*s,tBot-torsoH*0.6],
+    [px+8*s,tTop,px+2*s,tTop-5*s],
+    [px-4*s,tTop,px-8*s,tBot-torsoH*0.6],
+    [px-6*s,tBot-torsoH*0.2],[px,tBot]
   ],c1('0.4)'));
-  strokePoly([[px-10*s,py-140*s],[px-26*s,py-100*s],[px-24*s,py-88*s],[px-6*s,py-130*s]],c1('0.25)'),lw*0.5);
+  Q([
+    [px,tBot],[px+5*s,tBot-torsoH*0.2,px+10*s,tBot-torsoH*0.6],
+    [px+8*s,tTop,px+2*s,tTop-5*s],
+    [px-4*s,tTop,px-8*s,tBot-torsoH*0.6],
+    [px-6*s,tBot-torsoH*0.2],[px,tBot]
+  ],c1('0.2)'),lw);
 
-  // SHIELD — filled hexagon
-  var sx=px-30*s, sy=py-94*s;
-  var shield=[
-    [sx,sy-20*s],[sx+12*s,sy-14*s],[sx+12*s,sy+4*s],
-    [sx,sy+20*s],[sx-12*s,sy+4*s],[sx-12*s,sy-14*s]
-  ];
-  fillPoly(shield,c4('0.35)'));
-  strokePoly(shield,c4('0.4)'),lw);
-  // Shield cross
-  strokePoly([[sx,sy-18*s],[sx,sy+18*s]],c4('0.2)'),lw*0.5);
-  strokePoly([[sx-10*s,sy-4*s],[sx+10*s,sy-4*s]],c4('0.2)'),lw*0.5);
+  // Cape — flowing polynomial
+  var wf=Math.sin(t*1.2)*6*s;
+  P([
+    [px-6*s,tTop+5*s],
+    [px-10*s,tTop+torsoH*0.3,px-16*s+wf,tBot-torsoH*0.2],
+    [px-22*s+wf*1.5,py-legH*0.3,px-28*s+wf*2,py-legH*0.1]
+  ],c3('0.08)'));
+  Q([
+    [px-6*s,tTop+5*s],
+    [px-10*s,tTop+torsoH*0.3,px-16*s+wf,tBot-torsoH*0.2],
+    [px-22*s+wf*1.5,py-legH*0.3,px-28*s+wf*2,py-legH*0.1]
+  ],c3('0.1)'),lw*0.5);
 
-  // Right arm up — polygon
-  fillPoly([
-    [px+8*s,py-140*s],[px+14*s,py-145*s],[px+20*s,py-155*s],
-    [px+22*s,py-170*s],[px+18*s,py-175*s],[px+12*s,py-170*s],
-    [px+6*s,py-155*s],[px+4*s,py-145*s]
-  ],c1('0.4)'));
-  strokePoly([[px+8*s,py-140*s],[px+22*s,py-170*s],[px+18*s,py-175*s],[px+4*s,py-145*s]],c1('0.25)'),lw*0.5);
+  // Arm + Shield
+  P([
+    [px-8*s,tTop+5*s],
+    [px-14*s,tTop+torsoH*0.2,px-22*s,tBot-torsoH*0.3],
+    [px-26*s,tBot-torsoH*0.1,px-24*s,py-legH*0.7]
+  ],c1('0.3)'));
 
-  // SWORD — filled thin triangle + line
-  var swx=px+18*s, swy=py-175*s;
-  fillPoly([
-    [swx-1*s,swy],[swx+1*s,swy],[swx,swy-70*s]
-  ],c5('0.6)'));
-  strokePoly([[swx,swy],[swx,swy-70*s]],c5('0.5)'),lw);
-  // Guard
-  strokePoly([[swx-6*s,swy+2*s],[swx+6*s,swy+2*s]],c5('0.4)'),lw);
+  // Shield — polynomial hexagon
+  var sx=px-26*s, sy=py-legH*0.75;
+  var sR=torsoH*0.22;
+  P([
+    [sx,sy-sR],[sx+sR*0.7,sy-sR*0.5,sx+sR*0.8,sy+sR*0.1],
+    [sx+sR*0.5,sy+sR*0.7,sx,sy+sR],
+    [sx-sR*0.5,sy+sR*0.7,sx-sR*0.8,sy+sR*0.1],
+    [sx-sR*0.7,sy-sR*0.5,sx,sy-sR]
+  ],c1('0.25)'));
+  Q([
+    [sx,sy-sR],[sx+sR*0.7,sy-sR*0.5,sx+sR*0.8,sy+sR*0.1],
+    [sx+sR*0.5,sy+sR*0.7,sx,sy+sR],
+    [sx-sR*0.5,sy+sR*0.7,sx-sR*0.8,sy+sR*0.1],
+    [sx-sR*0.7,sy-sR*0.5,sx,sy-sR]
+  ],c1('0.18)'),lw);
+
+  // Arm up + Sword
+  P([
+    [px+6*s,tTop+5*s],
+    [px+12*s,tTop-5*s,px+16*s,tTop-torsoH*0.3],
+    [px+18*s,tTop-torsoH*0.5,px+16*s,tTop-torsoH*0.6]
+  ],c1('0.35)'));
+
+  var swx=px+16*s, swy=tTop-torsoH*0.6;
+  var swordL=torsoH*0.55;
+  P([
+    [swx-1*s,swy],[swx-0.5*s,swy-swordL*0.5,swx,swy-swordL],
+    [swx+0.5*s,swy-swordL*0.5,swx+1*s,swy]
+  ],c4('0.4)'));
+  Q([[swx,swy+2*s],[swx,swy-swordL*0.5,swx,swy-swordL]],c4('0.35)'),lw);
+  Q([[swx-4*s,swy+2*s],[swx,swy+3*s,swx+4*s,swy+2*s]],c4('0.25)'),lw);
+
   // Tip glow
-  var tg=X.createRadialGradient(swx,swy-70*s,0,swx,swy-70*s,12*s);
-  tg.addColorStop(0,'rgba(255,255,220,'+(0.15+0.1*Math.sin(t*3))+')');
+  var tg=X.createRadialGradient(swx,swy-swordL,0,swx,swy-swordL,10*s);
+  tg.addColorStop(0,'rgba(255,255,220,'+(0.12+0.08*Math.sin(t*3))+')');
   tg.addColorStop(1,'rgba(255,255,220,0)');
-  X.fillStyle=tg;X.beginPath();X.arc(swx,swy-70*s,12*s,0,Math.PI*2);X.fill();
+  X.fillStyle=tg;X.beginPath();X.arc(swx,swy-swordL,10*s,0,Math.PI*2);X.fill();
 
-  // HEAD
-  var hx=px+2*s, hy=py-152*s;
-  fillEllipse(hx,hy,9*s,11*s,c1('0.5)'));
-  strokePoly([[hx-9*s,hy],[hx,hy-11*s],[hx+9*s,hy],[hx,hy+11*s],[hx-9*s,hy]],c1('0.35)'),lw*0.8);
-  // Helmet
-  fillArc(hx,hy-2*s,10*s,-Math.PI,-0,c1('0.3)'));
-  // Eyes
-  fillEllipse(hx-3*s,hy-2*s,1.5*s,1*s,c1('0.4)'));
-  fillEllipse(hx+3*s,hy-2*s,1.5*s,1*s,c1('0.4)'));
+  // Head — ellipse at golden position
+  var hx=px+2*s, hy=tTop-8*s;
+  X.fillStyle=c1('0.4)');X.beginPath();X.ellipse(hx,hy,headR,headR*1.2,0,0,Math.PI*2);X.fill();
+  X.fillStyle=c1('0.15)');X.beginPath();X.arc(hx,hy-2*s,headR*1.05,-Math.PI,0);X.fill();
 
-  // === MININ (left) ===
-  var mx=BX-40*s, my=BY-5*s;
+  // === MININ (left) — mirror golden offset ===
+  var mx=BX-figH*0.35;
+  var my=BY-podH*0.4;
 
   // Legs
-  fillPoly([[mx-6*s,my],[mx-2*s,my],[mx,my-80*s],[mx-6*s,my-80*s]],c2('0.4)'));
-  fillPoly([[mx+2*s,my],[mx+6*s,my],[mx+8*s,my-80*s],[mx+2*s,my-80*s]],c2('0.35)'));
-  strokePoly([[mx-6*s,my],[mx+8*s,my],[mx+8*s,my-80*s],[mx-6*s,my-80*s]],c2('0.2)'),lw*0.5);
-
-  // Torso — robe with flare
-  fillPoly([
-    [mx-6*s,my-80*s],[mx+2*s,my-80*s],
-    [mx+10*s,my-110*s],[mx+12*s,my-130*s],[mx+10*s,my-145*s],
-    [mx-2*s,my-145*s],[mx-10*s,my-130*s],[mx-12*s,my-110*s]
-  ],c2('0.5)'));
-  // Robe flare at bottom
-  fillPoly([
-    [mx-6*s,my-80*s],[mx-16*s,my-70*s],[mx-14*s,my-80*s]
+  P([
+    [mx-3*s,my],[mx-2*s,my-legH*0.4,mx,my-legH*0.7],
+    [mx+1*s,my-legH],[mx+4*s,my-legH*0.7,mx+5*s,my-legH*0.4],[mx+6*s,my]
+  ],c2('0.3)'));
+  P([
+    [mx+2*s,my],[mx+3*s,my-legH*0.4,mx+4*s,my-legH*0.7],
+    [mx+5*s,my-legH],[mx+8*s,my-legH*0.7,mx+8*s,my-legH*0.4],[mx+9*s,my]
   ],c2('0.25)'));
-  fillPoly([
-    [mx+2*s,my-80*s],[mx+14*s,my-70*s],[mx+10*s,my-80*s]
-  ],c2('0.25)'));
-  strokePoly([
-    [mx-6*s,my-80*s],[mx+12*s,my-110*s],[mx+10*s,my-145*s],
-    [mx-10*s,my-145*s],[mx-12*s,my-110*s]
-  ],c2('0.3)'),lw);
 
-  // Left arm — polygon
-  fillPoly([
-    [mx-10*s,my-140*s],[mx-16*s,my-130*s],[mx-20*s,my-115*s],
-    [mx-22*s,my-100*s],[mx-20*s,my-92*s],[mx-14*s,my-92*s],
-    [mx-12*s,my-100*s],[mx-10*s,my-115*s],[mx-6*s,my-130*s]
+  // Torso
+  var mtBot=my-legH;
+  var mtTop=mtBot-torsoH;
+  P([
+    [mx,mtBot],[mx+5*s,mtBot-torsoH*0.2,mx+8*s,mtBot-torsoH*0.6],
+    [mx+7*s,mtTop,mx+1*s,mtTop-4*s],
+    [mx-5*s,mtTop,mx-8*s,mtBot-torsoH*0.6],
+    [mx-6*s,mtBot-torsoH*0.2],[mx,mtBot]
+  ],c2('0.4)'));
+  Q([
+    [mx,mtBot],[mx+5*s,mtBot-torsoH*0.2,mx+8*s,mtBot-torsoH*0.6],
+    [mx+7*s,mtTop,mx+1*s,mtTop-4*s],
+    [mx-5*s,mtTop,mx-8*s,mtBot-torsoH*0.6],
+    [mx-6*s,mtBot-torsoH*0.2],[mx,mtBot]
+  ],c2('0.2)'),lw);
+
+  // Robe flare
+  P([
+    [mx,mtBot],[mx-8*s,mtBot+4*s,mx-12*s,mtBot+10*s],[mx-8*s,mtBot+6*s,mx-2*s,mtBot]
+  ],c2('0.12)'));
+  P([
+    [mx+5*s,mtBot],[mx+11*s,mtBot+4*s,mx+13*s,mtBot+10*s],[mx+9*s,mtBot+6*s,mx+6*s,mtBot]
+  ],c2('0.12)'));
+
+  // Left arm
+  P([
+    [mx-6*s,mtTop+5*s],
+    [mx-12*s,mtTop+torsoH*0.2,mx-18*s,mtBot-torsoH*0.3],
+    [mx-20*s,mtBot-torsoH*0.1,mx-18*s,my-legH*0.7]
+  ],c2('0.25)'));
+
+  // RIGHT ARM — pointing (iconic gesture)
+  P([
+    [mx+5*s,mtTop+5*s],
+    [mx+14*s,mtTop,mx+28*s,mtTop+torsoH*0.05],
+    [mx+42*s,mtTop+torsoH*0.1,mx+52*s,mtTop+torsoH*0.15]
   ],c2('0.35)'));
+  Q([
+    [mx+5*s,mtTop+5*s],
+    [mx+14*s,mtTop,mx+28*s,mtTop+torsoH*0.05],
+    [mx+42*s,mtTop+torsoH*0.1,mx+52*s,mtTop+torsoH*0.15]
+  ],c2('0.18)'),lw*0.5);
 
-  // RIGHT ARM — iconic pointing gesture — polygon
-  fillPoly([
-    [mx+8*s,my-140*s],[mx+16*s,my-142*s],[mx+28*s,my-138*s],
-    [mx+42*s,my-132*s],[mx+52*s,my-128*s],[mx+52*s,my-132*s],
-    [mx+42*s,my-136*s],[mx+28*s,my-142*s],[mx+16*s,my-146*s]
-  ],c2('0.45)'));
-  strokePoly([[mx+8*s,my-140*s],[mx+52*s,my-130*s],[mx+52*s,my-134*s],[mx+8*s,my-144*s]],c2('0.25)'),lw*0.5);
+  // Finger
+  var ftx=mx+52*s, fty=mtTop+torsoH*0.14*s/s;
+  P([[ftx,fty-1*s],[ftx+10*s,fty-1.5*s],[ftx+10*s,fty+1.5*s],[ftx,fty+1*s]],c2('0.4)'));
 
-  // Pointing finger — small triangle
-  var ftx=mx+52*s, fty=my-131*s;
-  fillPoly([[ftx,fty-1*s],[ftx+12*s,fty-2*s],[ftx,fty+1*s]],c2('0.5)'));
-
-  // Energy lines from finger
-  for(var ei=0;ei<4;ei++){
-    var ea=0.1+0.08*Math.sin(t*4+ei);
-    strokePoly([
-      [ftx+12*s+ei*6*s,fty-2*s+Math.sin(t*3+ei)*3*s],
-      [ftx+18*s+ei*8*s,fty-3*s+Math.sin(t*3+ei)*4*s]
+  // Energy rays from finger — polynomial curves
+  for(var ei=0;ei<5;ei++){
+    var ea=0.06+0.05*Math.sin(t*4+ei);
+    var er=15*s+ei*5*s;
+    Q([
+      [ftx+10*s,fty],
+      [ftx+10*s+er*0.5,fty+Math.sin(t*2+ei)*3*s,ftx+10*s+er,fty+Math.sin(t*3+ei)*4*s]
     ],c2(ea+')'),lw*0.3);
   }
 
-  // HEAD
-  var mhx=mx+1*s, mhy=my-152*s;
-  fillEllipse(mhx,mhy,8*s,10*s,c2('0.5)'));
-  strokePoly([[mhx-8*s,mhy],[mhx,mhy-10*s],[mhx+8*s,mhy],[mhx,mhy+10*s],[mhx-8*s,mhy]],c2('0.35)'),lw*0.8);
-
-  // Beard — filled triangle
-  fillPoly([
-    [mhx-4*s,mhy+5*s],[mhx,mhy+18*s],[mhx+4*s,mhy+5*s]
-  ],c3('0.3)'));
-  strokePoly([[mhx-4*s,mhy+5*s],[mhx,mhy+18*s],[mhx+4*s,mhy+5*s]],c3('0.2)'),lw*0.5);
-
-  // Eyes
-  fillEllipse(mhx-3*s,mhy-2*s,1.5*s,1*s,c2('0.4)'));
-  fillEllipse(mhx+3*s,mhy-2*s,1.5*s,1*s,c2('0.4)'));
+  // Head
+  var mhx=mx+1*s, mhy=mtTop-6*s;
+  X.fillStyle=c2('0.4)');X.beginPath();X.ellipse(mhx,mhy,headR*0.9,headR*1.1,0,0,Math.PI*2);X.fill();
+  // Beard — polynomial curve
+  P([
+    [mhx-3*s,mhy+headR*0.5,mhx-1*s,mhy+headR*0.9],
+    [mhx,mhy+headR*1.3],
+    [mhx+1*s,mhy+headR*0.9,mhx+3*s,mhy+headR*0.5]
+  ],c3('0.2)'));
 
   // === GLOWS ===
   if(gl>0.05){
-    var g1=X.createRadialGradient(swx,swy-70*s,0,swx,swy-70*s,35*s*gl);
-    g1.addColorStop(0,'rgba(255,255,200,'+(0.08*gl)+')');
-    g1.addColorStop(1,'rgba(255,255,200,0)');
-    X.fillStyle=g1;X.beginPath();X.arc(swx,swy-70*s,35*s*gl,0,Math.PI*2);X.fill();
-
-    var g2=X.createRadialGradient(ftx+12*s,fty,0,ftx+12*s,fty,25*s*gl);
-    g2.addColorStop(0,'rgba(255,220,100,'+(0.06*gl)+')');
-    g2.addColorStop(1,'rgba(255,220,100,0)');
-    X.fillStyle=g2;X.beginPath();X.arc(ftx+12*s,fty,25*s*gl,0,Math.PI*2);X.fill();
+    var g1=X.createRadialGradient(swx,swy-swordL,0,swx,swy-swordL,25*s*gl);
+    g1.addColorStop(0,'rgba(255,255,200,'+(0.07*gl)+')');g1.addColorStop(1,'rgba(255,255,200,0)');
+    X.fillStyle=g1;X.beginPath();X.arc(swx,swy-swordL,25*s*gl,0,Math.PI*2);X.fill();
+    var g2=X.createRadialGradient(ftx+10*s,fty,0,ftx+10*s,fty,18*s*gl);
+    g2.addColorStop(0,'rgba(255,220,100,'+(0.05*gl)+')');g2.addColorStop(1,'rgba(255,220,100,0)');
+    X.fillStyle=g2;X.beginPath();X.arc(ftx+10*s,fty,18*s*gl,0,Math.PI*2);X.fill();
   }
 
-  // === Kremlin silhouette background ===
-  X.globalAlpha=0.06;
+  // Kremlin silhouettes
+  X.globalAlpha=0.04;
   for(var k=-3;k<=3;k++){
-    var kx=cx+k*60*s, ky=BY-80*s;
-    fillPoly([[kx-6*s,ky+30*s],[kx-6*s,ky-8*s],[kx,ky-16*s],[kx+6*s,ky-8*s],[kx+6*s,ky+30*s]],c1('1)'));
-    fillArc(kx,ky-16*s,4*s,-Math.PI,0,c1('0.5)'));
+    var kx=cx+k*50*s, ky=BY-70*s;
+    P([
+      [kx-4*s,ky+20*s],[kx-4*s,ky-3*s],
+      [kx,ky-12*s],[kx+4*s,ky-3*s],[kx+4*s,ky+20*s]
+    ],c1('1)'));
   }
   X.globalAlpha=1;
 
