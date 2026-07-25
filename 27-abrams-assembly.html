@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>27 — Сборка Абрамса — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060808;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #fc0;color:#fc0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(255,200,0,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fc05;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#fc0;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:400px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Сборка Абрамса</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">◀</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">▶</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Обводка</label><input type="range" id="lw" min="0" max="3" value="1" step="0.5" style="width:70px;accent-color:#fc0"><span class="val" id="lwV">1</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+document.getElementById('lw').oninput=function(){document.getElementById('lwV').textContent=this.value;};
+
+var stage=0;
+var autoMode=false;
+var autoTimer=0;
+var maxStage=12;
+
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ';};
+
+var parts=[
+  'Днище корпуса — катаная сталь 60мм',
+  'Борта корпуса — комбинированная броня',
+  'Моторно-трансмиссионный отсек — газовая турбина AGT-1500',
+  'Отсек экипажа — 4 места, автозагрузчик',
+  'Ходовая часть — 7 опорных катков, торсионная подвеска',
+  'Гусеницы — обрезиненные, шириной 635мм',
+  'Лобовая броня — обеднённый уран + керамика, 600мм экв.',
+  'Башня — сварная, 22 тонны',
+  'Пушка M256 — 120мм гладкоствольная',
+  'Прицельный комплекс — Thermal Viewer, лазерный дальномер',
+  'Боекомплект — 40 снарядов, автомат заряжания',
+  'Апгрейд — динамическая защита, система защиты от ОМП',
+  'Готов — M1A2 Abrams SEP v3'
+];
+
+var t=0;
+var conveyorOffset=0;
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
+
+function label(text,x,y,color,size){
+  X.globalAlpha=0.6;X.font=(size||7)+'px monospace';X.fillStyle=color||'rgba(255,220,180,0.8)';X.textAlign='center';X.fillText(text,x,y);X.textAlign='left';X.globalAlpha=1;
+}
+
+// Conveyor belt
+function drawConveyor(y,t2){
+  conveyorOffset=(conveyorOffset+0.5)%20;
+  
+  // Belt surface
+  F([0,y,W,y,W,y+12,0,y+12],'rgba(60,60,65,0.2)');
+  S([[0,y],[W,y]],'rgba(100,100,110,0.2)',0.5);
+  S([[0,y+12],[W,y+12]],'rgba(100,100,110,0.2)',0.5);
+  
+  // Belt segments
+  for(var bs=0;bs<W/20+1;bs++){
+    var bsx=bs*20-conveyorOffset;
+    S([[bsx,y+2],[bsx,y+10]],'rgba(80,80,90,0.1)',0.3);
+  }
+  
+  // Rollers
+  for(var br=0;br<6;br++){
+    var brx=br*W/5+W*0.1;
+    X.fillStyle='rgba(70,70,75,0.15)';X.beginPath();X.arc(brx,y+6,5,0,Math.PI*2);X.fill();
+    X.strokeStyle='rgba(90,90,100,0.2)';X.lineWidth=0.5;
+    X.beginPath();X.arc(brx,y+6,5,0,Math.PI*2);X.stroke();
+  }
+}
+
+// Tank hull — builds up with each stage
+function drawTankHull(cx,cy,s,stage2,t2){
+  var hullW=120*s;
+  var hullH=30*s;
+  var hullY=cy;
+  
+  // Stage 0: Bottom plate
+  if(stage2>=0){
+    var alpha=Math.min(stage2/2,1)*0.2;
+    F([cx-hullW,hullY,cx+hullW,hullY,cx+hullW*0.95,hullY+hullH,cx-hullW*0.95,hullY+hullH],'rgba(80,85,75,'+alpha+')');
+    S([cx-hullW,hullY,cx+hullW,hullY,cx+hullW*0.95,hullY+hullH,cx-hullW*0.95,hullY+hullH],'rgba(100,105,95,0.3)',0.8);
+  }
+  
+  // Stage 1: Side walls
+  if(stage2>=1){
+    S([cx-hullW,hullY,cx-hullW,hullY-hullH*1.5],'rgba(100,105,95,0.25)',0.7);
+    S([cx+hullW,hullY,cx+hullW,hullY-hullH*1.5],'rgba(100,105,95,0.25)',0.7);
+    S([[cx-hullW,hullY-hullH*1.5],[cx+hullW,hullY-hullH*1.5]],'rgba(100,105,95,0.2)',0.5);
+    label('корпус',cx,hullY+hullH+15*s,'rgba(150,155,140,0.5)',6);
+  }
+  
+  // Stage 2: Engine deck
+  if(stage2>=2){
+    var engX=cx+hullW*0.5;
+    var engW=hullW*0.4;
+    F([engX,hullY-hullH*1.5,engX+engW,hullY-hullH*1.5,engX+engW,hullY-hullH*1.8,engX,hullY-hullH*1.8],'rgba(70,75,65,0.12)');
+    S([engX,hullY-hullH*1.5,engX+engW,hullY-hullH*1.5,engX+engW,hullY-hullH*1.8,engX,hullY-hullH*1.8],'rgba(90,95,85,0.2)',0.4);
+    // Vents
+    for(var ev=0;ev<4;ev++){
+      var evx=engX+5*s+ev*8*s;
+      S([[evx,hullY-hullH*1.55],[evx,hullY-hullH*1.75]],'rgba(80,85,75,0.1)',0.3);
+    }
+    label('ГТУ AGT-1500 · 1500 л.с.',engX+engW*0.5,hullY-hullH*1.9,'rgba(180,160,120,0.4)',5);
+  }
+  
+  // Stage 3: Crew compartment
+  if(stage2>=3){
+    var crewX=cx-hullW*0.5;
+    var crewW=hullW*0.4;
+    F([crewX,hullY-hullH*1.5,crewX+crewW,hullY-hullH*1.5,crewX+crewW,hullY-hullH*1.8,crewX,hullY-hullH*1.8],'rgba(60,65,55,0.1)');
+    S([crewX,hullY-hullH*1.5,crewX+crewW,hullY-hullH*1.5,crewX+crewW,hullY-hullH*1.8,crewX,hullY-hullH*1.8],'rgba(80,85,75,0.2)',0.4);
+    // Crew seats
+    for(var cs=0;cs<3;cs++){
+      var csx=crewX+8*s+cs*12*s;
+      F([csx,hullY-hullH*1.55,csx+6*s,hullY-hullH*1.55,csx+6*s,hullY-hullH*1.7,csx,hullY-hullH*1.7],'rgba(60,70,50,0.08)');
+    }
+    label('экипаж · 4 человека',crewX+crewW*0.5,hullY-hullH*1.9,'rgba(120,150,120,0.4)',5);
+  }
+  
+  // Stage 4: Suspension/road wheels
+  if(stage2>=4){
+    for(var rw=0;rw<7;rw++){
+      var rwx=cx-hullW*0.85+rw*hullW*0.28;
+      var rwy=hullY+hullH+3*s;
+      // Wheel
+      X.fillStyle='rgba(70,75,65,0.12)';X.beginPath();X.arc(rwx,rwy,6*s,0,Math.PI*2);X.fill();
+      X.strokeStyle='rgba(90,95,85,0.25)';X.lineWidth=0.6;
+      X.beginPath();X.arc(rwx,rwy,6*s,0,Math.PI*2);X.stroke();
+      // Hub
+      X.fillStyle='rgba(80,85,75,0.1)';X.beginPath();X.arc(rwx,rwy,2*s,0,Math.PI*2);X.fill();
+      // Swing arm
+      S([[rwx,hullY+hullH],[rwx,hullY+hullH+3*s]],'rgba(90,95,85,0.15)',0.4);
+    }
+    label('ходовая · 7 катков · торсион',cx,hullY+hullH+20*s,'rgba(140,145,130,0.4)',5);
+  }
+  
+  // Stage 5: Tracks
+  if(stage2>=5){
+    // Track outline
+    var trackY=hullY+hullH+3*s;
+    var trackR=7*s;
+    var trackLeft=cx-hullW*0.85-trackR;
+    var trackRight=cx+hullW*0.85+trackR;
+    X.strokeStyle='rgba(90,95,85,0.2)';X.lineWidth=2*s;
+    X.beginPath();
+    X.arc(trackLeft,trackY,trackR,Math.PI*0.5,Math.PI*1.5);
+    X.lineTo(trackLeft,trackY-trackR);
+    X.arc(trackRight,trackY,trackR,Math.PI*1.5,Math.PI*0.5);
+    X.lineTo(trackRight,trackY+trackR);
+    X.stroke();
+    
+    // Track links
+    for(var tl=0;tl<20;tl++){
+      var tlx=trackLeft+trackR+tl*(trackRight-trackLeft-trackR*2)/19;
+      S([[tlx,trackY+trackR-1],[tlx+2,trackY+trackR+2]],'rgba(80,85,75,0.08)',0.3);
+    }
+    label('гусеницы · обрезиненные · 635мм',cx,trackY+trackR+15*s,'rgba(140,145,130,0.4)',5);
+  }
+  
+  // Stage 6: Front armor
+  if(stage2>=6){
+    var armorPts=[[cx-hullW,hullY-hullH*1.5],[cx-hullW*0.7,hullY-hullH*2.2],[cx+hullW*0.7,hullY-hullH*2.2],[cx+hullW,hullY-hullH*1.5]];
+    F(armorPts,'rgba(75,80,70,0.12)');
+    S(armorPts,'rgba(100,105,95,0.3)',0.8);
+    
+    // Composite layers
+    for(var cl=0;cl<3;cl++){
+      var cly=hullY-hullH*1.6-cl*5*s;
+      S([[cx-hullW*0.85,cly],[cx+hullW*0.85,cly]],'rgba(90,95,85,0.08)',0.3);
+    }
+    label('лоб · Уран+Керамика · 600мм',cx,hullY-hullH*2.3,'rgba(200,180,140,0.5)',6);
+  }
+  
+  // Stage 7: Turret ring
+  if(stage2>=7){
+    var turretRingY=hullY-hullH*2.2;
+    X.strokeStyle='rgba(110,115,105,0.25)';X.lineWidth=1.5;
+    X.beginPath();X.ellipse(cx,turretRingY,40*s,6*s,0,0,Math.PI*2);X.stroke();
+  }
+  
+  // Stage 8: Turret
+  if(stage2>=8){
+    var turretY=hullY-hullH*2.2;
+    var turretW=50*s;
+    var turretH=25*s;
+    
+    // Turret body
+    F([cx-turretW,turretY,cx+turretW,turretY,cx+turretW*0.8,turretY-turretH,cx-turretW*0.8,turretY-turretH],'rgba(75,80,70,0.15)');
+    S([cx-turretW,turretY,cx+turretW,turretY,cx+turretW*0.8,turretY-turretH,cx-turretW*0.8,turretY-turretH],'rgba(100,105,95,0.3)',0.8);
+    
+    // Turret rear bustle
+    F([cx+turretW*0.6,turretY-turretH,cx+turretW*1.2,turretY-turretH,cx+turretW*1.2,turretY-turretH*0.5,cx+turretW*0.6,turretY-turretH*0.5],'rgba(70,75,65,0.1)');
+    S([cx+turretW*0.6,turretY-turretH,cx+turretW*1.2,turretY-turretH,cx+turretW*1.2,turretY-turretH*0.5,cx+turretW*0.6,turretY-turretH*0.5],'rgba(90,95,85,0.2)',0.5);
+    
+    label('башня · 22 тонны',cx,turretY-turretH-10*s,'rgba(150,155,140,0.5)',6);
+  }
+  
+  // Stage 9: Main gun
+  if(stage2>=9){
+    var gunY=hullY-hullH*2.2-15*s;
+    var gunLen=90*s;
+    var gunW=3*s;
+    
+    // Gun barrel
+    S([[cx-40*s,gunY],[cx-40*s-gunLen,gunY]],'rgba(90,95,85,0.3)',gunW);
+    
+    // Muzzle brake
+    F([cx-40*s-gunLen-5*s,gunY-4*s,cx-40*s-gunLen+5*s,gunY-4*s,cx-40*s-gunLen+5*s,gunY+4*s,cx-40*s-gunLen-5*s,gunY+4*s],'rgba(80,85,75,0.1)');
+    S([cx-40*s-gunLen-5*s,gunY-4*s,cx-40*s-gunLen+5*s,gunY-4*s,cx-40*s-gunLen+5*s,gunY+4*s,cx-40*s-gunLen-5*s,gunY+4*s],'rgba(100,105,95,0.2)',0.5);
+    
+    // Thermal sleeve segments
+    for(var ts=0;ts<6;ts++){
+      var tsx=cx-40*s-ts*12*s;
+      S([[tsx,gunY-gunW-1],[tsx,gunY+gunW+1]],'rgba(90,95,85,0.1)',0.3);
+    }
+    
+    label('M256 · 120мм гладкоствольная',cx-40*s-gunLen*0.5,gunY-10*s,'rgba(180,160,120,0.5)',5);
+  }
+  
+  // Stage 10: Optics/sights
+  if(stage2>=10){
+    var sightX=cx-35*s;
+    var sightY=hullY-hullH*2.2-20*s;
+    
+    // Commander's sight
+    F([sightX-5*s,sightY-8*s,sightX+5*s,sightY-8*s,sightX+5*s,sightY,sightX-5*s,sightY],'rgba(60,65,80,0.12)');
+    S([sightX-5*s,sightY-8*s,sightX+5*s,sightY-8*s,sightX+5*s,sightY,sightX-5*s,sightY],'rgba(80,85,110,0.25)',0.5);
+    
+    // Gunner's sight
+    var gsX=cx-20*s;
+    F([gsX-4*s,sightY-6*s,gsX+4*s,sightY-6*s,gsX+4*s,sightY,gsX-4*s,sightY],'rgba(60,65,80,0.1)');
+    S([gsX-4*s,sightY-6*s,gsX+4*s,sightY-6*s,gsX+4*s,sightY,gsX-4*s,sightY],'rgba(80,85,110,0.2)',0.4);
+    
+    label('прицел · ТВ·лазер·ИК',sightX,sightY-15*s,'rgba(120,140,180,0.5)',5);
+  }
+  
+  // Stage 11: Ammo/rack
+  if(stage2>=11){
+    var ammoX=cx+turretW*0.8;
+    var ammoY=hullY-hullH*1.8;
+    
+    // Ammo rack
+    for(var am=0;am<5;am++){
+      var amy=ammoY-am*4*s;
+      S([[ammoX,amy],[ammoX+8*s,amy-2*s]],'rgba(180,160,80,0.1)',0.4);
+    }
+    
+    // Autoloader mechanism
+    S([[ammoX+10*s,ammoY-10*s],[ammoX+10*s,ammoY+5*s]],'rgba(120,120,130,0.1)',0.3);
+    
+    label('40 снарядов · автозагрузчик',ammoX+10*s,ammoY+12*s,'rgba(200,180,100,0.4)',5);
+  }
+  
+  // Stage 12: Complete — add details
+  if(stage2>=12){
+    // ERA blocks on turret
+    for(var er=0;er<4;er++){
+      var erx=cx-30*s+er*15*s;
+      var ery=hullY-hullH*2.2-18*s;
+      F([erx-3*s,ery-3*s,erx+3*s,ery-3*s,erx+3*s,ery+3*s,erx-3*s,ery+3*s],'rgba(80,85,75,0.06)');
+      S([erx-3*s,ery-3*s,erx+3*s,ery-3*s,erx+3*s,ery+3*s,erx-3*s,ery+3*s],'rgba(100,105,95,0.15)',0.3);
+    }
+    
+    // Antenna
+    S([[cx+40*s,hullY-hullH*2.2-25*s],[cx+42*s,hullY-hullH*2.2-55*s]],'rgba(120,120,130,0.1)',0.3);
+    
+    // Machine gun on turret
+    S([[cx-10*s,hullY-hullH*2.2-28*s],[cx-25*s,hullY-hullH*2.2-30*s]],'rgba(90,95,85,0.15)',0.5);
+    
+    // Dazzler/IRC
+    F([cx+turretW*0.9,hullY-hullH*2.2-5*s,cx+turretW*0.9+6*s,hullY-hullH*2.2-5*s,cx+turretW*0.9+6*s,hullY-hullH*2.2+2*s,cx+turretW*0.9,hullY-hullH*2.2+2*s],'rgba(80,80,90,0.06)');
+    
+    // Final label
+    label('M1A2 Abrams SEP v3 · боевой вес 66 тонн',cx,hullY+hullH+35*s,'rgba(255,220,180,0.6)',7);
+    label('120мм M256 · ГТУ 1500л.с. · 67км/ч · экипаж 4',cx,hullY+hullH+45*s,'rgba(200,180,140,0.35)',5);
+  }
+}
+
+// Sparks during assembly
+function drawSparks(cx,cy,s,t2){
+  if(stage===0||stage>12)return;
+  for(var sp=0;sp<8;sp++){
+    var spx=cx+Math.sin(t2*3+sp*2.5)*60*s;
+    var spy=cy-20*s+Math.cos(t2*2+sp*1.7)*30*s;
+    var spl=2+Math.sin(t2*5+sp)*1.5;
+    X.strokeStyle='rgba(255,200,80,'+(0.1+0.05*Math.sin(t2*4+sp))+')';
+    X.lineWidth=0.3;
+    X.beginPath();X.moveTo(spx,spy);X.lineTo(spx+Math.cos(sp)*spl,spy+Math.sin(sp)*spl);X.stroke();
+  }
+}
+
+// Factory background
+function drawFactory(t2){
+  // Crane
+  S([[W*0.1,0],[W*0.1,H*0.3]],'rgba(80,80,85,0.08)',1);
+  S([[W*0.1,H*0.3],[W*0.9,H*0.3]],'rgba(80,80,85,0.06)',0.8);
+  
+  // Crane hook
+  var hookX=W*0.1+Math.sin(t2*0.2)*W*0.3;
+  S([[hookX,H*0.3],[hookX,H*0.4]],'rgba(100,100,110,0.06)',0.4);
+  
+  // Overhead lights
+  for(var ol=0;ol<5;ol++){
+    var olx=W*0.15+ol*W*0.175;
+    var oly=H*0.08;
+    X.fillStyle='rgba(255,240,200,'+(0.02+0.005*Math.sin(t2*0.5+ol))+')';
+    X.beginPath();X.arc(olx,oly,15,0,Math.PI*2);X.fill();
+    S([[olx,0],[olx,oly]],'rgba(100,100,110,0.04)',0.3);
+  }
+  
+  // Floor markings
+  S([[W*0.05,H*0.88],[W*0.95,H*0.88]],'rgba(200,180,50,0.04)',0.5);
+  // Safety stripes
+  for(var ss=0;ss<20;ss++){
+    var ssx=W*0.05+ss*W*0.0475;
+    S([[ssx,H*0.875],[ssx+8,H*0.885]],'rgba(200,180,50,0.03)',0.5);
+  }
+}
+
+function draw(){
+  var lw=parseFloat(document.getElementById('lw').value);
+  
+  if(autoMode){
+    autoTimer+=0.016;
+    if(autoTimer>2){
+      autoTimer=0;
+      if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}
+      else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ';}
+    }
+  }
+  
+  t+=0.016;
+  
+  // Background — factory interior
+  X.fillStyle='#060808';X.fillRect(0,0,W,H);
+  
+  // Ambient factory light
+  var sg=X.createRadialGradient(W*0.5,H*0.4,0,W*0.5,H*0.4,W*0.4);
+  sg.addColorStop(0,'rgba(200,200,180,0.03)');
+  sg.addColorStop(1,'rgba(200,200,180,0)');
+  X.fillStyle=sg;X.fillRect(0,0,W,H);
+  
+  var cx=W/2;
+  var cy=H*0.55;
+  var s=Math.min(W,H)/600;
+  
+  // Factory elements
+  drawFactory(t);
+  
+  // Conveyor belt
+  drawConveyor(cy+50*s,t);
+  
+  // Tank
+  drawTankHull(cx,cy,s,stage,t);
+  
+  // Assembly sparks
+  drawSparks(cx,cy-20*s,s,t);
+  
+  // Part label
+  document.getElementById('part-label').textContent=parts[stage]||'';
+  
+  // Progress bar
+  X.fillStyle='rgba(255,200,100,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(255,200,100,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  
+  // Stage dots
+  for(var sd=0;sd<=maxStage;sd++){
+    var sdx=W*0.1+W*0.8*(sd/maxStage);
+    X.fillStyle=sd<=stage?'rgba(255,200,100,0.25)':'rgba(255,200,100,0.06)';
+    X.beginPath();X.arc(sdx,H-6.5,2,0,Math.PI*2);X.fill();
+  }
+  
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
