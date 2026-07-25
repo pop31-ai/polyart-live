@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>17 — φ-Примитивы — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#08060e;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:10}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl input[type=range]{width:90px;accent-color:#fc0;cursor:pointer}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:16px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fc05;z-index:10}
+#info{position:absolute;top:42px;left:50%;transform:translateX(-50%);color:#666;font-size:9px;letter-spacing:2px;z-index:10}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">φ-Примитивы</div>
+<div id="info">Золотое сечение — Приподнятые элементы — Тени глубины — Полиномиальные кривые</div>
+<div id="ui">
+<div class="ctrl"><label>Обводка</label><input type="range" id="lw" min="0" max="3" value="1" step="0.5"><span class="val" id="lwV">1</span></div>
+<div class="ctrl"><label>Высота</label><input type="range" id="gl" min="0" max="100" value="50"><span class="val" id="glV">0.50</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+document.getElementById('lw').oninput=function(){document.getElementById('lwV').textContent=this.value;};
+document.getElementById('gl').oninput=function(){document.getElementById('glV').textContent=(this.value/100).toFixed(2);};
+
+var PHI=1.618033988749895;
+var t=0;
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
+
+// Draw elevated primitive: shape + drop shadow + highlight edge
+function elevation(cx,cy,size,shadowH,col,strokeCol,lw2){
+  // Drop shadow
+  X.globalAlpha=0.15;
+  F([
+    [cx-size,cy+shadowH*0.3],[cx-size+size*0.3,cy+shadowH,cx+size*0.3,cy+shadowH],[cx+size,cy+shadowH*0.3]
+  ],'rgba(0,0,0,0.8)');
+  X.globalAlpha=1;
+  // Main shape
+  S([[cx-size,cy],[cx+size,cy]],strokeCol,lw2);
+  // Highlight edge (top)
+  S([[cx-size,cy],[cx-size+size*0.2,cy-shadowH*0.3]],'rgba(255,255,255,0.08)',lw2*0.3);
+}
+
+// Golden ratio spiral points
+function gSpiral(cx,cy,a,n){
+  var pts=[];
+  for(var i=0;i<=n;i++){
+    var f=i/n;
+    var r=a*Math.pow(PHI,f*2);
+    var ang=f*Math.PI*2;
+    pts.push([cx+Math.cos(ang)*r,cy+Math.sin(ang)*r]);
+  }
+  return pts;
+}
+
+function draw(){
+  var lw=parseFloat(document.getElementById('lw').value);
+  var elev=parseFloat(document.getElementById('gl').value)/100;
+  t+=0.016;
+  X.fillStyle='#08060e';X.fillRect(0,0,W,H);
+
+  var cx=W/2, cy=H/2, s=Math.min(W,H)/550;
+  var shH=elev*12*s; // shadow height = elevation
+
+  // ====== GOLDEN RATIO GRID ======
+  var gx1=W/PHI, gx2=W-gx1;
+  var gy1=H/PHI, gy2=H-gy1;
+  // Vertical lines
+  X.globalAlpha=0.04;
+  S([[gx1,0],[gx1,H]],'rgba(255,200,0,0.5)',lw*0.3);
+  S([[gx2,0],[gx2,H]],'rgba(255,200,0,0.5)',lw*0.3);
+  S([[0,gy1],[W,gy1]],'rgba(255,200,0,0.5)',lw*0.3);
+  S([[0,gy2],[W,gy2]],'rgba(255,200,0,0.5)',lw*0.3);
+  X.globalAlpha=1;
+
+  // Golden spiral
+  var sp=gSpiral(cx,cy,W*0.35,80);
+  X.globalAlpha=0.06+0.02*Math.sin(t*0.5);
+  S(sp,'rgba(255,200,50,0.5)',lw*0.5);
+  X.globalAlpha=1;
+
+  // ====== FIGURE — human form from φ-primitives ======
+  // Each body part = primitive scaled by golden ratio
+  // Positioned at golden section points
+  // Elevated with shadows
+
+  // === HEAD — circle, highest element ===
+  var headR=s*28;
+  var headX=cx;
+  var headY=cy-H*0.22;
+  var headElev=shH*1.5;
+
+  // Shadow
+  X.globalAlpha=0.2;
+  X.fillStyle='rgba(0,0,0,0.9)';X.beginPath();X.ellipse(headX+3*s,headY+headElev+4*s,headR*1.1,headR*0.4,0,0,Math.PI*2);X.fill();
+  X.globalAlpha=1;
+  // Circle head
+  X.fillStyle='rgba(255,230,180,0.15)';X.beginPath();X.arc(headX,headY-headElev,headR,0,Math.PI*2);X.fill();
+  X.strokeStyle='rgba(255,220,160,0.6)';X.lineWidth=lw*1.2;X.beginPath();X.arc(headX,headY-headElev,headR,0,Math.PI*2);X.stroke();
+  // Inner highlight
+  X.globalAlpha=0.1;X.fillStyle='rgba(255,255,255,0.4)';X.beginPath();X.arc(headX-headR*0.2,headY-headElev-headR*0.3,headR*0.5,0,Math.PI*2);X.fill();X.globalAlpha=1;
+  // Eyes — two small circles at φ positions
+  var eyeY=headY-headElev+headR*0.05;
+  var eyeR=headR*0.12;
+  X.fillStyle='rgba(255,255,255,0.25)';X.beginPath();X.arc(headX-headR*0.3,eyeY,eyeR,0,Math.PI*2);X.fill();
+  X.beginPath();X.arc(headX+headR*0.3,eyeY,eyeR,0,Math.PI*2);X.fill();
+  X.fillStyle='rgba(40,40,60,0.5)';X.beginPath();X.arc(headX-headR*0.3,eyeY,eyeR*0.5,0,Math.PI*2);X.fill();
+  X.beginPath();X.arc(headX+headR*0.3,eyeY,eyeR*0.5,0,Math.PI*2);X.fill();
+  // Mouth — curved line
+  var mouthY=headY-headElev+headR*0.4;
+  S([
+    [headX-headR*0.25,mouthY],
+    [headX,mouthY+3*s+Math.sin(t*1.5)*2*s,headX+headR*0.25,mouthY]
+  ],c8a(0.3),lw*0.8);
+
+  // === NECK — small rectangle ===
+  var neckW=8*s, neckH=12*s/PHI;
+  var neckTop=headY-headElev+headR;
+  // Shadow
+  X.globalAlpha=0.1;X.fillStyle='rgba(0,0,0,0.7)';X.fillRect(headX-neckW/2+2*s,neckTop+shH,neckW,neckH);X.globalAlpha=1;
+  F([[headX-neckW/2,neckTop],[headX+neckW/2,neckTop],[headX+neckW/2,neckTop+neckH],[headX-neckW/2,neckTop+neckH]],'rgba(255,220,160,0.12)');
+  S([[headX-neckW/2,neckTop],[headX+neckW/2,neckTop],[headX+neckW/2,neckTop+neckH],[headX-neckW/2,neckTop+neckH]],'rgba(255,220,160,0.4)',lw*0.7);
+
+  // === TORSO — large diamond/rhombus ===
+  var torsoW=headR*2.2;
+  var torsoH2=torsoW*PHI;
+  var torsoTop=neckTop+neckH;
+  var torsoCX=headX;
+  var torsoCY=torsoTop+torsoH2*0.5;
+  var torsoElev=shH*1.2;
+
+  // Shadow
+  X.globalAlpha=0.18;
+  F([
+    [torsoCX,torsoCY+torsoH2*0.55+torsoElev*0.3],
+    [torsoCX+torsoW*0.6,torsoCY+torsoElev*0.3],
+    [torsoCX,torsoCY-torsoH2*0.55+torsoElev*0.3],
+    [torsoCX-torsoW*0.6,torsoCY+torsoElev*0.3]
+  ],'rgba(0,0,0,0.9)');
+  X.globalAlpha=1;
+
+  // Main diamond
+  F([
+    [torsoCX,torsoCY-torsoH2*0.55-torsoElev],
+    [torsoCX+torsoW*0.6,torsoCY-torsoElev],
+    [torsoCX,torsoCY+torsoH2*0.55-torsoElev],
+    [torsoCX-torsoW*0.6,torsoCY-torsoElev]
+  ],'rgba(40,60,120,0.12)');
+  S([
+    [torsoCX,torsoCY-torsoH2*0.55-torsoElev],
+    [torsoCX+torsoW*0.6,torsoCY-torsoElev],
+    [torsoCX,torsoCY+torsoH2*0.55-torsoElev],
+    [torsoCX-torsoW*0.6,torsoCY-torsoElev]
+  ],'rgba(100,130,220,0.6)',lw*1.2);
+
+  // Inner diamond — golden ratio subdivision
+  var inW=torsoW*0.6, inH=torsoH2*0.6;
+  F([
+    [torsoCX,torsoCY-inH*0.55-torsoElev],
+    [torsoCX+inW*0.6,torsoCY-torsoElev],
+    [torsoCX,torsoCY+inH*0.55-torsoElev],
+    [torsoCX-inW*0.6,torsoCY-torsoElev]
+  ],'rgba(80,110,200,0.06)');
+  S([
+    [torsoCX,torsoCY-inH*0.55-torsoElev],
+    [torsoCX+inW*0.6,torsoCY-torsoElev],
+    [torsoCX,torsoCY+inH*0.55-torsoElev],
+    [torsoCX-inW*0.6,torsoCY-torsoElev]
+  ],'rgba(100,130,220,0.25)',lw*0.6);
+
+  // Diagonal division — φ split
+  S([
+    [torsoCX-torsoW*0.5,torsoCY-torsoH2*0.3-torsoElev],
+    [torsoCX+torsoW*0.4,torsoCY+torsoH2*0.35-torsoElev]
+  ],'rgba(255,200,50,0.2)',lw*0.5);
+
+  // === LEFT ARM — triangle ===
+  var armLX=torsoCX-torsoW*0.6;
+  var armLY=torsoCY-torsoH2*0.3-torsoElev;
+  var armLen=torsoW*0.8;
+  var armElev=shH*0.9;
+
+  // Shadow
+  X.globalAlpha=0.12;
+  F([
+    [armLX,armLY+armElev*0.3],
+    [armLX-armLen*0.7,armLY+armLen*0.5+armElev*0.3],
+    [armLX-armLen*0.3,armLY+armLen*0.3+armElev*0.3]
+  ],'rgba(0,0,0,0.8)');
+  X.globalAlpha=1;
+
+  // Triangle arm
+  var armAngle=Math.sin(t*1.5)*0.1;
+  F([
+    [armLX,armLY-armElev],
+    [armLX-Math.cos(0.8+armAngle)*armLen,armLY-Math.sin(0.8+armAngle)*armLen*0.3-armElev],
+    [armLX-Math.cos(1.2+armAngle)*armLen*0.5,armLY+Math.sin(1.2+armAngle)*armLen*0.4-armElev]
+  ],'rgba(200,160,80,0.1)');
+  S([
+    [armLX,armLY-armElev],
+    [armLX-Math.cos(0.8+armAngle)*armLen,armLY-Math.sin(0.8+armAngle)*armLen*0.3-armElev],
+    [armLX-Math.cos(1.2+armAngle)*armLen*0.5,armLY+Math.sin(1.2+armAngle)*armLen*0.4-armElev]
+  ],'rgba(220,180,100,0.5)',lw);
+
+  // === RIGHT ARM — triangle, raised gesture ===
+  var armRX=torsoCX+torsoW*0.6;
+  var armRY=torsoCY-torsoH2*0.35-torsoElev;
+  var armRAngle=Math.sin(t*2)*0.15-0.3;
+
+  X.globalAlpha=0.12;
+  F([
+    [armRX,armRY+shH*0.3],
+    [armRX+Math.cos(armRAngle)*armLen*0.6,armRY-Math.sin(armRAngle)*armLen*0.6+shH*0.3],
+    [armRX+Math.cos(armRAngle-0.4)*armLen*0.4,armRY-Math.sin(armRAngle-0.4)*armLen*0.3+shH*0.3]
+  ],'rgba(0,0,0,0.8)');
+  X.globalAlpha=1;
+
+  F([
+    [armRX,armRY-shH],
+    [armRX+Math.cos(armRAngle)*armLen*0.6,armRY-Math.sin(armRAngle)*armLen*0.6-shH],
+    [armRX+Math.cos(armRAngle-0.4)*armLen*0.4,armRY-Math.sin(armRAngle-0.4)*armLen*0.3-shH]
+  ],'rgba(200,160,80,0.1)');
+  S([
+    [armRX,armRY-shH],
+    [armRX+Math.cos(armRAngle)*armLen*0.6,armRY-Math.sin(armRAngle)*armLen*0.6-shH],
+    [armRX+Math.cos(armRAngle-0.4)*armLen*0.4,armRY-Math.sin(armRAngle-0.4)*armLen*0.3-shH]
+  ],'rgba(220,180,100,0.5)',lw);
+
+  // Hand circle at end of right arm
+  var handX=armRX+Math.cos(armRAngle)*armLen*0.6;
+  var handY=armRY-Math.sin(armRAngle)*armLen*0.6-shH;
+  X.globalAlpha=0.15;X.fillStyle='rgba(0,0,0,0.8)';X.beginPath();X.arc(handX+2*s,handY+shH*0.3,6*s,0,Math.PI*2);X.fill();X.globalAlpha=1;
+  X.fillStyle='rgba(255,200,100,0.12)';X.beginPath();X.arc(handX,handY,6*s,0,Math.PI*2);X.fill();
+  X.strokeStyle='rgba(220,180,100,0.5)';X.lineWidth=lw*0.8;X.beginPath();X.arc(handX,handY,6*s,0,Math.PI*2);X.stroke();
+
+  // === LEFT LEG — tall rectangle ===
+  var legW=10*s;
+  var legH2=torsoH2*0.7;
+  var legLX=torsoCX-torsoW*0.25;
+  var legTop=torsoCY+torsoH2*0.5-torsoElev;
+  var legElev=shH*0.6;
+
+  // Shadow
+  X.globalAlpha=0.15;X.fillStyle='rgba(0,0,0,0.9)';X.fillRect(legLX-legW/2+3*s,legTop+legH2+legElev*0.3,legW,6*s);X.globalAlpha=1;
+  // Rectangle
+  F([
+    [legLX-legW/2,legTop],[legLX+legW/2,legTop],
+    [legLX+legW/2,legTop+legH2],[legLX-legW/2,legTop+legH2]
+  ],'rgba(60,80,140,0.1)');
+  S([
+    [legLX-legW/2,legTop],[legLX+legW/2,legTop],
+    [legLX+legW/2,legTop+legH2],[legLX-legW/2,legTop+legH2]
+  ],'rgba(80,110,180,0.5)',lw);
+  // φ subdivision line
+  var phiLine=legH2/PHI;
+  S([[legLX-legW/2,legTop+phiLine],[legLX+legW/2,legTop+phiLine]],'rgba(255,200,50,0.2)',lw*0.4);
+
+  // === RIGHT LEG — tall rectangle ===
+  var legRX=torsoCX+torsoW*0.25;
+
+  X.globalAlpha=0.15;X.fillStyle='rgba(0,0,0,0.9)';X.fillRect(legRX-legW/2+3*s,legTop+legH2+legElev*0.3,legW,6*s);X.globalAlpha=1;
+  F([
+    [legRX-legW/2,legTop],[legRX+legW/2,legTop],
+    [legRX+legW/2,legTop+legH2],[legRX-legW/2,legTop+legH2]
+  ],'rgba(60,80,140,0.1)');
+  S([
+    [legRX-legW/2,legTop],[legRX+legW/2,legTop],
+    [legRX+legW/2,legTop+legH2],[legRX-legW/2,legTop+legH2]
+  ],'rgba(80,110,180,0.5)',lw);
+  S([[legRX-legW/2,legTop+phiLine],[legRX+legW/2,legTop+phiLine]],'rgba(255,200,50,0.2)',lw*0.4);
+
+  // === FEET — small triangles ===
+  F([
+    [legLX-legW/2-4*s,legTop+legH2],
+    [legLX+legW/2+2*s,legTop+legH2],
+    [legLX,legTop+legH2+8*s]
+  ],'rgba(40,50,90,0.08)');
+  S([
+    [legLX-legW/2-4*s,legTop+legH2],
+    [legLX+legW/2+2*s,legTop+legH2],
+    [legLX,legTop+legH2+8*s]
+  ],'rgba(80,110,180,0.35)',lw*0.6);
+
+  F([
+    [legRX-legW/2-2*s,legTop+legH2],
+    [legRX+legW/2+4*s,legTop+legH2],
+    [legRX,legTop+legH2+8*s]
+  ],'rgba(40,50,90,0.08)');
+  S([
+    [legRX-legW/2-2*s,legTop+legH2],
+    [legRX+legW/2+4*s,legTop+legH2],
+    [legRX,legTop+legH2+8*s]
+  ],'rgba(80,110,180,0.35)',lw*0.6);
+
+  // ====== FLOATING φ-PRIMITIVES around figure ======
+  // Orbiting geometric shapes at golden ratio distances
+
+  // Orbit 1 — small circles
+  for(var i1=0;i1<5;i1++){
+    var a1=i1*Math.PI*2/5+t*0.3;
+    var r1=headR*2.5;
+    var ox1=cx+Math.cos(a1)*r1;
+    var oy1=cy-H*0.05+Math.sin(a1)*r1*0.6;
+    var oR1=s*4+Math.sin(t+i1)*s*2;
+    var oElev1=shH*(0.5+Math.sin(t*2+i1)*0.3);
+
+    X.globalAlpha=0.12;X.fillStyle='rgba(0,0,0,0.8)';X.beginPath();X.arc(ox1+1*s,oy1+oElev1+2*s,oR1,0,Math.PI*2);X.fill();X.globalAlpha=1;
+    X.fillStyle='rgba(255,200,100,0.08)';X.beginPath();X.arc(ox1,oy1-oElev1,oR1,0,Math.PI*2);X.fill();
+    X.strokeStyle='rgba(255,200,80,0.35)';X.lineWidth=lw*0.6;X.beginPath();X.arc(ox1,oy1-oElev1,oR1,0,Math.PI*2);X.stroke();
+  }
+
+  // Orbit 2 — triangles
+  for(var i2=0;i2<3;i2++){
+    var a2=i2*Math.PI*2/3+t*0.2+1;
+    var r2=headR*4;
+    var ox2=cx+Math.cos(a2)*r2;
+    var oy2=cy+Math.sin(a2)*r2*0.5;
+    var tR2=s*8+Math.sin(t*0.7+i2)*s*3;
+    var oElev2=shH*(0.4+Math.sin(t*1.5+i2)*0.2);
+
+    // Shadow
+    X.globalAlpha=0.1;F([
+      [ox2+1*s,oy2+oElev2*0.3+tR2*0.3],
+      [ox2-tR2+1*s,oy2+oElev2*0.3-tR2*0.2],
+      [ox2+tR2+1*s,oy2+oElev2*0.3-tR2*0.2]
+    ],'rgba(0,0,0,0.7)');X.globalAlpha=1;
+
+    F([
+      [ox2,oy2-oElev2-tR2*0.4],
+      [ox2-tR2,oy2-oElev2+tR2*0.3],
+      [ox2+tR2,oy2-oElev2+tR2*0.3]
+    ],'rgba(220,100,50,0.06)');
+    S([
+      [ox2,oy2-oElev2-tR2*0.4],
+      [ox2-tR2,oy2-oElev2+tR2*0.3],
+      [ox2+tR2,oy2-oElev2+tR2*0.3]
+    ],'rgba(240,130,70,0.35)',lw*0.7);
+  }
+
+  // Orbit 3 — rectangles (squares)
+  for(var i3=0;i3<4;i3++){
+    var a3=i3*Math.PI/2+t*0.15+0.5;
+    var r3=headR*3.2;
+    var ox3=cx+Math.cos(a3)*r3;
+    var oy3=cy+Math.sin(a3)*r3*0.4;
+    var sqR=s*6+Math.sin(t*0.8+i3)*s*2;
+    var oElev3=shH*(0.3+Math.sin(t+i3)*0.15);
+
+    X.globalAlpha=0.1;X.fillStyle='rgba(0,0,0,0.7)';X.fillRect(ox3-sqR+1*s,oy3+oElev3-sqR+2*s,sqR*2,sqR*2);X.globalAlpha=1;
+    F([
+      [ox3-sqR,oy3-oElev3-sqR],[ox3+sqR,oy3-oElev3-sqR],
+      [ox3+sqR,oy3-oElev3+sqR],[ox3-sqR,oy3-oElev3+sqR]
+    ],'rgba(80,150,200,0.06)');
+    S([
+      [ox3-sqR,oy3-oElev3-sqR],[ox3+sqR,oy3-oElev3-sqR],
+      [ox3+sqR,oy3-oElev3+sqR],[ox3-sqR,oy3-oElev3+sqR]
+    ],'rgba(100,170,220,0.3)',lw*0.6);
+  }
+
+  // ====== φ LABELS ======
+  X.globalAlpha=0.08;X.font=(10*s)+'px monospace';X.fillStyle='rgba(255,200,50,0.5)';X.textAlign='center';
+  X.fillText('φ = 1.618',cx,cy+H*0.42);
+  X.fillText('голова: r',headX,headY-headElev-headR-8*s);
+  X.fillText('торс: r·φ',torsoCX,torsoCY-torsoH2*0.55-torsoElev-8*s);
+  X.fillText('нога: h/φ',legLX,legTop-8*s);
+  X.textAlign='left';
+  X.globalAlpha=1;
+
+  // ====== CONNECTING LINES — golden ratio proportions ======
+  X.globalAlpha=0.06;
+  // Head to torso
+  S([[headX,headY-headElev+headR],[torsoCX,torsoCY-torsoH2*0.55-torsoElev]],'rgba(255,200,50,0.4)',lw*0.3);
+  // Torso to legs
+  S([[torsoCX-torsoW*0.25,torsoCY+torsoH2*0.5-torsoElev],[legLX,legTop]],'rgba(255,200,50,0.4)',lw*0.3);
+  S([[torsoCX+torsoW*0.25,torsoCY+torsoH2*0.5-torsoElev],[legRX,legTop]],'rgba(255,200,50,0.4)',lw*0.3);
+  X.globalAlpha=1;
+
+  // ====== FLOATING DUST ======
+  for(var di=0;di<20;di++){
+    var dx=cx+Math.sin(t*0.15+di*2.2)*W*0.4;
+    var dy=cy+Math.cos(t*0.12+di*1.8)*H*0.4;
+    var dr=0.4+Math.sin(t+di)*0.3;
+    X.fillStyle='rgba(255,220,160,'+(0.03+0.02*Math.sin(t*1.5+di))+')';
+    X.beginPath();X.arc(dx,dy,dr*s,0,Math.PI*2);X.fill();
+  }
+
+  requestAnimationFrame(draw);
+}
+
+// Helper: named color function for mouth
+function c8a(a){return 'rgba(200,120,60,'+a+')';}
+
+draw();
+</script>
+</body>
+</html>
