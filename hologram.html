@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PolyArt Hologram</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#020206;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#scanlines{position:absolute;top:0;left:0;width:100%;height:100%;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,200,0.015) 2px,rgba(0,255,200,0.015) 4px);pointer-events:none;z-index:5}
+#vignette{position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.7) 100%);pointer-events:none;z-index:6}
+#ui{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#0fc;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;text-shadow:0 0 4px #0a8}
+.ctrl input[type=range]{width:90px;accent-color:#0fc;cursor:pointer}
+.ctrl .val{color:#0fc;font-size:11px;font-weight:bold;text-shadow:0 0 5px #0fc}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#0fc;font-size:18px;letter-spacing:8px;text-transform:uppercase;text-shadow:0 0 15px #0fc,0 0 30px #08a;z-index:10}
+#phase{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#0a8;font-size:10px;letter-spacing:3px;z-index:10}
+#glitch{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:4;opacity:0}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="scanlines"></div>
+<div id="vignette"></div>
+<div id="glitch"></div>
+<div id="title">POLYART HOLOGRAM</div>
+<div id="phase">LIFECYCLE: BIRTH → GROWTH → EVOLUTION → APPLICATION → EXPANSION</div>
+<div id="ui">
+<div class="ctrl"><label>Скорость</label><input type="range" id="spd" min="1" max="100" value="40"><span class="val" id="spdV">0.40</span></div>
+<div class="ctrl"><label>Голограф</label><input type="range" id="holo" min="0" max="100" value="70"><span class="val" id="holoV">0.70</span></div>
+<div class="ctrl"><label>Глитч</label><input type="range" id="gl" min="0" max="100" value="30"><span class="val" id="glV">0.30</span></div>
+<div class="ctrl"><label>Глубина</label><input type="range" id="dep" min="1" max="8" value="4"><span class="val" id="depV">4</span></div>
+<div class="ctrl"><label>Жизнь</label><input type="range" id="life" min="1" max="5" value="3"><span class="val" id="lifeV">3</span></div>
+</div>
+<script>
+const C=document.getElementById('c'),X=C.getContext('2d');
+const glitchEl=document.getElementById('glitch');
+let W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+const S={spd:'spdV',holo:'holoV',gl:'glV',dep:'depV',life:'lifeV'};
+Object.keys(S).forEach(k=>{
+  document.getElementById(k).addEventListener('input',()=>{
+    const v=parseFloat(document.getElementById(k).value);
+    let t=v+'';if(k==='spd'||k==='holo'||k==='gl')t=(v/100).toFixed(2);
+    document.getElementById(S[k]).textContent=t;
+  });
+});
+
+function gv(id){return parseFloat(document.getElementById(id).value)}
+
+let t=0,lifePhase=0,lifeTimer=0;
+const phaseNames=['BIRTH','GROWTH','EVOLUTION','APPLICATION','EXPANSION'];
+const phaseHue=[180,160,280,40,330];
+
+const elements=[];
+const connections=[];
+
+function spawn(x,y,size,hue){
+  elements.push({
+    x,y,size,targetSize:size,hue,
+    opacity:0,targetOpacity:0.8,
+    born:t,age:0,
+    pulse:Math.random()*Math.PI*2,
+    pulseSpeed:0.02+Math.random()*0.01,
+    trail:[],
+    vx:0,vy:0
+  });
+  return elements[elements.length-1];
+}
+
+function bloom(parent,count,radius,hueSpread){
+  for(let i=0;i<count;i++){
+    const a=i*Math.PI*2/count+Math.random()*0.3;
+    const r=radius*(0.5+Math.random()*0.5);
+    const child=spawn(
+      parent.x+Math.cos(a)*r,
+      parent.y+Math.sin(a)*r,
+      parent.size*0.7,
+      parent.hue+hueSpread*(i-count/2)
+    );
+    connections.push({
+      from:parent,to:child,
+      opacity:0,targetOpacity:0.2,
+      born:t,thickness:0.8
+    });
+  }
+}
+
+function evolve(el,layers,subCount){
+  for(let l=0;l<layers;l++){
+    for(let i=0;i<subCount;i++){
+      const a=i*Math.PI*2/subCount;
+      const r=el.size*(2+l*1.5);
+      const child=spawn(
+        el.x+Math.cos(a)*r,
+        el.y+Math.sin(a)*r,
+        el.size*0.4,
+        el.hue+l*15+i*5
+      );
+      connections.push({
+        from:el,to:child,
+        opacity:0,targetOpacity:0.1/(l+1),
+        born:t,thickness:0.4
+      });
+    }
+  }
+}
+
+function synthesize(){
+  for(let i=0;i<elements.length;i++){
+    for(let j=i+1;j<elements.length;j++){
+      const d=Math.hypot(elements[i].x-elements[j].x,elements[i].y-elements[j].y);
+      if(d<200&&!connections.some(c=>(c.from===elements[i]&&c.to===elements[j])||(c.from===elements[j]&&c.to===elements[i]))){
+        connections.push({
+          from:elements[i],to:elements[j],
+          opacity:0,targetOpacity:0.06,
+          born:t,thickness:0.3
+        });
+      }
+    }
+  }
+}
+
+function expand(){
+  const src=elements.slice(0,Math.min(3,elements.length));
+  if(src.length===0)return;
+  const dir=Math.random()*Math.PI*2;
+  const cx=src[0].x+Math.cos(dir)*180;
+  const cy=src[0].y+Math.sin(dir)*180;
+  for(let i=0;i<4;i++){
+    const a=i*Math.PI/2;
+    spawn(cx+Math.cos(a)*30,cy+Math.sin(a)*30,3,(src[0].hue+60)%360);
+  }
+}
+
+function lifecycle(){
+  const cx=W/2,cy=H/2;
+  elements.length=0;
+  connections.length=0;
+
+  // BIRTH
+  spawn(cx,cy,5,phaseHue[0]);
+
+  setTimeout(()=>{
+    lifePhase=1;
+    document.getElementById('phase').textContent='LIFECYCLE: '+phaseNames.join(' → ');
+    bloom(elements[0],5,80,20);
+  },2000);
+
+  setTimeout(()=>{
+    lifePhase=2;
+    elements.slice(1,6).forEach(el=>evolve(el,2,3));
+  },5000);
+
+  setTimeout(()=>{
+    lifePhase=3;
+    synthesize();
+  },8000);
+
+  setTimeout(()=>{
+    lifePhase=4;
+    expand();
+  },11000);
+}
+
+function renderHologram(ctx,x,y,r,hue,opacity,glitchAmt){
+  const scanT=t*100;
+  const glitchX=Math.sin(t*13)*glitchAmt*3;
+  const glitchY=Math.cos(t*17)*glitchAmt*2;
+
+  // RGB split
+  const offset=glitchAmt*4;
+  ctx.globalCompositeOperation='screen';
+
+  // red
+  ctx.fillStyle=`hsla(${hue},80%,50%,${opacity*0.4})`;
+  ctx.beginPath();ctx.arc(x+offset+glitchX,y+glitchY,r,0,Math.PI*2);ctx.fill();
+
+  // green
+  ctx.fillStyle=`hsla(${hue+120},80%,50%,${opacity*0.4})`;
+  ctx.beginPath();ctx.arc(x-offset*0.5+glitchX,y-offset*0.3+glitchY,r,0,Math.PI*2);ctx.fill();
+
+  // blue
+  ctx.fillStyle=`hsla(${hue+240},80%,50%,${opacity*0.4})`;
+  ctx.beginPath();ctx.arc(x+glitchX,y+offset*0.5+glitchY,r,0,Math.PI*2);ctx.fill();
+
+  ctx.globalCompositeOperation='source-over';
+
+  // core
+  ctx.fillStyle=`hsla(${hue},90%,80%,${opacity*0.7})`;
+  ctx.beginPath();ctx.arc(x+glitchX,y+glitchY,r*0.3,0,Math.PI*2);ctx.fill();
+
+  // scan line artifact
+  if(Math.random()<glitchAmt*0.3){
+    const scanY=y-r+Math.random()*r*2;
+    ctx.fillStyle=`hsla(${hue},60%,70%,${opacity*0.15})`;
+    ctx.fillRect(x-r*2,scanY,r*4,1);
+  }
+}
+
+function draw(){
+  const spd=gv('spd')/100;
+  const holo=gv('holo')/100;
+  const gl=gv('gl')/100;
+  const dep=Math.round(gv('dep'));
+  const lifeSpeed=gv('life');
+
+  t+=spd*0.016;
+  lifeTimer+=spd*0.016;
+
+  // glitch
+  if(Math.random()<gl*0.1){
+    glitchEl.style.opacity=gl*0.3;
+    glitchEl.style.background=`linear-gradient(${Math.random()*360}deg,rgba(0,255,200,${gl*0.03}),transparent)`;
+    setTimeout(()=>{glitchEl.style.opacity=0;},50+Math.random()*100);
+  }
+
+  X.fillStyle='rgba(2,2,6,0.1)';
+  X.fillRect(0,0,W,H);
+
+  // hologram base glow
+  const baseGrad=X.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.min(W,H)*0.4);
+  baseGrad.addColorStop(0,`rgba(0,255,200,${0.02*holo})`);
+  baseGrad.addColorStop(1,'rgba(0,0,0,0)');
+  X.fillStyle=baseGrad;X.fillRect(0,0,W,H);
+
+  // connections
+  for(const c of connections){
+    c.opacity+=(c.targetOpacity-c.opacity)*0.03;
+    if(c.opacity<0.01)continue;
+
+    const glitchOff=Math.sin(t*20+c.born)*gl*2;
+    X.strokeStyle=`rgba(0,255,200,${c.opacity*holo})`;
+    X.lineWidth=c.thickness;
+    X.beginPath();
+    X.moveTo(c.from.x+glitchOff,c.from.y);
+    X.lineTo(c.to.x-glitchOff,c.to.y);
+    X.stroke();
+  }
+
+  // elements
+  for(const el of elements){
+    el.age=t-el.born;
+    el.size+=(el.targetSize-el.size)*0.03;
+    el.opacity+=(el.targetOpacity-el.opacity)*0.05;
+    el.pulse+=el.pulseSpeed;
+
+    if(el.opacity<0.01||el.size<0.1)continue;
+
+    const pulse=1+0.15*Math.sin(el.pulse);
+    const r=el.size*pulse*holo*1.5;
+
+    // trail
+    el.trail.push({x:el.x,y:el.y,age:0});
+    if(el.trail.length>20)el.trail.shift();
+    for(const tr of el.trail)tr.age+=0.016;
+
+    if(el.trail.length>2){
+      X.strokeStyle=`rgba(0,255,200,${el.opacity*0.05*holo})`;
+      X.lineWidth=0.5;
+      X.beginPath();
+      for(let i=0;i<el.trail.length;i++){
+        const tr=el.trail[i];
+        const a=1-tr.age*2;
+        if(a<0.01)continue;
+        i===0?X.moveTo(tr.x,tr.y):X.lineTo(tr.x,tr.y);
+      }
+      X.stroke();
+    }
+
+    renderHologram(X,el.x,el.y,r,el.hue,el.opacity,gl);
+
+    // depth layers
+    for(let d=0;d<dep;d++){
+      const depthR=r*(1+d*0.3);
+      const depthOpacity=el.opacity*0.1/(d+1);
+      X.strokeStyle=`rgba(0,255,200,${depthOpacity*holo})`;
+      X.lineWidth=0.3;
+      X.beginPath();
+      X.arc(el.x,el.y,depthR,0,Math.PI*2);
+      X.stroke();
+    }
+  }
+
+  // phase indicator
+  const phaseY=80;
+  for(let i=0;i<5;i++){
+    const px=W/2-120+i*60;
+    const active=i<=lifePhase;
+    X.fillStyle=active?`rgba(0,255,200,${0.6+0.2*Math.sin(t*2+i)})`:'rgba(0,255,200,0.1)';
+    X.beginPath();X.arc(px,phaseY,4,0,Math.PI*2);X.fill();
+    if(i<4){
+      X.strokeStyle=active?'rgba(0,255,200,0.3)':'rgba(0,255,200,0.05)';
+      X.lineWidth=1;X.beginPath();X.moveTo(px+6,phaseY);X.lineTo(px+54,phaseY);X.stroke();
+    }
+  }
+
+  requestAnimationFrame(draw);
+}
+
+lifecycle();draw();
+</script>
+</body>
+</html>
