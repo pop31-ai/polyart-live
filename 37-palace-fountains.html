@@ -1,0 +1,461 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>37 — Дворцовые Фонтаны — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060608;overflow:hidden;font-family:sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #0af;color:#0af;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(0,170,255,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #0af5;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#0af;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:550px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Дворцовые Фонтаны</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">&#9664;</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">&#9654;</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="speed" min="0" max="100" value="0" style="width:70px;accent-color:#0af"><span class="val" id="speedV">0</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+var stage=0,autoMode=false,autoTimer=0,maxStage=12,t=0;
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ'};
+document.getElementById('speed').oninput=function(){document.getElementById('speedV').textContent=this.value};
+
+var pts=['Проект — чертёж · гидравлика · эскиз · бассейн 40м','Фундамент — бетон · гидроизоляция · арматура · опалубка','Насосная — центробежный насос · 200м³/ч · фильтры','Трубопровод — сталь d=150мм · фланцы · клапаны','Чаша бассейна — мрамор · гранит · отражающее дно','Скульптура — бронза · Нептун · трезубец · кони','Сопла — латунь · 48 сопел · регулировка · кольцо','Свет — RGB LED · 1000W · DMX · подводный','Режим 1 — Водяная стена · 12м · тяжёлая занавеска','Режим 2 — Симфония · 6 ступеней · под музыку','Режим 3 — Гейзер · 25м · 3 атмосферы ·Wow!','Режим 4 — Каскад · 7 уровней · шёпот воды','Итог — 15000 л/мин · 250 светильников · 365 дней'];
+
+function lbl(t2,x,y,c,sz){X.globalAlpha=0.6;X.font=(sz||7)+'px monospace';X.fillStyle=c||'rgba(200,230,255,0.8)';X.textAlign='center';X.fillText(t2,x,y);X.textAlign='left';X.globalAlpha=1}
+
+function waterParticle(x,y,r,col,ph){
+  X.fillStyle=col;X.beginPath();X.arc(x+Math.sin(t*3+ph)*2,y+Math.sin(t*2+ph)*1.5,r,0,Math.PI*2);X.fill();
+}
+
+function waterJet(x,baseY,h,col,spread,ph){
+  for(var i=0;i<12;i++){
+    var frac=i/12;
+    var jx=x+Math.sin(t*3+ph+i*0.5)*spread*frac;
+    var jy=baseY-frac*h+Math.sin(t*4+i+ph)*2*(1-frac);
+    var jr=2-frac*1.5;
+    waterParticle(jx,jy,jr,col,i+ph);
+  }
+  // Splash at base
+  for(var s2=0;s2<4;s2++){
+    var sx=x+Math.sin(t*5+s2+ph)*8;
+    var sy=baseY+Math.abs(Math.sin(t*4+s2*1.5))*3;
+    waterParticle(sx,sy,1,'rgba(150,200,255,0.15)',s2+ph);
+  }
+}
+
+function draw(){
+  var spd=parseInt(document.getElementById('speed').value);
+  if(autoMode){autoTimer+=0.016;if(autoTimer>2.5){autoTimer=0;if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ'}}}
+  t+=0.016;
+  X.fillStyle='#060608';X.fillRect(0,0,W,H);
+  var cx=W/2,gy=H*0.75,s=Math.min(W,H)/650;
+
+  // Night sky
+  var sg=X.createLinearGradient(0,0,0,gy);
+  sg.addColorStop(0,'rgba(10,12,30,0.04)');sg.addColorStop(1,'rgba(15,20,35,0.02)');
+  X.fillStyle=sg;X.fillRect(0,0,W,gy);
+
+  // Stars
+  for(var st2=0;st2<25;st2++){
+    X.fillStyle='rgba(255,255,255,'+(0.015+0.008*Math.sin(t+st2))+')';
+    X.beginPath();X.arc((Math.sin(st2*7.3)*0.45+0.5)*W,(Math.cos(st2*4.7)*0.3+0.1)*H,0.4,0,Math.PI*2);X.fill();
+  }
+
+  // Ground / courtyard
+  X.fillStyle='rgba(40,35,30,0.04)';X.fillRect(0,gy,W,H-gy);
+
+  // Courtyard tiles
+  for(var tx=0;tx<W;tx+=30*s){
+    X.strokeStyle='rgba(60,55,45,0.03)';X.lineWidth=0.3;
+    X.beginPath();X.moveTo(tx,gy);X.lineTo(tx,H);X.stroke();
+  }
+  for(var ty=0;ty<H-gy;ty+=15*s){
+    X.strokeStyle='rgba(60,55,45,0.02)';X.lineWidth=0.2;
+    X.beginPath();X.moveTo(0,gy+ty);X.lineTo(W,gy+ty);X.stroke();
+  }
+
+  // Palace silhouette in background
+  X.fillStyle='rgba(50,45,40,0.03)';
+  X.fillRect(W*0.1,gy-80*s,W*0.8,80*s);
+  X.strokeStyle='rgba(70,65,55,0.05)';X.lineWidth=0.5;
+  X.strokeRect(W*0.1,gy-80*s,W*0.8,80*s);
+  // Palace columns
+  for(var pc=0;pc<8;pc++){
+    var pcx=W*0.15+pc*W*0.09;
+    X.fillStyle='rgba(60,55,45,0.03)';X.fillRect(pcx-2*s,gy-65*s,4*s,65*s);
+  }
+  // Palace roof
+  X.strokeStyle='rgba(70,65,55,0.04)';X.lineWidth=0.6;
+  X.beginPath();X.moveTo(W*0.08,gy-80*s);X.lineTo(cx,gy-100*s);X.lineTo(W*0.92,gy-80*s);X.stroke();
+
+  // === STAGE 0: Blueprint ===
+  if(stage>=0){
+    var bpX=cx-50*s,bpY=gy-30*s;
+    // Blueprint paper
+    X.fillStyle='rgba(20,40,80,0.06)';X.fillRect(bpX,bpY,100*s,60*s);
+    X.strokeStyle='rgba(40,80,160,0.1)';X.lineWidth=0.5;X.strokeRect(bpX,bpY,100*s,60*s);
+    // Grid
+    for(var gx=0;gx<10;gx++){
+      X.strokeStyle='rgba(40,80,160,0.03)';X.lineWidth=0.2;
+      X.beginPath();X.moveTo(bpX+gx*10*s,bpY);X.lineTo(bpX+gx*10*s,bpY+60*s);X.stroke();
+      X.beginPath();X.moveTo(bpX,bpY+gx*6*s);X.lineTo(bpX+100*s,bpY+gx*6*s);X.stroke();
+    }
+    // Fountain outline on blueprint
+    X.strokeStyle='rgba(100,180,255,0.08)';X.lineWidth=0.5;
+    X.beginPath();X.arc(cx,bpY+30*s,20*s,0,Math.PI*2);X.stroke();
+    X.strokeRect(cx-25*s,bpY+15*s,50*s,30*s);
+    // Dimensions
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(100,180,255,0.1)';X.textAlign='center';
+    X.fillText('40m',cx,bpY+55*s);X.textAlign='left';
+    lbl('проект · чертёж · гидравлика · бассейн 40м',cx,bpY-10*s,'rgba(100,180,255,0.5)',6);
+  }
+
+  // === STAGE 1: Foundation ===
+  if(stage>=1){
+    var fW2=W*0.5,fH2=20*s;
+    X.fillStyle='rgba(80,80,85,0.05)';X.fillRect(cx-fW2/2,gy-fH2,fW2,fH2);
+    X.strokeStyle='rgba(100,100,105,0.1)';X.lineWidth=0.5;X.strokeRect(cx-fW2/2,gy-fH2,fW2,fH2);
+    // Rebar
+    for(var rb=0;rb<8;rb++){
+      var rbx=cx-fW2/2+rb*(fW2/7);
+      X.strokeStyle='rgba(150,80,60,0.05)';X.lineWidth=0.3;
+      X.beginPath();X.moveTo(rbx,gy-fH2+2*s);X.lineTo(rbx,gy-2*s);X.stroke();
+    }
+    // Concrete texture
+    for(var ct=0;ct<5;ct++){
+      X.fillStyle='rgba(120,120,125,0.03)';
+      X.beginPath();X.arc(cx-20*s+ct*12*s,gy-fH2/2,3*s,0,Math.PI*2);X.fill();
+    }
+    lbl('бетон · гидроизоляция · арматура · опалубка',cx,gy-fH2-10*s,'rgba(160,160,170,0.5)',6);
+  }
+
+  // === STAGE 2: Pump house ===
+  if(stage>=2){
+    var phX=cx+60*s,phY=gy-10*s;
+    // Pump room
+    X.fillStyle='rgba(60,60,65,0.05)';X.fillRect(phX-15*s,phY-20*s,30*s,20*s);
+    X.strokeStyle='rgba(80,80,85,0.1)';X.lineWidth=0.4;X.strokeRect(phX-15*s,phY-20*s,30*s,20*s);
+    // Pump
+    X.fillStyle='rgba(80,80,90,0.06)';X.beginPath();X.arc(phX,phY-10*s,6*s,0,Math.PI*2);X.fill();
+    X.strokeStyle='rgba(100,100,110,0.1)';X.lineWidth=0.5;X.beginPath();X.arc(phX,phY-10*s,6*s,0,Math.PI*2);X.stroke();
+    // Spinning impeller
+    for(var ip=0;ip<4;ip++){
+      var ipa=t*3+ip*Math.PI/2;
+      X.strokeStyle='rgba(120,120,130,0.08)';X.lineWidth=0.3;
+      X.beginPath();X.moveTo(phX,phY-10*s);X.lineTo(phX+Math.cos(ipa)*5*s,phY-10*s+Math.sin(ipa)*5*s);X.stroke();
+    }
+    // Pipes
+    X.strokeStyle='rgba(100,100,110,0.06)';X.lineWidth=2*s;
+    X.beginPath();X.moveTo(phX-15*s,phY-10*s);X.lineTo(phX-30*s,phY-10*s);X.lineTo(phX-30*s,gy-15*s);X.stroke();
+    X.beginPath();X.moveTo(phX+15*s,phY-10*s);X.lineTo(phX+30*s,phY-10*s);X.lineTo(phX+30*s,gy-15*s);X.stroke();
+    // Pressure gauge
+    X.strokeStyle='rgba(100,100,110,0.06)';X.lineWidth=0.3;
+    X.beginPath();X.arc(phX+25*s,phY-15*s,3*s,0,Math.PI*2);X.stroke();
+    var needleA=-Math.PI*0.3+Math.sin(t)*0.1;
+    X.beginPath();X.moveTo(phX+25*s,phY-15*s);X.lineTo(phX+25*s+Math.cos(needleA)*2.5*s,phY-15*s+Math.sin(needleA)*2.5*s);X.stroke();
+    lbl('насос · 200м³/ч · фильтры',phX,phY-30*s,'rgba(100,160,200,0.5)',6);
+  }
+
+  // === STAGE 3: Pipeline ===
+  if(stage>=3){
+    // Main pipe
+    X.strokeStyle='rgba(100,100,110,0.08)';X.lineWidth=3*s;
+    X.beginPath();X.moveTo(W*0.15,gy-5*s);X.lineTo(W*0.85,gy-5*s);X.stroke();
+    // Flanges
+    for(var fl=0;fl<5;fl++){
+      var flx=W*0.2+fl*W*0.15;
+      X.fillStyle='rgba(100,100,110,0.05)';X.fillRect(flx-3*s,gy-8*s,6*s,6*s);
+      X.strokeStyle='rgba(120,120,130,0.08)';X.lineWidth=0.3;X.strokeRect(flx-3*s,gy-8*s,6*s,6*s);
+      // Bolts
+      X.fillStyle='rgba(80,80,85,0.06)';X.beginPath();X.arc(flx-1*s,gy-5*s,1,0,Math.PI*2);X.fill();
+      X.beginPath();X.arc(flx+1*s,gy-5*s,1,0,Math.PI*2);X.fill();
+    }
+    // Valve
+    var vx=cx;
+    X.strokeStyle='rgba(120,120,130,0.08)';X.lineWidth=0.4;
+    X.beginPath();X.moveTo(vx,gy-8*s);X.lineTo(vx,gy-14*s);X.stroke();
+    X.beginPath();X.moveTo(vx-4*s,gy-14*s);X.lineTo(vx+4*s,gy-14*s);X.stroke();
+    // Water flow particles
+    for(var wf=0;wf<8;wf++){
+      var wfx=W*0.15+((t*40+wf*30)%(W*0.7));
+      X.fillStyle='rgba(100,180,255,0.04)';X.beginPath();X.arc(wfx,gy-5*s,1.5,0,Math.PI*2);X.fill();
+    }
+    lbl('сталь d=150мм · фланцы · клапаны',cx,gy-20*s,'rgba(120,160,200,0.5)',6);
+  }
+
+  // === STAGE 4: Basin ===
+  if(stage>=4){
+    var bW=W*0.5,bH=25*s;
+    // Basin outer
+    X.fillStyle='rgba(180,180,190,0.04)';X.fillRect(cx-bW/2,gy-bH,bW,bH);
+    X.strokeStyle='rgba(200,200,210,0.1)';X.lineWidth=0.6;X.strokeRect(cx-bW/2,gy-bH,bW,bH);
+    // Inner basin
+    X.fillStyle='rgba(150,160,170,0.03)';X.fillRect(cx-bW/2+5*s,gy-bH+5*s,bW-10*s,bH-5*s);
+    // Marble edge
+    X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=1;
+    X.beginPath();X.moveTo(cx-bW/2,gy-bH);X.lineTo(cx+bW/2,gy-bH);X.stroke();
+    // Reflective water surface
+    X.fillStyle='rgba(40,80,120,0.03)';X.fillRect(cx-bW/2+5*s,gy-bH+8*s,bW-10*s,bH-13*s);
+    // Water ripples
+    for(var wr=0;wr<4;wr++){
+      var wrx=cx+Math.sin(t*0.5+wr)*20*s;
+      var wry=gy-bH+12*s+wr*3*s;
+      X.strokeStyle='rgba(100,180,255,'+(0.03-wr*0.006)+')';X.lineWidth=0.3;
+      X.beginPath();X.ellipse(wrx,wry,15*s+wr*5*s,2*s,0,0,Math.PI*2);X.stroke();
+    }
+    // Granite texture
+    for(var gt=0;gt<6;gt++){
+      var gtx=cx-bW/2+10*s+gt*(bW-20*s)/6;
+      X.strokeStyle='rgba(160,165,175,0.03)';X.lineWidth=0.2;
+      X.beginPath();X.moveTo(gtx,gy-bH);X.lineTo(gtx,gy);X.stroke();
+    }
+    lbl('мрамор · гранит · отражающее дно',cx,gy-bH-10*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 5: Sculpture ===
+  if(stage>=5){
+    var scX=cx,scY=gy-25*s;
+    // Pedestal
+    X.fillStyle='rgba(160,160,170,0.05)';X.fillRect(scX-12*s,scY,24*s,12*s);
+    X.strokeStyle='rgba(180,180,190,0.1)';X.lineWidth=0.5;X.strokeRect(scX-12*s,scY,24*s,12*s);
+    // Column
+    X.fillStyle='rgba(170,170,180,0.04)';X.fillRect(scX-4*s,scY-30*s,8*s,30*s);
+    X.strokeStyle='rgba(190,190,200,0.08)';X.lineWidth=0.4;X.strokeRect(scX-4*s,scY-30*s,8*s,30*s);
+    // Neptune figure
+    X.strokeStyle='rgba(180,160,120,0.1)';X.lineWidth=0.8;
+    // Torso
+    X.beginPath();X.moveTo(scX,scY-30*s);X.lineTo(scX,scY-50*s);X.stroke();
+    // Arms
+    X.beginPath();X.moveTo(scX,scY-45*s);X.lineTo(scX-15*s,scY-40*s);X.stroke();
+    X.beginPath();X.moveTo(scX,scY-45*s);X.lineTo(scX+12*s,scY-50*s);X.stroke();
+    // Head
+    X.fillStyle='rgba(200,180,140,0.06)';X.beginPath();X.arc(scX,scY-55*s,5*s,0,Math.PI*2);X.fill();
+    // Trident
+    X.strokeStyle='rgba(200,200,210,0.1)';X.lineWidth=0.5;
+    X.beginPath();X.moveTo(scX+12*s,scY-50*s);X.lineTo(scX+12*s,scY-70*s);X.stroke();
+    X.beginPath();X.moveTo(scX+10*s,scY-70*s);X.lineTo(scX+12*s,scY-65*s);X.lineTo(scX+14*s,scY-70*s);X.stroke();
+    // Horses
+    for(var hs=0;hs<2;hs++){
+      var hsx=scX+(hs===0?-20*s:20*s);
+      var hdir=hs===0?-1:1;
+      X.strokeStyle='rgba(180,160,120,0.08)';X.lineWidth=0.6;
+      // Horse body
+      X.beginPath();X.moveTo(hsx,scY-5*s);X.quadraticCurveTo(hsx+hdir*15*s,scY-15*s,hsx+hdir*10*s,scY-20*s);X.stroke();
+      // Horse head
+      X.beginPath();X.moveTo(hsx+hdir*10*s,scY-20*s);X.lineTo(hsx+hdir*15*s,scY-25*s);X.stroke();
+      // Legs
+      X.beginPath();X.moveTo(hsx,scY-5*s);X.lineTo(hsx+hdir*3*s,scY+5*s);X.stroke();
+      X.beginPath();X.moveTo(hsx+hdir*8*s,scY-10*s);X.lineTo(hsx+hdir*10*s,scY+5*s);X.stroke();
+    }
+    lbl('бронза · Нептун · трезубец · кони',scX,scY-80*s,'rgba(200,180,140,0.5)',6);
+  }
+
+  // === STAGE 6: Nozzles ===
+  if(stage>=6){
+    // Ring of nozzles
+    var nR=35*s;
+    for(var n=0;n<12;n++){
+      var na=n*Math.PI*2/12;
+      var nx=cx+Math.cos(na)*nR;
+      var ny=gy-15*s+Math.sin(na)*nR*0.3;
+      X.fillStyle='rgba(180,170,100,0.06)';X.beginPath();X.arc(nx,ny,2*s,0,Math.PI*2);X.fill();
+      X.strokeStyle='rgba(200,190,120,0.08)';X.lineWidth=0.3;X.beginPath();X.arc(nx,ny,2*s,0,Math.PI*2);X.stroke();
+    }
+    // Center nozzle
+    X.fillStyle='rgba(200,190,120,0.08)';X.beginPath();X.arc(cx,gy-15*s,3*s,0,Math.PI*2);X.fill();
+    // Adjustment ring
+    X.strokeStyle='rgba(180,170,100,0.06)';X.lineWidth=0.5;
+    X.beginPath();X.ellipse(cx,gy-15*s,nR+5*s,nR*0.3+2*s,0,0,Math.PI*2);X.stroke();
+    lbl('латунь · 48 сопел · регулировка · кольцо',cx,gy-15*s-nR*0.3-15*s,'rgba(200,190,120,0.5)',6);
+  }
+
+  // === STAGE 7: Lighting ===
+  if(stage>=7){
+    // Underwater LED rings
+    for(var lr=0;lr<3;lr++){
+      var lrr=15*s+lr*12*s;
+      var lrAlpha=0.04+Math.sin(t*2+lr)*0.02;
+      var hue=lr*120;
+      X.strokeStyle='hsla('+hue+',80%,60%,'+lrAlpha+')';X.lineWidth=0.8;
+      X.beginPath();X.ellipse(cx,gy-10*s,lrr,lrr*0.2,0,0,Math.PI*2);X.stroke();
+    }
+    // LED fixtures
+    for(var led=0;led<6;led++){
+      var ledA=led*Math.PI/3;
+      var ledX=cx+Math.cos(ledA)*30*s;
+      var ledY=gy-10*s+Math.sin(ledA)*8*s;
+      var ledHue=(led*60+t*30)%360;
+      X.fillStyle='hsla('+ledHue+',80%,60%,0.04)';X.beginPath();X.arc(ledX,ledY,2*s,0,Math.PI*2);X.fill();
+    }
+    lbl('RGB LED · 1000W · DMX · подводный',cx,gy+10*s,'rgba(150,200,255,0.5)',6);
+  }
+
+  // === STAGE 8: Water curtain ===
+  if(stage>=8){
+    // Water wall - 12m curtain
+    var wallW=W*0.4;
+    for(var wc=0;wc<20;wc++){
+      var wcx=cx-wallW/2+wc*(wallW/19);
+      var wcy=gy-25*s;
+      // Water drops falling
+      for(var wd=0;wd<5;wd++){
+        var wdy=wcy+((t*30+wd*15+wc*3)%80)*s*0.5;
+        if(wdy<gy){
+          waterParticle(wcx+Math.sin(t*2+wc+wd)*1,wdy,1,'rgba(100,180,255,0.06)',wc+wd);
+        }
+      }
+    }
+    // Splash at bottom
+    for(var sp=0;sp<15;sp++){
+      var spx=cx-wallW/2+Math.random()*wallW;
+      var spy=gy-2*s+Math.sin(t*4+sp)*2;
+      waterParticle(spx,spy,0.8,'rgba(150,200,255,0.08)',sp);
+    }
+    lbl('водяная стена · 12м · тяжёлая занавеска',cx,gy-60*s,'rgba(100,180,255,0.5)',6);
+  }
+
+  // === STAGE 9: Symphony mode ===
+  if(stage>=9){
+    // 6 water tiers
+    for(var qt=0;qt<6;qt++){
+      var qx=cx-50*s+qt*20*s;
+      var qh=15*s+Math.sin(t*2+qt*0.8)*8*s;
+      waterJet(qx,gy-15*s,qh,'rgba(100,180,255,0.08)',3*s,qt);
+      // Tier base
+      X.fillStyle='rgba(180,180,190,0.04)';X.fillRect(qx-5*s,gy-17*s,10*s,4*s);
+    }
+    // Musical notes floating
+    for(var mn=0;mn<4;mn++){
+      var mnx=cx-30*s+mn*20*s+Math.sin(t*1.5+mn)*10*s;
+      var mny=gy-45*s-Math.abs(Math.sin(t*0.8+mn))*15*s;
+      X.fillStyle='rgba(200,200,220,'+(0.04+Math.sin(t+mn)*0.02)+')';
+      X.font=(8*s)+'px serif';X.textAlign='center';
+      X.fillText(['♩','♪','♫','♬'][mn],mnx,mny);
+      X.textAlign='left';
+    }
+    lbl('симфония · 6 ступеней · под музыку',cx,gy-60*s,'rgba(150,200,255,0.5)',6);
+  }
+
+  // === STAGE 10: Geyser ===
+  if(stage>=10){
+    // Main geyser jet - 25m
+    var geyH=120*s;
+    var geyX=cx;
+    for(var gj=0;gj<20;gj++){
+      var gjf=gj/20;
+      var gjx=geyX+Math.sin(t*5+gj*0.3)*gjf*8*s;
+      var geyY=gy-15*s-gjf*geyH;
+      var gjr=3-gjf*2.5;
+      waterParticle(gjx,geyY,gjr,'rgba(150,220,255,'+(0.1-gjf*0.06)+')',gj);
+    }
+    // Side jets
+    for(var sj=0;sj<4;sj++){
+      var sjA=(sj-1.5)*0.3;
+      var sjH=40*s+Math.sin(t*3+sj)*15*s;
+      for(var sj2=0;sj2<10;sj2++){
+        var sjf=sj2/10;
+        var sjx=geyX+Math.sin(sjA)*sjf*30*s+Math.sin(t*4+sj2)*2;
+        var sjy=gy-15*s-sjf*sjH;
+        waterParticle(sjx,sjy,1.5-sjf,'rgba(100,180,255,'+(0.07-sjf*0.04)+')',sj+sj2);
+      }
+    }
+    // Mist at base
+    for(var ms=0;ms<8;ms++){
+      var msx=cx+Math.sin(t+ms*2)*25*s;
+      var msy=gy-10*s+Math.sin(t*0.5+ms)*3;
+      X.fillStyle='rgba(150,200,255,'+(0.02+Math.sin(t+ms)*0.01)+')';
+      X.beginPath();X.arc(msx,msy,4*s+Math.sin(t*2+ms)*2,0,Math.PI*2);X.fill();
+    }
+    lbl('гейзер · 25м · 3 атмосферы · WOW!',cx,gy-15*s-geyH-15*s,'rgba(150,220,255,0.6)',7);
+  }
+
+  // === STAGE 11: Cascade ===
+  if(stage>=11){
+    // 7 cascade levels
+    for(var cv=0;cv<7;cv++){
+      var cvx=cx-45*s+cv*15*s;
+      var cvy=gy-15*s-cv*8*s;
+      var cvw=12*s;
+      // Basin on each level
+      X.fillStyle='rgba(150,160,170,0.03)';X.fillRect(cvx-cvw/2,cvy,cvw,4*s);
+      X.strokeStyle='rgba(180,180,190,0.06)';X.lineWidth=0.3;X.strokeRect(cvx-cvw/2,cvy,cvw,4*s);
+      // Water spilling
+      if(cv>0){
+        for(var sw2=0;sw2<6;sw2++){
+          var swx=cvx-cvw/2+sw2*(cvw/5);
+          var swy=cvy+4*s+((t*20+sw2*5+cv*10)%15)*s*0.3;
+          if(swy<cvy+12*s){
+            waterParticle(swx,swy,0.8,'rgba(100,180,255,0.06)',cv+sw2);
+          }
+        }
+      }
+    }
+    // Whispering sound waves
+    for(var sw3=0;sw3<3;sw3++){
+      X.strokeStyle='rgba(150,200,255,'+(0.02-sw3*0.005)+')';X.lineWidth=0.3;
+      X.beginPath();X.arc(cx,gy-15*s,20*s+sw3*8*s+Math.sin(t+sw3)*3,Math.PI*0.8,Math.PI*0.2);X.stroke();
+    }
+    lbl('каскад · 7 уровней · шёпот воды',cx,gy-15*s-7*8*s-15*s,'rgba(150,200,255,0.5)',6);
+  }
+
+  // === STAGE 12: Final ===
+  if(stage>=12){
+    // All modes combined - grand display
+    // Central geyser
+    for(var fg=0;fg<15;fg++){
+      var fgf=fg/15;
+      var fgx=cx+Math.sin(t*4+fg*0.4)*fgf*5*s;
+      var fgy=gy-15*s-fgf*80*s;
+      waterParticle(fgx,fgy,2.5-fgf*2,'rgba(150,220,255,'+(0.1-fgf*0.06)+')',fg);
+    }
+    // Ring jets
+    for(var rj=0;rj<8;rj++){
+      var rja=rj*Math.PI/4+t*0.3;
+      var rjR=40*s;
+      var rjx=cx+Math.cos(rja)*rjR;
+      var rjy=gy-15*s+Math.sin(rja)*rjR*0.2;
+      waterJet(rjx,rjy,25*s+Math.sin(t*2+rj)*10*s,'rgba(100,180,255,0.06)',4*s,rj);
+    }
+    // Spray particles everywhere
+    for(var sp2=0;sp2<30;sp2++){
+      var spx2=cx+Math.sin(t*2+sp2*1.3)*60*s;
+      var spy2=gy-15*s-Math.abs(Math.sin(t*1.5+sp2*0.7))*70*s;
+      waterParticle(spx2,spy2,0.8,'rgba(150,200,255,0.04)',sp2);
+    }
+    // Rainbow hint
+    X.globalAlpha=0.015;
+    for(var rb=0;rb<6;rb++){
+      X.strokeStyle='hsla('+(rb*60)+',70%,60%,0.5)';X.lineWidth=2;
+      X.beginPath();X.arc(cx,gy-15*s,50*s+rb*4,Math.PI*1.1,Math.PI*1.9);X.stroke();
+    }
+    X.globalAlpha=1;
+    // Stats
+    lbl('15000 л/мин · 250 светильников · 365 дней',cx,gy+15*s,'rgba(150,220,255,0.5)',6);
+  }
+
+  document.getElementById('part-label').textContent=pts[stage]||'';
+  X.fillStyle='rgba(0,170,255,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(0,170,255,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd=0;sd<=maxStage;sd++){X.fillStyle=sd<=stage?'rgba(0,170,255,0.25)':'rgba(0,170,255,0.06)';X.beginPath();X.arc(W*0.1+W*0.8*(sd/maxStage),H-6.5,2,0,Math.PI*2);X.fill()}
+  requestAnimationFrame(draw);
+}
+draw();
+</script></body></html>
