@@ -1,0 +1,445 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>44 — Поиск Сигнала Пришельцев — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060608;overflow:hidden;font-family:sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #0af;color:#0af;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(0,170,255,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #0af5;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#0af;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:600px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Поиск Сигнала Пришельцев</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">&#9664;</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">&#9654;</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="speed" min="0" max="100" value="0" style="width:70px;accent-color:#0af"><span class="val" id="speedV">0</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+var stage=0,autoMode=false,autoTimer=0,maxStage=12,t=0;
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ'};
+document.getElementById('speed').oninput=function(){document.getElementById('speedV').textContent=this.value};
+
+var pts=['Радиотелескоп · 70м · парабола · оловянное покрытие · nuit','Обсерватория · 4000м · Chile · Атакама · сухость · прозрачность','Частота · 1420 МГц · водород · нейтральная линия · «окно»','Спектроанализатор · FFT · 16000 каналов · 2.7 ГГц · шум','Подавление · RFI · помехи · GSM · GPS · фильтр · экранирование','Сканирование · небо · 40000 звёзд · 100 световых лет · рация','Аномалия · Wow! · 72 сек · 1420 МГц · Big Ear · 1977','Кандидаты · FRB · быстрые радиовспышки · миллисекунды · магнитар','Ответ · METI ·.postMessage · золотая пластинка · Pioneer','Философия · Ферми · парадокс · 400 миллиардов · молчание','Технологии · AI · нейросети · 100ПБ · скан · реал-тайм','Ожидание · 60 лет · 100 обсерваторий · один вопрос'];
+
+function dish(x,y,r2,angle){
+  // Dish
+  X.save();X.translate(x,y);X.rotate(angle);
+  X.strokeStyle='rgba(200,200,210,0.08)';X.lineWidth=1;
+  X.beginPath();X.arc(0,0,r2,Math.PI*0.3,Math.PI*0.7);X.stroke();
+  // Surface segments
+  for(var sg=0;sg<6;sg++){
+    var sga=Math.PI*0.3+sg*Math.PI*0.4/6;
+    X.strokeStyle='rgba(150,150,160,0.04)';X.lineWidth=0.3;
+    X.beginPath();X.arc(0,0,r2*0.9,sga,sga+Math.PI*0.06);X.stroke();
+  }
+  // Feed horn
+  X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.5;
+  X.beginPath();X.moveTo(0,0);X.lineTo(Math.cos(Math.PI*0.5)*r2*0.6,Math.sin(Math.PI*0.5)*r2*0.6);X.stroke();
+  X.fillStyle='rgba(200,200,210,0.05)';X.beginPath();X.arc(Math.cos(Math.PI*0.5)*r2*0.6,Math.sin(Math.PI*0.5)*r2*0.6,2*s2,0,Math.PI*2);X.fill();
+  // Support struts
+  X.strokeStyle='rgba(150,150,160,0.04)';X.lineWidth=0.3;
+  X.beginPath();X.moveTo(-r2*0.3,r2*0.2);X.lineTo(0,0);X.stroke();
+  X.beginPath();X.moveTo(r2*0.3,r2*0.2);X.lineTo(0,0);X.stroke();
+  X.restore();
+}
+
+function signalPulse(x,y,r2,maxR,col){
+  var pulseR=(t*20+r*5)%maxR;
+  X.strokeStyle=col.replace('0.06',''+(0.06*(1-pulseR/maxR)));
+  X.lineWidth=0.5;X.beginPath();X.arc(x,y,pulseR,0,Math.PI*2);X.stroke();
+}
+
+function spectrum(x,y,w2,h2,data2){
+  X.fillStyle='rgba(10,15,30,0.05)';X.fillRect(x,y,w2,h2);
+  X.strokeStyle='rgba(30,40,60,0.08)';X.lineWidth=0.3;X.strokeRect(x,y,w2,h2);
+  // Grid
+  for(var gx=0;gx<10;gx++){
+    X.strokeStyle='rgba(30,40,60,0.04)';X.lineWidth=0.2;
+    X.beginPath();X.moveTo(x+gx*(w2/10),y);X.lineTo(x+gx*(w2/10),y+h2);X.stroke();
+  }
+  for(var gy2=0;gy2<5;gy2++){
+    X.beginPath();X.moveTo(x,y+gy2*(h2/5));X.lineTo(x+w2,y+gy2*(h2/5));X.stroke();
+  }
+  // Data line
+  X.strokeStyle='rgba(0,170,255,0.06)';X.lineWidth=0.5;
+  X.beginPath();
+  for(var d=0;d<data2.length;d++){
+    var dx=x+d*(w2/data2.length);
+    var dy=y+h2-data2[d]*h2;
+    if(d===0)X.moveTo(dx,dy);else X.lineTo(dx,dy);
+  }
+  X.stroke();
+}
+
+function lbl(t2,x,y,c,sz){X.globalAlpha=0.55;X.font=(sz||6)+'px monospace';X.fillStyle=c||'rgba(0,170,255,0.8)';X.textAlign='center';X.fillText(t2,x,y);X.textAlign='left';X.globalAlpha=1}
+
+function draw(){
+  var spd=parseInt(document.getElementById('speed').value);
+  if(autoMode){autoTimer+=0.016;if(autoTimer>2.5){autoTimer=0;if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ'}}}
+  t+=0.016;
+  X.fillStyle='#060608';X.fillRect(0,0,W,H);
+  var cx=W/2,gy=H*0.75,s=Math.min(W,H)/650;
+
+  // Deep space background
+  for(var st=0;st<100;st++){
+    var brightness=0.01+Math.sin(st*7.3)*0.005;
+    X.fillStyle='rgba(255,255,255,'+brightness+')';
+    X.beginPath();X.arc((Math.sin(st*3.7)*0.5+0.5)*W,(Math.cos(st*2.3)*0.5+0.5)*H,0.3+Math.sin(st)*0.2,0,Math.PI*2);X.fill();
+  }
+
+  // Nebula
+  X.globalAlpha=0.008;
+  X.fillStyle='rgba(100,50,150,1)';X.beginPath();X.arc(W*0.3,H*0.3,80*s,0,Math.PI*2);X.fill();
+  X.fillStyle='rgba(50,100,150,1)';X.beginPath();X.arc(W*0.7,H*0.4,60*s,0,Math.PI*2);X.fill();
+  X.globalAlpha=1;
+
+  // Ground / mountains
+  X.fillStyle='rgba(20,25,35,0.04)';X.beginPath();
+  X.moveTo(0,gy);X.lineTo(W*0.15,gy-15*s);X.lineTo(W*0.3,gy-8*s);X.lineTo(W*0.5,gy-20*s);
+  X.lineTo(W*0.7,gy-12*s);X.lineTo(W*0.85,gy-18*s);X.lineTo(W,gy-5*s);X.lineTo(W,H);X.lineTo(0,H);X.fill();
+
+  // === STAGE 0: Radio telescope ===
+  if(stage>=0){
+    var dishX=cx,dishY=gy-20*s;
+    // Dish structure
+    X.strokeStyle='rgba(200,200,210,0.08)';X.lineWidth=1.5;
+    // Main dish arc
+    X.beginPath();X.arc(dishX,dishY,35*s,Math.PI*1.1,Math.PI*1.9);X.stroke();
+    // Segments
+    for(var sg=0;sg<8;sg++){
+      var sga=Math.PI*1.1+sg*Math.PI*0.8/8;
+      X.strokeStyle='rgba(150,150,160,0.04)';X.lineWidth=0.3;
+      X.beginPath();X.arc(dishX,dishY,33*s,sga,sga+Math.PI*0.1);X.stroke();
+    }
+    // Support structure
+    X.strokeStyle='rgba(150,150,160,0.06)';X.lineWidth=0.8;
+    X.beginPath();X.moveTo(dishX,dishY);X.lineTo(dishX,dishY+30*s);X.stroke();
+    X.beginPath();X.moveTo(dishX-15*s,dishY+25*s);X.lineTo(dishX+15*s,dishY+25*s);X.stroke();
+    // Feed horn
+    X.fillStyle='rgba(200,200,210,0.06)';X.beginPath();X.arc(dishX,dishY+5*s,3*s,0,Math.PI*2);X.fill();
+    X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.5;
+    X.beginPath();X.moveTo(dishX,dishY+5*s);X.lineTo(dishX,dishY+20*s);X.stroke();
+    // Size label
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(200,200,210,0.12)';X.textAlign='center';
+    X.fillText('70м',dishX,dishY-5*s);X.textAlign='left';
+    lbl('радиотелескоп · 70м · парабола · оловянное покрытие',cx,gy+15*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 1: Observatory ===
+  if(stage>=1){
+    // Mountains of Atacama
+    X.fillStyle='rgba(80,60,40,0.03)';X.beginPath();
+    X.moveTo(W*0.1,gy);X.lineTo(W*0.2,gy-25*s);X.lineTo(W*0.35,gy-15*s);
+    X.lineTo(W*0.5,gy-30*s);X.lineTo(W*0.65,gy-20*s);X.lineTo(W*0.8,gy-28*s);
+    X.lineTo(W,gy-10*s);X.lineTo(W,gy);X.fill();
+    // Observatory dome
+    var domX=W*0.5,domY=gy-30*s;
+    X.fillStyle='rgba(180,180,190,0.04)';X.beginPath();X.arc(domX,domY,12*s,Math.PI,0);X.fill();
+    X.fillStyle='rgba(160,160,170,0.03)';X.fillRect(domX-12*s,domY,24*s,10*s);
+    X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.4;
+    X.beginPath();X.arc(domX,domY,12*s,Math.PI,0);X.stroke();
+    X.strokeRect(domX-12*s,domY,24*s,10*s);
+    // Slit
+    X.strokeStyle='rgba(100,150,200,0.04)';X.lineWidth=0.5;
+    X.beginPath();X.moveTo(domX,domY-12*s);X.lineTo(domX,domY-2*s);X.stroke();
+    // Altitude
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(200,200,210,0.12)';X.textAlign='center';
+    X.fillText('4000м · Атакама · Chile',domX,gy+15*s);X.textAlign='left';
+    lbl('обсерватория · 4000м · сухость · прозрачность',domX,domY-20*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 2: Frequency ===
+  if(stage>=2){
+    var frX=cx,frY=cy;
+    // Frequency display
+    X.fillStyle='rgba(10,15,30,0.06)';X.fillRect(frX-50*s,frY-30*s,100*s,60*s);
+    X.strokeStyle='rgba(0,170,255,0.06)';X.lineWidth=0.5;X.strokeRect(frX-50*s,frY-30*s,100*s,60*s);
+    // Grid
+    for(var gx=0;gx<10;gx++){
+      X.strokeStyle='rgba(0,170,255,0.03)';X.lineWidth=0.2;
+      X.beginPath();X.moveTo(frX-50*s+gx*10*s,frY-30*s);X.lineTo(frX-50*s+gx*10*s,frY+30*s);X.stroke();
+    }
+    // Hydrogen line at 1420 MHz
+    X.strokeStyle='rgba(0,255,100,0.08)';X.lineWidth=1;
+    X.beginPath();X.moveTo(frX,frY+25*s);X.lineTo(frX,frY-25*s);X.stroke();
+    // Spectrum noise
+    X.strokeStyle='rgba(0,170,255,0.04)';X.lineWidth=0.5;
+    X.beginPath();
+    for(var sn=0;sn<100;sn++){
+      var snx=frX-48*s+sn*0.96*s;
+      var sny=frY+Math.sin(sn*0.3+t)*5*s+Math.random()*3*s;
+      if(sn===0)X.moveTo(snx,sny);else X.lineTo(snx,sny);
+    }
+    X.stroke();
+    // Frequency label
+    X.font=(4*s)+'px monospace';X.fillStyle='rgba(0,255,100,0.15)';X.textAlign='center';
+    X.fillText('1420 МГц',frX,frY-35*s);X.fillText('водород · нейтральная линия',frX,frY+40*s);X.textAlign='left';
+    lbl('частота · 1420 МГц · водород · «окно»',frX,frY-45*s,'rgba(0,255,100,0.5)',6);
+  }
+
+  // === STAGE 3: Spectral analyzer ===
+  if(stage>=3){
+    // FFT display
+    var spX=cx-60*s,spY=cy-20*s;
+    var fftData=[];
+    for(var fd=0;fd<64;fd++){
+      fftData.push(0.1+Math.sin(fd*0.2+t)*0.05+Math.random()*0.08);
+    }
+    // Add a spike (potential signal)
+    fftData[42]=0.6+Math.sin(t*2)*0.1;
+    spectrum(spX,spY,120*s,40*s,fftData);
+    // Channel count
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.12)';X.textAlign='center';
+    X.fillText('FFT · 16000 каналов · 2.7 ГГц',spX+60*s,spY+50*s);X.textAlign='left';
+    // Spike highlight
+    X.fillStyle='rgba(255,100,100,'+(0.04+Math.sin(t*3)*0.02)+')';
+    X.beginPath();X.arc(spX+42*(120*s/64),spY+40*s-0.6*40*s,3*s,0,Math.PI*2);X.fill();
+    lbl('спектроанализатор · FFT · 16000 каналов',cx,spY-15*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 4: RFI suppression ===
+  if(stage>=4){
+    // Interference signals
+    var rfX=cx,rfY=cy;
+    // Before filter
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(255,100,100,0.1)';X.textAlign='center';
+    X.fillText('ДО фильтра',rfX-40*s,rfY-35*s);
+    X.strokeStyle='rgba(255,100,100,0.04)';X.lineWidth=0.5;
+    X.beginPath();
+    for(var ri=0;ri<80;ri++){
+      var rix=rfX-70*s+ri*1.5*s;
+      var riy=rfY+Math.sin(ri*0.5+t*2)*10*s+Math.sin(ri*0.1)*15*s;
+      if(ri===0)X.moveTo(rix,riy);else X.lineTo(rix,riy);
+    }
+    X.stroke();
+    // After filter
+    X.fillStyle='rgba(0,255,100,0.1)';X.fillText('ПОСЛЕ фильтра',rfX+40*s,rfY-35*s);
+    X.strokeStyle='rgba(0,255,100,0.05)';X.lineWidth=0.5;
+    X.beginPath();
+    for(var fi2=0;fi2<80;fi2++){
+      var fix=rfX+10*s+fi2*1.5*s;
+      var fiy=rfY+Math.sin(fi2*0.3)*3*s+Math.random()*2*s;
+      if(fi2===0)X.moveTo(fix,fiy);else X.lineTo(fix,fiy);
+    }
+    X.stroke();
+    // Filter symbol
+    X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=1;
+    X.beginPath();X.moveTo(rfX-5*s,rfY-25*s);X.lineTo(rfX+5*s,rfY-25*s);X.stroke();
+    X.beginPath();X.moveTo(rfX-3*s,rfY-20*s);X.lineTo(rfX+3*s,rfY-20*s);X.stroke();
+    // Labels
+    X.font=(2.5*s)+'px monospace';X.fillStyle='rgba(255,100,100,0.1)';
+    X.fillText('GSM · GPS · помехи',rfX-40*s,rfY+30*s);
+    X.fillStyle='rgba(0,255,100,0.1)';X.fillText('чистый сигнал',rfX+40*s,rfY+30*s);X.textAlign='left';
+    lbl('подавление · RFI · помехи · фильтр · экранирование',rfX,rfY-45*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 5: Sky scanning ===
+  if(stage>=5){
+    // Multiple dishes scanning
+    var scanDishes=[[W*0.2,gy-15*s],[W*0.4,gy-18*s],[W*0.6,gy-16*s],[W*0.8,gy-17*s]];
+    for(var sd=0;sd<scanDishes.length;sd++){
+      var sdX=scanDishes[sd][0],sdY=scanDishes[sd][1];
+      // Dish
+      X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.8;
+      X.beginPath();X.arc(sdX,sdY,12*s,Math.PI*1.1,Math.PI*1.9);X.stroke();
+      X.strokeStyle='rgba(150,150,160,0.04)';X.lineWidth=0.5;
+      X.beginPath();X.moveTo(sdX,sdY);X.lineTo(sdX,sdY+10*s);X.stroke();
+      // Beam
+      var beamAngle=Math.sin(t*0.5+sd*1.5)*0.3-0.5;
+      X.globalAlpha=0.015;X.fillStyle='rgba(0,170,255,1)';
+      X.beginPath();X.moveTo(sdX,sdY-5*s);
+      X.lineTo(sdX+Math.cos(beamAngle)*80*s,sdY-80*s+Math.sin(beamAngle)*30*s);
+      X.lineTo(sdX+Math.cos(beamAngle+0.1)*80*s,sdY-80*s+Math.sin(beamAngle+0.1)*30*s);
+      X.closePath();X.fill();
+      X.globalAlpha=1;
+    }
+    // Stars being scanned
+    for(var sc=0;sc<20;sc++){
+      var scX2=W*0.1+sc*W*0.045;
+      var scY2=H*0.1+Math.sin(sc*2.3)*H*0.2;
+      X.fillStyle='rgba(255,255,255,'+(0.02+Math.sin(t+sc)*0.01)+')';
+      X.beginPath();X.arc(scX2,scY2,1,0,Math.PI*2);X.fill();
+    }
+    lbl('сканирование · 40000 звёзд · 100 световых лет',cx,gy+15*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 6: Wow! signal ===
+  if(stage>=6){
+    // Big Ear telescope
+    var beX=cx,beY=gy-25*s;
+    // Wire mesh
+    X.strokeStyle='rgba(200,200,210,0.04)';X.lineWidth=0.3;
+    for(var wm=0;wm<15;wm++){
+      X.beginPath();X.arc(beX,beY+10*s,20*s+wm*2,Math.PI*1.2,Math.PI*1.8);X.stroke();
+    }
+    // The famous Wow! signal
+    X.fillStyle='rgba(255,200,50,0.08)';
+    X.font=(12*s)+'px monospace';X.textAlign='center';
+    X.fillText('Wow!',beX,beY-20*s);
+    X.textAlign='left';
+    // Signal strength
+    X.strokeStyle='rgba(255,200,50,0.08)';X.lineWidth=1;
+    X.beginPath();X.moveTo(beX-20*s,beY+5*s);
+    for(var ws=0;ws<72;ws++){
+      var wsx=beX-20*s+ws*0.8*s;
+      var wsy=beY+5*s-Math.sin(ws*0.1)*10*s*(ws<36?ws/36:(72-ws)/36);
+      X.lineTo(wsx,wsy);
+    }
+    X.stroke();
+    // Date
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(255,200,50,0.12)';X.textAlign='center';
+    X.fillText('15 августа 1977 · 72 сек · 1420 МГц · Big Ear',beX,beY+20*s);X.textAlign='left';
+    lbl('аномалия · Wow! · 72 сек · Big Ear · 1977',beX,beY-35*s,'rgba(255,200,50,0.5)',6);
+  }
+
+  // === STAGE 7: FRB candidates ===
+  if(stage>=7){
+    // Fast Radio Burst visualization
+    var frbX=cx,frbY=cy;
+    // Burst
+    for(var br=0;br<8;br++){
+      var bra=br*Math.PI/4+t*2;
+      var brR=5*s+Math.sin(t*5+br)*3*s;
+      X.fillStyle='rgba(255,100,200,'+(0.04+Math.sin(t*5+br)*0.02)+')';
+      X.beginPath();X.arc(frbX+Math.cos(bra)*brR,frbY+Math.sin(bra)*brR,1.5,0,Math.PI*2);X.fill();
+    }
+    // Central burst
+    X.fillStyle='rgba(255,150,255,0.06)';X.beginPath();X.arc(frbX,frbY,3*s,0,Math.PI*2);X.fill();
+    // Timing display
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(255,100,200,0.12)';X.textAlign='center';
+    X.fillText('FRB · миллисекунды · магнитар',frbX,frbY+25*s);
+    X.fillText('повторяющийся · 16.35 дней',frbX,frbY+32*s);X.textAlign='left';
+    // Dispersion measure
+    X.strokeStyle='rgba(255,100,200,0.04)';X.lineWidth=0.3;
+    X.beginPath();X.moveTo(frbX-30*s,frbY+40*s);X.lineTo(frbX+30*s,frbY+40*s);X.stroke();
+    lbl('кандидаты · FRB · быстрые радиовспышки · магнитар',frbX,frbY-35*s,'rgba(255,100,200,0.5)',6);
+  }
+
+  // === STAGE 8: METI response ===
+  if(stage>=8){
+    // Golden record
+    var recX=cx,recY=cy;
+    X.strokeStyle='rgba(255,220,100,0.08)';X.lineWidth=1;
+    X.beginPath();X.arc(recX,recY,20*s,0,Math.PI*2);X.stroke();
+    // Grooves
+    for(var gr=0;gr<8;gr++){
+      X.strokeStyle='rgba(255,220,100,'+(0.03+gr*0.005)+')';X.lineWidth=0.3;
+      X.beginPath();X.arc(recX,recY,5*s+gr*2*s,0,Math.PI*2);X.stroke();
+    }
+    // Binary message emanating
+    for(var bm=0;bm<12;bm++){
+      var bmAngle=bm*Math.PI/6;
+      var bmR=25*s+((t*15+bm*5)%30)*s;
+      X.fillStyle='rgba(255,220,100,'+(0.04*(1-bmR/(55*s))+')');
+      X.beginPath();X.arc(recX+Math.cos(bmAngle)*bmR,recY+Math.sin(bmAngle)*bmR,1,0,Math.PI*2);X.fill();
+    }
+    // Labels
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(255,220,100,0.12)';X.textAlign='center';
+    X.fillText('METI · послание · золотая пластинка · Pioneer',recX,recY+30*s);X.textAlign='left';
+    lbl('ответ · METI · золотая пластинка · Pioneer',recX,recY-30*s,'rgba(255,220,100,0.5)',6);
+  }
+
+  // === STAGE 9: Fermi paradox ===
+  if(stage>=9){
+    // Galaxies
+    for(var gl=0;gl<5;gl++){
+      var glX=W*0.15+gl*W*0.175;
+      var glY=H*0.2+Math.sin(gl*2.1)*H*0.1;
+      X.strokeStyle='rgba(200,200,220,'+(0.02+Math.sin(t+gl)*0.01)+')';X.lineWidth=0.3;
+      X.beginPath();X.ellipse(glX,glY,12*s,6*s,t*0.1+gl,0,Math.PI*2);X.stroke();
+    }
+    // Question mark
+    X.font=(20*s)+'px serif';X.fillStyle='rgba(255,255,255,'+(0.03+Math.sin(t*0.5)*0.015)+')';X.textAlign='center';
+    X.fillText('?',cx,cy);X.textAlign='left';
+    // Stats
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(200,200,220,0.12)';X.textAlign='center';
+    X.fillText('400 миллиардов звёзд · молчание',cx,cy+25*s);X.textAlign='left';
+    lbl('философия · Ферми · парадокс · 400 млрд · молчание',cx,cy-35*s,'rgba(200,200,220,0.5)',6);
+  }
+
+  // === STAGE 10: AI processing ===
+  if(stage>=10){
+    // Neural network visualization
+    var nnX=cx,nnY=cy;
+    var layers=[4,6,8,6,4];
+    var layerX=[];
+    for(var ly=0;ly<layers.length;ly++){
+      layerX.push(nnX-40*s+ly*20*s);
+    }
+    // Connections
+    for(var ly2=0;ly2<layers.length-1;ly2++){
+      for(var n1=0;n1<layers[ly2];n1++){
+        for(var n2=0;n2<layers[ly2+1];n2++){
+          var n1y=nnY-(layers[ly2]-1)*5*s/2+n1*5*s;
+          var n2y=nnY-(layers[ly2+1]-1)*5*s/2+n2*5*s;
+          X.strokeStyle='rgba(0,170,255,'+(0.01+Math.sin(t*2+n1+n2)*0.005)+')';
+          X.lineWidth=0.2;X.beginPath();X.moveTo(layerX[ly2],n1y);X.lineTo(layerX[ly2+1],n2y);X.stroke();
+        }
+      }
+    }
+    // Nodes
+    for(var ly3=0;ly3<layers.length;ly3++){
+      for(var n=0;n<layers[ly3];n++){
+        var ny=nnY-(layers[ly3]-1)*5*s/2+n*5*s;
+        X.fillStyle='rgba(0,170,255,'+(0.04+Math.sin(t*3+n+ly3)*0.02)+')';
+        X.beginPath();X.arc(layerX[ly3],ny,2*s,0,Math.PI*2);X.fill();
+      }
+    }
+    // Data flow
+    for(var df=0;df<5;df++){
+      var dfx=nnX-40*s+((t*30+df*20)%(80*s));
+      X.fillStyle='rgba(0,255,100,0.04)';X.beginPath();X.arc(dfx,nnY,1,0,Math.PI*2);X.fill();
+    }
+    lbl('технологии · AI · нейросети · 100ПБ · реал-тайм',nnX,nnY+35*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 11: Waiting ===
+  if(stage>=11){
+    // All dishes together
+    var waitDishes=[[W*0.15,gy-15*s,8*s],[W*0.35,gy-20*s,12*s],[W*0.5,gy-25*s,15*s],[W*0.65,gy-18*s,10*s],[W*0.85,gy-16*s,9*s]];
+    for(var wd=0;wd<waitDishes.length;wd++){
+      var wdx=waitDishes[wd][0],wdy=waitDishes[wd][1],wdr=waitDishes[wd][2];
+      X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.8;
+      X.beginPath();X.arc(wdx,wdy,wdr,Math.PI*1.1,Math.PI*1.9);X.stroke();
+      X.strokeStyle='rgba(150,150,160,0.04)';X.lineWidth=0.5;
+      X.beginPath();X.moveTo(wdx,wdy);X.lineTo(wdx,wdy+wdr*0.8);X.stroke();
+      // Gentle beam
+      X.globalAlpha=0.005;X.fillStyle='rgba(0,170,255,1)';
+      X.beginPath();X.moveTo(wdx,wdy-3*s);X.lineTo(wdx-20*s,wdy-100*s);X.lineTo(wdx+20*s,wdy-100*s);X.closePath();X.fill();
+      X.globalAlpha=1;
+    }
+    // The one question
+    X.font=(8*s)+'px serif';X.fillStyle='rgba(255,255,255,'+(0.04+Math.sin(t*0.3)*0.02)+')';X.textAlign='center';
+    X.fillText('Один вопрос',cx,cy-10*s);
+    X.font=(4*s)+'px monospace';X.fillStyle='rgba(200,200,220,0.12)';
+    X.fillText('60 лет · 100 обсерваторий · 40000 звёзд',cx,cy+10*s);
+    X.fillText('мы одни?',cx,cy+20*s);X.textAlign='left';
+    lbl('ожидание · 60 лет · 100 обсерваторий · один вопрос',cx,cy+35*s,'rgba(200,200,220,0.6)',7);
+  }
+
+  document.getElementById('part-label').textContent=pts[stage]||'';
+  X.fillStyle='rgba(0,170,255,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(0,170,255,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd2=0;sd2<=maxStage;sd2++){X.fillStyle=sd2<=stage?'rgba(0,170,255,0.25)':'rgba(0,170,255,0.06)';X.beginPath();X.arc(W*0.1+W*0.8*(sd2/maxStage),H-6.5,2,0,Math.PI*2);X.fill()}
+  requestAnimationFrame(draw);
+}
+draw();
+</script></body></html>
