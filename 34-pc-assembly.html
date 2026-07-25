@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>34 — Сборка Компьютера — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060608;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #0ef;color:#0ef;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(0,238,255,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #0ef5;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#0ef;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:500px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Сборка Компьютера</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">◀</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">▶</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="speed" min="0" max="100" value="0" step="1" style="width:70px;accent-color:#0ef"><span class="val" id="speedV">0</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+var stage=0;
+var autoMode=false;
+var autoTimer=0;
+var maxStage=12;
+
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ';};
+document.getElementById('speed').oninput=function(){document.getElementById('speedV').textContent=this.value;};
+
+var parts=[
+  'Корпус — Mid Tower · 460×210×490мм · tempered glass',
+  'Блок питания — 850W · 80+ Gold · модульный · ATX 3.0',
+  'Материнская плата — Z890 · LGA 1851 · DDR5 · PCIe 5.0',
+  'Процессор — Intel Core Ultra 9 285K · 24 ядра · 5.7ГГц',
+  'Охлаждение — 360mm AIO · 3×120mm · LCD-дисплей · 2000RPM',
+  'Оперативная память — 64GB DDR5-6400 · CL32 · 2×32GB',
+  'SSD NVMe — 4TB · Gen5 · 14000/12000 МБ/с · heatsink',
+  'Видеокарта — RTX 5090 · 32GB GDDR7 · 21760 CUDA · 575W',
+  'Радиатор — 360mm · алюминий · 18 FPI · 3× fan',
+  'Вентиляторы — 6×120mm · ARGB · PWM · 1800RPM',
+  'Кабель-менеджмент — sleeve · 24-pin · 8-pin ×2 · USB-C',
+  'Система охлаждения — позитивное давление · 3 in / 3 out',
+  'Готов — рабочая станция · 192 ядра · RTX 5090 · 2TB/s'
+];
+
+var t=0;
+var fanAngle=0;
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0],pts[1]);for(var i=2;i<pts.length;i+=2){if(i+4<pts.length){X.bezierCurveTo(pts[i],pts[i+1],pts[i+2],pts[i+3],pts[i+4],pts[i+5]);i+=4;}else X.lineTo(pts[i],pts[i+1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0||pts.length<4)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0],pts[1]);for(var i=2;i<pts.length;i+=2){if(i+4<pts.length){X.bezierCurveTo(pts[i],pts[i+1],pts[i+2],pts[i+3],pts[i+4],pts[i+5]);i+=4;}else X.lineTo(pts[i],pts[i+1]);}X.closePath();X.stroke();}
+
+function label(text,x,y,color,size){
+  X.globalAlpha=0.6;X.font=(size||7)+'px monospace';X.fillStyle=color||'rgba(200,230,255,0.8)';X.textAlign='center';X.fillText(text,x,y);X.textAlign='left';X.globalAlpha=1;
+}
+
+var ledPhase=0;
+
+function draw(){
+  var speed2=parseInt(document.getElementById('speed').value);
+  
+  if(autoMode){
+    autoTimer+=0.016;
+    if(autoTimer>2){
+      autoTimer=0;
+      if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}
+      else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ';}
+    }
+  }
+  
+  t+=0.016;
+  fanAngle+=0.15;
+  ledPhase+=0.03;
+  
+  X.fillStyle='#060608';X.fillRect(0,0,W,H);
+  
+  var cx=W/2;
+  var cy=H*0.5;
+  var s=Math.min(W,H)/650;
+  
+  // Case dimensions
+  var caseW=130*s;
+  var caseH=170*s;
+  var caseX=cx-caseW/2;
+  var caseY=cy-caseH/2;
+  
+  // === Stage 0: Case ===
+  if(stage>=0){
+    // Case body - dark metal
+    X.fillStyle='rgba(30,30,35,0.08)';
+    X.fillRect(caseX,caseY,caseW,caseH);
+    X.strokeStyle='rgba(80,80,90,0.2)';
+    X.lineWidth=1;
+    X.strokeRect(caseX,caseY,caseW,caseH);
+    
+    // Front panel
+    X.fillStyle='rgba(40,40,45,0.06)';
+    X.fillRect(caseX-caseW*0.06,caseY,caseW*0.06,caseH);
+    X.strokeStyle='rgba(70,70,80,0.15)';
+    X.lineWidth=0.5;
+    X.strokeRect(caseX-caseW*0.06,caseY,caseW*0.06,caseH);
+    
+    // Front mesh pattern
+    for(var fm=0;fm<8;fm++){
+      var fmy=caseY+caseH*0.1+fm*caseH*0.1;
+      X.strokeStyle='rgba(60,60,65,0.06)';
+      X.lineWidth=0.3;
+      X.beginPath();
+      X.moveTo(caseX-caseW*0.06+2,fmy);
+      X.lineTo(caseX-2,fmy);
+      X.stroke();
+    }
+    
+    // Tempered glass panel (right side)
+    X.fillStyle='rgba(40,50,60,0.04)';
+    X.fillRect(caseX+caseW*0.02,caseY+caseW*0.02,caseW*0.96-caseW*0.02,caseH-caseW*0.04);
+    X.strokeStyle='rgba(80,100,120,0.1)';
+    X.lineWidth=0.4;
+    X.strokeRect(caseX+caseW*0.02,caseY+caseW*0.02,caseW*0.96-caseW*0.02,caseH-caseW*0.04);
+    
+    // Glass reflection
+    X.strokeStyle='rgba(100,130,160,0.03)';
+    X.lineWidth=0.5;
+    X.beginPath();
+    X.moveTo(caseX+caseW*0.15,caseY+caseW*0.04);
+    X.lineTo(caseX+caseW*0.04,caseY+caseH*0.8);
+    X.stroke();
+    
+    label('корпус · Mid Tower · tempered glass',cx,caseY+caseH+15*s,'rgba(180,200,220,0.5)',6);
+  }
+  
+  // === Stage 1: PSU ===
+  if(stage>=1){
+    var psuY=caseY+caseH-30*s;
+    var psuW=caseW*0.8;
+    var psuH=28*s;
+    
+    // PSU box
+    X.fillStyle='rgba(35,35,40,0.06)';
+    X.fillRect(caseX+(caseW-psuW)/2,psuY,psuW,psuH);
+    X.strokeStyle='rgba(80,80,85,0.15)';
+    X.lineWidth=0.5;
+    X.strokeRect(caseX+(caseW-psuW)/2,psuY,psuW,psuH);
+    
+    // Fan grille
+    X.strokeStyle='rgba(60,60,65,0.06)';
+    X.lineWidth=0.3;
+    for(var pf=0;pf<3;pf++){
+      X.beginPath();
+      X.arc(caseX+(caseW-psuW)/2+psuW*0.7,psuY+psuH/2,4*s+pf*3*s,0,Math.PI*2);
+      X.stroke();
+    }
+    
+    // Power connector
+    X.fillStyle='rgba(60,60,65,0.05)';
+    X.fillRect(caseX+(caseW-psuW)/2+psuW*0.85,psuY+psuH*0.3,psuW*0.1,psuH*0.4);
+    
+    // Label on PSU
+    X.font=(5*s)+'px monospace';X.fillStyle='rgba(200,200,210,0.12)';X.textAlign='center';
+    X.fillText('850W 80+ GOLD',caseX+(caseW-psuW)/2+psuW*0.4,psuY+psuH*0.55);
+    X.textAlign='left';
+    
+    label('БП · 850W · 80+ Gold · ATX 3.0',cx,psuY-8*s,'rgba(180,200,220,0.4)',5);
+  }
+  
+  // === Stage 2: Motherboard ===
+  if(stage>=2){
+    var mbX=caseX+caseW*0.08;
+    var mbY=caseY+caseH*0.12;
+    var mbW=caseW*0.82;
+    var mbH=caseH*0.55;
+    
+    // PCB
+    X.fillStyle='rgba(30,50,30,0.05)';
+    X.fillRect(mbX,mbY,mbW,mbH);
+    X.strokeStyle='rgba(60,90,60,0.15)';
+    X.lineWidth=0.6;
+    X.strokeRect(mbX,mbY,mbW,mbH);
+    
+    // Traces
+    for(var tr=0;tr<12;tr++){
+      var tx=mbX+mbW*0.1+tr*mbW*0.07;
+      X.strokeStyle='rgba(70,110,70,0.04)';
+      X.lineWidth=0.2;
+      X.beginPath();
+      X.moveTo(tx,mbY+mbH*0.1);
+      X.lineTo(tx,mbY+mbH*0.9);
+      X.stroke();
+      // Horizontal traces
+      for(var thr=0;thr<5;thr++){
+        var thy=mbY+mbH*0.2+thr*mbH*0.15;
+        X.beginPath();
+        X.moveTo(tx,thy);
+        X.lineTo(tx+mbW*0.07,thy+mbH*0.02);
+        X.stroke();
+      }
+    }
+    
+    // VRM heatsinks
+    X.fillStyle='rgba(60,60,65,0.06)';
+    X.fillRect(mbX+2,mbY+2,mbW*0.15,mbH*0.12);
+    X.fillRect(mbX+2,mbY+2,mbW*0.04,mbH*0.5);
+    X.strokeStyle='rgba(80,80,85,0.1)';
+    X.lineWidth=0.3;
+    X.strokeRect(mbX+2,mbY+2,mbW*0.15,mbH*0.12);
+    X.strokeRect(mbX+2,mbY+2,mbW*0.04,mbH*0.5);
+    
+    // VRM fins
+    for(var vf=0;vf<5;vf++){
+      X.strokeStyle='rgba(70,70,75,0.05)';
+      X.lineWidth=0.2;
+      X.beginPath();
+      X.moveTo(mbX+mbW*0.02+vf*3,mbY+mbH*0.12+2);
+      X.lineTo(mbX+mbW*0.02+vf*3,mbY+2);
+      X.stroke();
+    }
+    
+    // RAM slots (4)
+    for(var rs=0;rs<4;rs++){
+      var rsx=mbX+mbW*0.55+rs*mbW*0.06;
+      X.strokeStyle='rgba(50,50,55,0.08)';
+      X.lineWidth=0.3;
+      X.strokeRect(rsx,mbY+mbH*0.05,mbW*0.04,mbH*0.25);
+    }
+    
+    // PCIe slots
+    for(var ps=0;ps<3;ps++){
+      var psy=mbY+mbH*0.5+ps*mbH*0.12;
+      X.strokeStyle='rgba(50,50,55,0.06)';
+      X.lineWidth=0.4;
+      X.beginPath();
+      X.moveTo(mbX+mbW*0.15,psy);
+      X.lineTo(mbX+mbW*0.8,psy);
+      X.stroke();
+    }
+    
+    // I/O shield area
+    X.fillStyle='rgba(60,60,65,0.05)';
+    X.fillRect(mbX-4,mbY+mbH*0.05,4,mbH*0.4);
+    X.strokeStyle='rgba(80,80,85,0.08)';
+    X.lineWidth=0.3;
+    X.strokeRect(mbX-4,mbY+mbH*0.05,4,mbH*0.4);
+    
+    // Chipset heatsink
+    X.fillStyle='rgba(70,70,75,0.05)';
+    X.fillRect(mbX+mbW*0.6,mbY+mbH*0.65,mbW*0.2,mbH*0.15);
+    X.strokeStyle='rgba(90,90,95,0.08)';
+    X.lineWidth=0.3;
+    X.strokeRect(mbX+mbW*0.6,mbY+mbH*0.65,mbW*0.2,mbH*0.15);
+    
+    label('Z890 · LGA 1851 · DDR5 · PCIe 5.0',cx,mbY+mbH+10*s,'rgba(150,200,150,0.4)',5);
+  }
+  
+  // === Stage 3: CPU ===
+  if(stage>=3){
+    var cpuX=mbX+mbW*0.18;
+    var cpuY2=mbY+mbH*0.15;
+    var cpuS=mbW*0.22;
+    
+    // Socket
+    X.fillStyle='rgba(40,40,45,0.06)';
+    X.fillRect(cpuX-cpuS*0.05,cpuY2-cpuS*0.05,cpuS*1.1,cpuS*1.1);
+    X.strokeStyle='rgba(80,80,85,0.12)';
+    X.lineWidth=0.4;
+    X.strokeRect(cpuX-cpuS*0.05,cpuY2-cpuS*0.05,cpuS*1.1,cpuS*1.1);
+    
+    // CPU IHS
+    X.fillStyle='rgba(180,180,185,0.06)';
+    X.fillRect(cpuX,cpuY2,cpuS,cpuS);
+    X.strokeStyle='rgba(200,200,210,0.15)';
+    X.lineWidth=0.5;
+    X.strokeRect(cpuX,cpuY2,cpuS,cpuS);
+    
+    // IHS marking
+    X.font=(4*s)+'px monospace';X.fillStyle='rgba(150,150,160,0.1)';X.textAlign='center';
+    X.fillText('Intel Core',cpuX+cpuS/2,cpuY2+cpuS*0.4);
+    X.fillText('Ultra 9 285K',cpuX+cpuS/2,cpuY2+cpuS*0.55);
+    X.font=(3*s)+'px monospace';
+    X.fillText('24C/24T · 5.7GHz',cpuX+cpuS/2,cpuY2+cpuS*0.7);
+    X.textAlign='left';
+    
+    // LGA pins (tiny dots)
+    for(var pin=0;pin<20;pin++){
+      var px=cpuX+cpuS*0.1+Math.random()*cpuS*0.8;
+      var py=cpuY2+cpuS*0.1+Math.random()*cpuS*0.8;
+      X.fillStyle='rgba(200,180,100,0.03)';
+      X.fillRect(px,py,0.5,0.5);
+    }
+    
+    // Retention bracket
+    X.strokeStyle='rgba(90,90,95,0.1)';
+    X.lineWidth=0.3;
+    X.strokeRect(cpuX-3,cpuY2-3,cpuS+6,cpuS+6);
+    
+    label('Core Ultra 9 285K · 24 ядра · 5.7ГГц',cpuX+cpuS/2,cpuY2-10*s,'rgba(200,220,255,0.4)',5);
+  }
+  
+  // === Stage 4: AIO Cooler ===
+  if(stage>=4){
+    // CPU block/pump head
+    var pbX=cpuX+cpuS*0.1;
+    var pbY2=cpuY2+cpuS*0.1;
+    var pbS=cpuS*0.8;
+    
+    X.fillStyle='rgba(30,35,40,0.06)';
+    X.fillRect(pbX,pbY2,pbS,pbS);
+    X.strokeStyle='rgba(80,100,120,0.12)';
+    X.lineWidth=0.5;
+    X.strokeRect(pbX,pbY2,pbS,pbS);
+    
+    // LCD display on pump
+    X.fillStyle='rgba(20,40,60,0.06)';
+    X.fillRect(pbX+pbS*0.15,pbY2+pbS*0.15,pbS*0.7,pbS*0.5);
+    X.strokeStyle='rgba(60,120,180,0.08)';
+    X.lineWidth=0.3;
+    X.strokeRect(pbX+pbS*0.15,pbY2+pbS*0.15,pbS*0.7,pbS*0.5);
+    
+    // Temperature on LCD
+    X.font=(4*s)+'px monospace';X.fillStyle='rgba(0,200,255,0.12)';X.textAlign='center';
+    X.fillText('42°C',pbX+pbS/2,pbY2+pbS*0.5);
+    X.textAlign='left';
+    
+    // Tubing to radiator
+    X.strokeStyle='rgba(30,30,35,0.08)';
+    X.lineWidth=3*s;
+    X.beginPath();
+    X.moveTo(pbX,pbY2+pbS/2);
+    X.bezierCurveTo(pbX-caseW*0.3,pbY2-caseH*0.1,pbX-caseW*0.2,caseY+15*s,caseX+caseW*0.15,caseY+15*s);
+    X.stroke();
+    X.beginPath();
+    X.moveTo(pbX+pbS,pbY2+pbS/2);
+    X.bezierCurveTo(pbX+pbS+caseW*0.1,pbY2-caseH*0.05,pbX+pbS+caseW*0.2,caseY+20*s,caseX+caseW*0.85,caseY+15*s);
+    X.stroke();
+    
+    // Radiator at top
+    var radX=caseX+caseW*0.08;
+    var radY=caseY+4*s;
+    var radW=caseW*0.84;
+    var radH=12*s;
+    
+    X.fillStyle='rgba(40,40,45,0.05)';
+    X.fillRect(radX,radY,radW,radH);
+    X.strokeStyle='rgba(70,70,75,0.12)';
+    X.lineWidth=0.4;
+    X.strokeRect(radX,radY,radW,radH);
+    
+    // Radiator fins
+    for(var rf=0;rf<18;rf++){
+      var rfx=radX+rf*radW/18;
+      X.strokeStyle='rgba(60,60,65,0.04)';
+      X.lineWidth=0.2;
+      X.beginPath();
+      X.moveTo(rfx,radY+1);
+      X.lineTo(rfx,radY+radH-1);
+      X.stroke();
+    }
+    
+    label('360mm AIO · LCD · 2000RPM',cx,radY+radH+10*s,'rgba(100,180,220,0.4)',5);
+  }
+  
+  // === Stage 5: RAM ===
+  if(stage>=5){
+    for(var rm=0;rm<2;rm++){
+      var rmx=mbX+mbW*0.55+rm*mbW*0.12;
+      var rmy=mbY+mbH*0.05;
+      var rmw=mbW*0.05;
+      var rmh=mbH*0.25;
+      
+      // DIMM stick
+      X.fillStyle='rgba(25,25,30,0.06)';
+      X.fillRect(rmx,rmy,rmw,rmh);
+      X.strokeStyle='rgba(60,60,70,0.12)';
+      X.lineWidth=0.4;
+      X.strokeRect(rmx,rmy,rmw,rmh);
+      
+      // Heatspreader
+      X.fillStyle='rgba(40,40,45,0.05)';
+      X.fillRect(rmx+1,rmy+2,rmw-2,rmh-4);
+      
+      // Chips
+      for(var ch=0;ch<4;ch++){
+        var chy=rmy+rmh*0.15+ch*rmh*0.2;
+        X.fillStyle='rgba(30,30,35,0.05)';
+        X.fillRect(rmx+rmw*0.15,chy,rmw*0.7,rmh*0.12);
+      }
+      
+      // RGB strip
+      var rgbPhase=Math.sin(ledPhase+rm*0.5)*0.5+0.5;
+      X.fillStyle='rgba('+(50+rgbPhase*100)+','+(100+rgbPhase*80)+',220,0.06)';
+      X.fillRect(rmx+2,rmy+1,rmw-4,2);
+    }
+    
+    label('64GB DDR5-6400 · CL32',cx,mbY+mbH*0.35+10*s,'rgba(160,180,255,0.4)',5);
+  }
+  
+  // === Stage 6: NVMe SSD ===
+  if(stage>=6){
+    var ssdX=mbX+mbW*0.3;
+    var ssdY=mbY+mbH*0.55;
+    var ssdW=mbW*0.35;
+    var ssdH=mbH*0.06;
+    
+    // SSD stick
+    X.fillStyle='rgba(20,25,30,0.06)';
+    X.fillRect(ssdX,ssdY,ssdW,ssdH);
+    X.strokeStyle='rgba(60,65,70,0.12)';
+    X.lineWidth=0.4;
+    X.strokeRect(ssdX,ssdY,ssdW,ssdH);
+    
+    // NAND chips
+    for(var nc=0;nc<4;nc++){
+      var ncx=ssdX+ssdW*0.08+nc*ssdW*0.23;
+      X.fillStyle='rgba(25,25,30,0.06)';
+      X.fillRect(ncx,ssdY+ssdH*0.2,ssdW*0.18,ssdH*0.6);
+    }
+    
+    // Controller
+    X.fillStyle='rgba(30,35,40,0.05)';
+    X.fillRect(ssdX+ssdW*0.02,ssdY+ssdH*0.15,ssdW*0.1,ssdH*0.7);
+    
+    // Heatsink
+    X.fillStyle='rgba(50,50,55,0.04)';
+    X.fillRect(ssdX,ssdY-2,ssdW,ssdH+4);
+    X.strokeStyle='rgba(70,70,75,0.08)';
+    X.lineWidth=0.3;
+    X.strokeRect(ssdX,ssdY-2,ssdW,ssdH+4);
+    
+    label('4TB NVMe Gen5 · 14000/12000 МБ/с',cx,ssdY+ssdH+10*s,'rgba(150,200,180,0.4)',5);
+  }
+  
+  // === Stage 7: GPU ===
+  if(stage>=7){
+    var gpuX=caseX+caseW*0.08;
+    var gpuY2=mbY+mbH*0.55;
+    var gpuW=caseW*0.84;
+    var gpuH=caseH*0.22;
+    
+    // GPU PCB
+    X.fillStyle='rgba(25,30,25,0.06)';
+    X.fillRect(gpuX,gpuY2,gpuW,gpuH*0.3);
+    X.strokeStyle='rgba(50,70,50,0.1)';
+    X.lineWidth=0.3;
+    X.strokeRect(gpuX,gpuY2,gpuW,gpuH*0.3);
+    
+    // GPU cooler (massive)
+    X.fillStyle='rgba(40,40,45,0.06)';
+    X.fillRect(gpuX,gpuY2+gpuH*0.05,gpuW,gpuH*0.85);
+    X.strokeStyle='rgba(70,70,80,0.15)';
+    X.lineWidth=0.6;
+    X.strokeRect(gpuX,gpuY2+gpuH*0.05,gpuW,gpuH*0.85);
+    
+    // Fans (3x)
+    for(var gf=0;gf<3;gf++){
+      var gfx=gpuX+gpuW*0.2+gf*gpuW*0.28;
+      var gfy=gpuY2+gpuH*0.5;
+      var gfr=gpuH*0.32;
+      
+      X.strokeStyle='rgba(60,60,65,0.08)';
+      X.lineWidth=0.3;
+      X.beginPath();
+      X.arc(gfx,gfy,gfr,0,Math.PI*2);
+      X.stroke();
+      
+      // Fan blades
+      for(var fb=0;fb<9;fb++){
+        var fba=fanAngle+fb*Math.PI*2/9;
+        X.strokeStyle='rgba(70,70,75,0.06)';
+        X.lineWidth=0.4;
+        X.beginPath();
+        X.moveTo(gfx,gfy);
+        X.lineTo(gfx+Math.cos(fba)*gfr*0.85,gfy+Math.sin(fba)*gfr*0.85);
+        X.stroke();
+      }
+      
+      // Fan hub
+      X.fillStyle='rgba(50,50,55,0.06)';
+      X.beginPath();
+      X.arc(gfx,gfy,gfr*0.15,0,Math.PI*2);
+      X.fill();
+    }
+    
+    // GPU backplate
+    X.strokeStyle='rgba(80,80,85,0.1)';
+    X.lineWidth=0.3;
+    X.strokeRect(gpuX+2,gpuY2+gpuH*0.06,gpuW-4,gpuH*0.2);
+    
+    // Power connectors
+    X.fillStyle='rgba(40,40,45,0.05)';
+    X.fillRect(gpuX+gpuW-8*s,gpuY2+gpuH*0.1,6*s,gpuH*0.15);
+    
+    // NVIDIA branding
+    X.font=(4*s)+'px monospace';X.fillStyle='rgba(100,200,100,0.08)';X.textAlign='center';
+    X.fillText('RTX 5090',gpuX+gpuW/2,gpuY2+gpuH*0.55);
+    X.textAlign='left';
+    
+    label('RTX 5090 · 32GB GDDR7 · 21760 CUDA · 575W',cx,gpuY2+gpuH+10*s,'rgba(100,220,100,0.4)',5);
+  }
+  
+  // === Stage 8: Radiator fans ===
+  if(stage>=8){
+    // Already drawn radiator in stage 4, add detail
+    var radX2=caseX+caseW*0.08;
+    var radY2=caseY+4*s;
+    var radW2=caseW*0.84;
+    
+    // Radiator bracket
+    X.strokeStyle='rgba(60,60,65,0.08)';
+    X.lineWidth=0.3;
+    X.beginPath();
+    X.moveTo(radX2-2,radY2);
+    X.lineTo(radX2-2,radY2+18*s);
+    X.stroke();
+    X.beginPath();
+    X.moveTo(radX2+radW2+2,radY2);
+    X.lineTo(radX2+radW2+2,radY2+18*s);
+    X.stroke();
+    
+    // Screws
+    for(var sc=0;sc<4;sc++){
+      var scx=radX2+sc*radW2/3;
+      X.strokeStyle='rgba(80,80,85,0.06)';
+      X.lineWidth=0.3;
+      X.beginPath();
+      X.arc(scx,radY2+2,1.5*s,0,Math.PI*2);
+      X.stroke();
+    }
+    
+    label('360mm · алюминий · 18 FPI · 3×fan',cx,radY2+25*s,'rgba(150,180,200,0.4)',5);
+  }
+  
+  // === Stage 9: Case fans ===
+  if(stage>=9){
+    // Front intake fans (3)
+    for(var cf=0;cf<3;cf++){
+      var cfx=caseX-caseW*0.03;
+      var cfy=caseY+caseH*0.2+cf*caseH*0.18;
+      var cfr=caseH*0.07;
+      
+      X.strokeStyle='rgba(60,60,65,0.06)';
+      X.lineWidth=0.3;
+      X.beginPath();
+      X.arc(cfx,cfy,cfr,0,Math.PI*2);
+      X.stroke();
+      
+      // Fan blades
+      for(var cfb=0;fb<7;cfb++){
+        var cfba=-fanAngle+cfb*Math.PI*2/7;
+        X.strokeStyle='rgba(70,70,75,0.04)';
+        X.lineWidth=0.3;
+        X.beginPath();
+        X.moveTo(cfx,cfy);
+        X.lineTo(cfx+Math.cos(cfba)*cfr*0.8,cfy+Math.sin(cfba)*cfr*0.8);
+        X.stroke();
+      }
+    }
+    
+    // Rear exhaust fan (1)
+    var rfX=caseX+caseW-4*s;
+    var rfY=caseY+caseH*0.35;
+    var rfR=caseH*0.07;
+    
+    X.strokeStyle='rgba(60,60,65,0.06)';
+    X.lineWidth=0.3;
+    X.beginPath();
+    X.arc(rfX,rfY,rfR,0,Math.PI*2);
+    X.stroke();
+    
+    for(var rfb=0;rfb<7;rfb++){
+      var rfba=fanAngle+rfb*Math.PI*2/7;
+      X.strokeStyle='rgba(70,70,75,0.04)';
+      X.lineWidth=0.3;
+      X.beginPath();
+      X.moveTo(rfX,rfY);
+      X.lineTo(rfX+Math.cos(rfba)*rfR*0.8,rfY+Math.sin(rfba)*rfR*0.8);
+      X.stroke();
+    }
+    
+    // Top exhaust fans (2)
+    for(var tf=0;tf<2;tf++){
+      var tfx=caseX+caseW*0.3+tf*caseW*0.35;
+      var tfy=caseY+caseH*0.03;
+      
+      X.strokeStyle='rgba(60,60,65,0.06)';
+      X.lineWidth=0.3;
+      X.beginPath();
+      X.arc(tfx,tfy,6*s,0,Math.PI*2);
+      X.stroke();
+      
+      for(var tfb=0;tfb<7;tfb++){
+        var tfba=-fanAngle+tfb*Math.PI*2/7;
+        X.strokeStyle='rgba(70,70,75,0.04)';
+        X.lineWidth=0.3;
+        X.beginPath();
+        X.moveTo(tfx,tfy);
+        X.lineTo(tfx+Math.cos(tfba)*5*s,tfy+Math.sin(tfba)*5*s);
+        X.stroke();
+      }
+    }
+    
+    label('6×120mm · ARGB · PWM · 1800RPM',cx,caseY+caseH+20*s,'rgba(180,200,220,0.4)',5);
+  }
+  
+  // === Stage 10: Cables ===
+  if(stage>=10){
+    // 24-pin ATX
+    X.strokeStyle='rgba(30,30,35,0.08)';
+    X.lineWidth=2*s;
+    X.beginPath();
+    X.moveTo(caseX+caseW*0.85,caseY+caseH*0.4);
+    X.bezierCurveTo(caseX+caseW*0.95,caseY+caseH*0.4,caseX+caseW*0.95,caseY+caseH*0.5,mbX+mbW*0.9,mbY+mbH*0.45);
+    X.stroke();
+    
+    // 8-pin CPU power
+    X.strokeStyle='rgba(30,30,35,0.06)';
+    X.lineWidth=1.5*s;
+    X.beginPath();
+    X.moveTo(caseX+caseW*0.8,caseY+caseH*0.15);
+    X.bezierCurveTo(caseX+caseW*0.9,caseY+caseH*0.15,caseX+caseW*0.9,mbY+mbH*0.05,mbX+mbW*0.85,mbY+mbH*0.05);
+    X.stroke();
+    
+    // GPU power cables (12V-2x6)
+    X.strokeStyle='rgba(30,30,35,0.07)';
+    X.lineWidth=2*s;
+    X.beginPath();
+    X.moveTo(caseX+caseW*0.9,caseY+caseH*0.6);
+    X.bezierCurveTo(caseX+caseW*0.95,caseY+caseH*0.6,caseX+caseW*0.95,caseY+caseH*0.65,gpuX+gpuW-6*s,gpuY2+gpuH*0.18);
+    X.stroke();
+    
+    // Cable routing holes
+    X.strokeStyle='rgba(50,50,55,0.06)';
+    X.lineWidth=0.4;
+    for(var cr=0;cr<3;cr++){
+      var crx=caseX+caseW*0.88+cr*4*s;
+      var cry=caseY+caseH*0.2+cr*caseH*0.2;
+      X.beginPath();
+      X.arc(crx,cry,3*s,0,Math.PI*2);
+      X.stroke();
+    }
+    
+    // Cable management behind motherboard tray
+    X.strokeStyle='rgba(40,40,45,0.04)';
+    X.lineWidth=1*s;
+    X.beginPath();
+    X.moveTo(caseX+caseW*0.92,caseY+caseH*0.2);
+    X.lineTo(caseX+caseW*0.92,caseY+caseH*0.8);
+    X.stroke();
+    
+    label('sleeve · 24-pin · 8-pin ×2 · USB-C',cx,caseY+caseH+18*s,'rgba(180,190,200,0.4)',5);
+  }
+  
+  // === Stage 11: Airflow ===
+  if(stage>=11){
+    // Airflow arrows
+    X.globalAlpha=0.08+Math.sin(t*2)*0.02;
+    
+    // Front intake (blue)
+    X.strokeStyle='rgba(100,180,255,0.3)';
+    X.lineWidth=1*s;
+    for(var ai=0;ai<3;ai++){
+      var aiy=caseY+caseH*0.25+ai*caseH*0.15;
+      X.beginPath();
+      X.moveTo(caseX-caseW*0.1,aiy);
+      X.lineTo(caseX+caseW*0.3,aiy);
+      X.stroke();
+      // Arrow head
+      X.beginPath();
+      X.moveTo(caseX+caseW*0.3-5*s,aiy-3*s);
+      X.lineTo(caseX+caseW*0.3,aiy);
+      X.lineTo(caseX+caseW*0.3-5*s,aiy+3*s);
+      X.stroke();
+    }
+    
+    // Rear exhaust (red)
+    X.strokeStyle='rgba(255,100,100,0.2)';
+    X.beginPath();
+    X.moveTo(caseX+caseW*0.5,caseY+caseH*0.35);
+    X.lineTo(caseX+caseW*1.1,caseY+caseH*0.35);
+    X.stroke();
+    X.beginPath();
+    X.moveTo(caseX+caseW*1.1-5*s,caseY+caseH*0.35-3*s);
+    X.lineTo(caseX+caseW*1.1,caseY+caseH*0.35);
+    X.lineTo(caseX+caseW*1.1-5*s,caseY+caseH*0.35+3*s);
+    X.stroke();
+    
+    // Top exhaust (red)
+    X.strokeStyle='rgba(255,100,100,0.15)';
+    X.beginPath();
+    X.moveTo(caseX+caseW*0.5,caseY+caseH*0.15);
+    X.lineTo(caseX+caseW*0.5,caseY-caseH*0.1);
+    X.stroke();
+    X.beginPath();
+    X.moveTo(caseX+caseW*0.5-3*s,caseY-caseH*0.1+5*s);
+    X.lineTo(caseX+caseW*0.5,caseY-caseH*0.1);
+    X.lineTo(caseX+caseW*0.5+3*s,caseY-caseH*0.1+5*s);
+    X.stroke();
+    
+    X.globalAlpha=1;
+    
+    label('позитивное давление · 3 in / 3 out',cx,caseY-caseH*0.12,'rgba(150,200,255,0.4)',5);
+  }
+  
+  // === Stage 12: Complete ===
+  if(stage>=12){
+    // RGB glow through glass
+    var glowPhase=ledPhase;
+    X.globalAlpha=0.015;
+    
+    // RAM RGB
+    var ramGlow=Math.sin(glowPhase)*0.5+0.5;
+    X.fillStyle='rgba('+(80+ramGlow*120)+','+(50+ramGlow*80)+',255,0.3)';
+    X.fillRect(mbX+mbW*0.55,mbY+mbH*0.05,mbW*0.16,mbH*0.25);
+    
+    // GPU RGB
+    X.fillStyle='rgba(100,220,100,0.2)';
+    X.fillRect(gpuX,gpuY2+gpuH*0.3,gpuW,gpuH*0.05);
+    
+    // Fan RGB
+    for(var rgf=0;rgf<3;rgf++){
+      var rgfx=caseX-caseW*0.03;
+      var rgfy=caseY+caseH*0.2+rgf*caseH*0.18;
+      X.fillStyle='rgba(150,100,255,0.15)';
+      X.beginPath();
+      X.arc(rgfx,rgfy,caseH*0.08,0,Math.PI*2);
+      X.fill();
+    }
+    
+    X.globalAlpha=1;
+    
+    // Specs summary
+    var sy=caseY+caseH+20*s;
+    X.font=(7*s)+'px monospace';X.fillStyle='rgba(255,220,180,0.5)';X.textAlign='center';
+    X.fillText('Рабочая Станция · 2025',cx,sy);
+    X.font=(5*s)+'px monospace';X.fillStyle='rgba(200,200,220,0.3)';
+    X.fillText('Ultra 9 285K · RTX 5090 · 64GB DDR5 · 4TB NVMe',cx,sy+12*s);
+    X.fillText('24 ядра · 21760 CUDA · 14000 МБ/с · 850W',cx,sy+22*s);
+    X.textAlign='left';
+    
+    // Power LED
+    X.fillStyle='rgba(0,255,0,'+(0.06+Math.sin(t)*0.02)+')';
+    X.beginPath();
+    X.arc(caseX-caseW*0.03+4*s,caseY+caseH-8*s,1.5*s,0,Math.PI*2);
+    X.fill();
+    
+    // HDD LED
+    X.fillStyle='rgba(255,100,0,'+(0.03+Math.sin(t*8)*0.02)+')';
+    X.beginPath();
+    X.arc(caseX-caseW*0.03+4*s,caseY+caseH-12*s,1*s,0,Math.PI*2);
+    X.fill();
+  }
+  
+  document.getElementById('part-label').textContent=parts[stage]||'';
+  
+  // Progress
+  X.fillStyle='rgba(0,238,255,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(0,238,255,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd=0;sd<=maxStage;sd++){
+    var sdx=W*0.1+W*0.8*(sd/maxStage);
+    X.fillStyle=sd<=stage?'rgba(0,238,255,0.25)':'rgba(0,238,255,0.06)';
+    X.beginPath();X.arc(sdx,H-6.5,2,0,Math.PI*2);X.fill();
+  }
+  
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
