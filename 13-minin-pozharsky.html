@@ -6,20 +6,20 @@
 <title>Минин и Пожарский — PolyArt</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#080810;overflow:hidden;font-family:'Segoe UI',sans-serif}
+body{background:#06060e;overflow:hidden;font-family:'Segoe UI',sans-serif}
 canvas{display:block}
 #ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:10;flex-wrap:wrap;justify-content:center}
 .ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
-.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl label{color:#888;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
 .ctrl input[type=range]{width:90px;accent-color:#999;cursor:pointer}
 .ctrl .val{color:#ccc;font-size:11px;font-weight:bold}
 #title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:18px;letter-spacing:6px;text-transform:uppercase;text-shadow:0 0 20px #fff3;z-index:10}
-#info{position:absolute;top:44px;left:50%;transform:translateX(-50%);color:#555;font-size:10px;letter-spacing:2px;z-index:10}
+#info{position:absolute;top:44px;left:50%;transform:translateX(-50%);color:#444;font-size:9px;letter-spacing:2px;z-index:10}
+#colorBtn{position:absolute;top:14px;left:14px;z-index:10;padding:4px 10px;background:rgba(255,255,255,0.04);border:1px solid #fff3;color:#aaa;font-size:9px;cursor:pointer;border-radius:3px;text-transform:uppercase;letter-spacing:1px}
+#colorBtn.on{background:rgba(255,200,0,0.1);color:#fc0;border-color:#fc03}
 #preset{position:absolute;top:14px;right:14px;z-index:10;display:flex;gap:5px}
 .pb{padding:3px 8px;background:rgba(255,255,255,0.04);border:1px solid #fff3;color:#aaa;font-size:8px;cursor:pointer;border-radius:3px;text-transform:uppercase;letter-spacing:1px}
 .pb:hover,.pb.active{background:rgba(255,255,255,0.1);color:#fff}
-#colorBtn{position:absolute;top:14px;left:14px;z-index:10;padding:4px 10px;background:rgba(255,255,255,0.04);border:1px solid #fff3;color:#aaa;font-size:9px;cursor:pointer;border-radius:3px;text-transform:uppercase;letter-spacing:1px}
-#colorBtn.on{background:rgba(255,200,0,0.1);color:#fc0;border-color:#fc03}
 </style>
 </head>
 <body>
@@ -28,13 +28,13 @@ canvas{display:block}
 <div id="info">φ = 1.618 — Полиномиальные кривые — 1612</div>
 <button id="colorBtn" onclick="toggleColor()">Цвет</button>
 <div id="preset">
-<button class="pb active" onclick="lp(0)">Памятник</button>
+<button class="pb active" onclick="lp(0)">Монумент</button>
 <button class="pb" onclick="lp(1)">Силуэт</button>
 <button class="pb" onclick="lp(2)">Гравюра</button>
 </div>
 <div id="ui">
 <div class="ctrl"><label>Обводка</label><input type="range" id="lw" min="0" max="3" value="1" step="0.5"><span class="val" id="lwV">1</span></div>
-<div class="ctrl"><label>Свечение</label><input type="range" id="gl" min="0" max="100" value="40"><span class="val" id="glV">0.40</span></div>
+<div class="ctrl"><label>Свечение</label><input type="range" id="gl" min="0" max="100" value="45"><span class="val" id="glV">0.45</span></div>
 </div>
 <script>
 var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
@@ -46,7 +46,7 @@ function toggleColor(){col=!col;document.getElementById('colorBtn').classList.to
 document.getElementById('lw').oninput=function(){document.getElementById('lwV').textContent=this.value;};
 document.getElementById('gl').oninput=function(){document.getElementById('glV').textContent=(this.value/100).toFixed(2);};
 function lp(i){
-  var P=[[1,40],[0,20],[2,50]][i];
+  var P=[[1,45],[0,15],[2,55]][i];
   document.getElementById('lw').value=P[0];document.getElementById('lwV').textContent=P[0];
   document.getElementById('gl').value=P[1];document.getElementById('glV').textContent=(P[1]/100).toFixed(2);
   document.querySelectorAll('.pb').forEach(function(b,j){b.classList.toggle('active',j===i);});
@@ -55,33 +55,14 @@ function lp(i){
 var PHI=1.618033988749895;
 var t=0;
 
-// Golden ratio subdivisions
-function gDiv(total){return[total/PHI,total-total/PHI];}
+function c1(a){return col?'rgba(210,170,90,'+a+')':'rgba(190,200,220,'+a+')';}
+function c2(a){return col?'rgba(180,140,80,'+a+')':'rgba(150,160,185,'+a+')';}
+function c3(a){return col?'rgba(150,120,70,'+a+')':'rgba(115,120,150,'+a+')';}
+function c4(a){return col?'rgba(220,180,60,'+a+')':'rgba(230,235,245,'+a+')';}
 
-// Polynomial curve path: [[x,y], [cpx1,cpy1, x2,y2], [cpx2,cpy2, x3,y3], ...]
-// First point is moveTo, subsequent pairs are quadratic control+end
-function P(pts,c){
-  X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);
-  for(var i=1;i<pts.length;i++){
-    var p=pts[i];
-    if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);
-    else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);
-    else X.lineTo(p[0],p[1]);
-  }
-  X.closePath();X.fill();
-}
-function Q(pts,c,w){
-  if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);
-  for(var i=1;i<pts.length;i++){
-    var p=pts[i];
-    if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);
-    else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);
-    else X.lineTo(p[0],p[1]);
-  }
-  X.closePath();X.stroke();
-}
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
 
-// Golden spiral points for composition
 function goldenSpiral(cx,cy,a,n,dir){
   var pts=[];
   for(var i=0;i<=n;i++){
@@ -97,255 +78,260 @@ function draw(){
   var lw=parseFloat(document.getElementById('lw').value);
   var gl=parseFloat(document.getElementById('gl').value)/100;
   t+=0.016;
-  X.fillStyle='#080810';X.fillRect(0,0,W,H);
+  X.fillStyle='#06060e';X.fillRect(0,0,W,H);
 
-  var cx=W/2, cy=H/2, s=Math.min(W,H)/500;
+  var cx=W/2, cy=H/2, s=Math.min(W,H)/600;
 
-  // Golden ratio grid positions
-  var gx=gDiv(W);  // horizontal split
-  var gy=gDiv(H);  // vertical split
+  var figH=s*155;
+  var torsoH=figH/PHI;
+  var legH=figH-torsoH;
+  var headR=torsoH/PHI/4;
 
-  // Base reference point — golden section of canvas
-  var BX=cx;
-  var BY=gy[0]+30*s; // golden section Y + small offset
+  var podY=cy+H*0.35;
+  var podW=W*0.55;
+  var podH=podW/PHI/3;
+  var podTop=podY-podH*0.3;
 
-  // Figure height based on golden ratio
-  var figH=s*140;  // base height
-  var torsoH=figH/PHI;     // torso = figH/phi
-  var legH=figH-torsoH;     // legs = figH - torso
-  var headR=torsoH/PHI/4;   // head radius
-
-  // Color palette — functions, not strings
-  function c1(a){return col?'rgba(210,170,90,'+a+')':'rgba(200,200,215,'+a+')';}
-  function c2(a){return col?'rgba(180,140,80,'+a+')':'rgba(165,165,180,'+a+')';}
-  function c3(a){return col?'rgba(150,120,70,'+a+')':'rgba(130,130,155,'+a+')';}
-  function c4(a){return col?'rgba(220,180,60,'+a+')':'rgba(220,220,230,'+a+')';}
-
-  // === GOLDEN SPIRAL background (faint) ===
+  // === Golden spiral bg ===
   X.globalAlpha=0.03+0.01*Math.sin(t*0.5);
-  var sp=goldenSpiral(BX,BY-figH*0.3,4*s,60,1);
-  Q(sp,c4('1)'),lw*0.3);
+  var sp=goldenSpiral(cx,cy-figH*0.3,4*s,60,1);
+  S(sp,c4('0.5)'),lw*0.3);
   X.globalAlpha=1;
 
-  // === PODIUM — polynomial curve ===
-  var podW=figH*1.2;
-  var podH=podW/PHI/PHI; // golden section of width
-  P([
-    [BX-podW/2,BY+podH*0.4],
-    [BX-podW*0.35,BY-podH*0.1, BX-podW*0.15,BY-podH*0.35],
-    [BX,BY-podH*0.4],
-    [BX+podW*0.15,BY-podH*0.35, BX+podW*0.35,BY-podH*0.1],
-    [BX+podW/2,BY+podH*0.4]
-  ],c3('0.15)'));
-  Q([
-    [BX-podW/2,BY+podH*0.4],
-    [BX-podW*0.35,BY-podH*0.1, BX-podW*0.15,BY-podH*0.35],
-    [BX,BY-podH*0.4],
-    [BX+podW*0.15,BY-podH*0.35, BX+podW*0.35,BY-podH*0.1],
-    [BX+podW/2,BY+podH*0.4]
-  ],c3('0.2)'),lw);
+  // === PODIUM ===
+  F([
+    [cx-podW/2,podY+podH*0.3],
+    [cx-podW*0.4,podY-podH*0.1,cx-podW*0.2,podY-podH*0.25],
+    [cx,podTop],
+    [cx+podW*0.2,podY-podH*0.25,cx+podW*0.4,podY-podH*0.1],
+    [cx+podW/2,podY+podH*0.3]
+  ],c3('0.1)'));
+  S([
+    [cx-podW/2,podY+podH*0.3],
+    [cx-podW*0.4,podY-podH*0.1,cx-podW*0.2,podY-podH*0.25],
+    [cx,podTop],
+    [cx+podW*0.2,podY-podH*0.25,cx+podW*0.4,podY-podH*0.1],
+    [cx+podW/2,podY+podH*0.3]
+  ],c3('0.15)'),lw);
 
-  // === POZHARSKY (right) — positioned at golden section ===
-  var px=BX+figH*0.35;  // offset by golden ratio fraction
-  var py=BY-podH*0.4;
+  // Plaque
+  var plcW=podW*0.35, plcH=podH*0.12;
+  F([
+    [cx-plcW/2,podTop+plcH],[cx-plcW/2,podTop],[cx+plcW/2,podTop],[cx+plcW/2,podTop+plcH]
+  ],c4('0.04)'));
+  S([
+    [cx-plcW/2,podTop+plcH],[cx-plcW/2,podTop],[cx+plcW/2,podTop],[cx+plcW/2,podTop+plcH]
+  ],c4('0.08)'),lw*0.3);
 
-  // Legs — polynomial curves
-  P([
-    [px-4*s,py],[px-3*s,py-legH*0.4,px-1*s,py-legH*0.7],
-    [px,py-legH],[px+3*s,py-legH*0.7,px+4*s,py-legH*0.4],[px+6*s,py]
-  ],c1('0.3)'));
-  P([
-    [px+1*s,py],[px+2*s,py-legH*0.4,px+4*s,py-legH*0.7],
-    [px+5*s,py-legH],[px+8*s,py-legH*0.7,px+9*s,py-legH*0.4],[px+10*s,py]
+  // ====== POZHARSKY (right) ======
+  var px=cx+figH*0.32;
+  var py=podTop;
+
+  F([
+    [px-5*s,py],[px-4*s,py-legH*0.35,px-2*s,py-legH*0.65],
+    [px+1*s,py-legH*0.95],[px+4*s,py-legH*0.65,px+5*s,py-legH*0.35],[px+7*s,py]
   ],c1('0.25)'));
-  Q([
-    [px-4*s,py],[px-3*s,py-legH*0.4,px-1*s,py-legH*0.7],
-    [px,py-legH],[px+3*s,py-legH*0.7,px+4*s,py-legH*0.4],[px+6*s,py]
-  ],c1('0.12)'),lw*0.5);
-  Q([
-    [px+1*s,py],[px+2*s,py-legH*0.4,px+4*s,py-legH*0.7],
-    [px+5*s,py-legH],[px+8*s,py-legH*0.7,px+9*s,py-legH*0.4],[px+10*s,py]
-  ],c1('0.12)'),lw*0.5);
+  F([
+    [px+2*s,py],[px+3*s,py-legH*0.35,px+5*s,py-legH*0.65],
+    [px+7*s,py-legH*0.95],[px+10*s,py-legH*0.65,px+10*s,py-legH*0.35],[px+11*s,py]
+  ],c1('0.2)'));
+  S([
+    [px-5*s,py],[px-4*s,py-legH*0.35,px-2*s,py-legH*0.65],
+    [px+1*s,py-legH*0.95],[px+4*s,py-legH*0.65,px+5*s,py-legH*0.35],[px+7*s,py]
+  ],c1('0.1)'),lw*0.5);
 
-  // Torso — bezier curves
   var tBot=py-legH;
   var tTop=tBot-torsoH;
-  P([
-    [px,tBot],[px+5*s,tBot-torsoH*0.2,px+10*s,tBot-torsoH*0.6],
-    [px+8*s,tTop,px+2*s,tTop-5*s],
-    [px-4*s,tTop,px-8*s,tBot-torsoH*0.6],
-    [px-6*s,tBot-torsoH*0.2],[px,tBot]
-  ],c1('0.4)'));
-  Q([
-    [px,tBot],[px+5*s,tBot-torsoH*0.2,px+10*s,tBot-torsoH*0.6],
-    [px+8*s,tTop,px+2*s,tTop-5*s],
-    [px-4*s,tTop,px-8*s,tBot-torsoH*0.6],
-    [px-6*s,tBot-torsoH*0.2],[px,tBot]
-  ],c1('0.2)'),lw);
+  F([
+    [px,tBot],[px+6*s,tBot-torsoH*0.15,px+11*s,tBot-torsoH*0.55],
+    [px+9*s,tTop,px+2*s,tTop-4*s],
+    [px-5*s,tTop,px-9*s,tBot-torsoH*0.55],
+    [px-7*s,tBot-torsoH*0.15],[px,tBot]
+  ],c1('0.35)'));
+  S([
+    [px,tBot],[px+6*s,tBot-torsoH*0.15,px+11*s,tBot-torsoH*0.55],
+    [px+9*s,tTop,px+2*s,tTop-4*s],
+    [px-5*s,tTop,px-9*s,tBot-torsoH*0.55],
+    [px-7*s,tBot-torsoH*0.15],[px,tBot]
+  ],c1('0.15)'),lw);
 
-  // Cape — flowing polynomial
-  var wf=Math.sin(t*1.2)*6*s;
-  P([
-    [px-6*s,tTop+5*s],
-    [px-10*s,tTop+torsoH*0.3,px-16*s+wf,tBot-torsoH*0.2],
-    [px-22*s+wf*1.5,py-legH*0.3,px-28*s+wf*2,py-legH*0.1]
-  ],c3('0.08)'));
-  Q([
-    [px-6*s,tTop+5*s],
-    [px-10*s,tTop+torsoH*0.3,px-16*s+wf,tBot-torsoH*0.2],
-    [px-22*s+wf*1.5,py-legH*0.3,px-28*s+wf*2,py-legH*0.1]
-  ],c3('0.1)'),lw*0.5);
+  var wf=Math.sin(t*0.8)*5*s;
+  F([
+    [px-9*s,tBot-torsoH*0.55],
+    [px-14*s,tBot-torsoH*0.3,px-18*s+wf,tBot-torsoH*0.1],
+    [px-20*s+wf*1.3,py-legH*0.2,px-16*s+wf,py+2*s],
+    [px-10*s,py+4*s,px-6*s,tBot]
+  ],c2('0.08)'));
+  S([
+    [px-9*s,tBot-torsoH*0.55],
+    [px-14*s,tBot-torsoH*0.3,px-18*s+wf,tBot-torsoH*0.1],
+    [px-20*s+wf*1.3,py-legH*0.2,px-16*s+wf,py+2*s]
+  ],c2('0.08)'),lw*0.4);
 
-  // Arm + Shield
-  P([
-    [px-8*s,tTop+5*s],
-    [px-14*s,tTop+torsoH*0.2,px-22*s,tBot-torsoH*0.3],
-    [px-26*s,tBot-torsoH*0.1,px-24*s,py-legH*0.7]
+  F([
+    [px-7*s,tTop+5*s],
+    [px-14*s,tTop+torsoH*0.15,px-24*s,tBot-torsoH*0.25],
+    [px-28*s,tBot-torsoH*0.1,px-26*s,py-legH*0.65]
+  ],c1('0.25)'));
+
+  var sx=px-28*s, sy=py-legH*0.7;
+  var sR=torsoH*0.25;
+  F([
+    [sx,sy-sR],[sx+sR*0.75,sy-sR*0.5,sx+sR*0.85,sy+sR*0.1],
+    [sx+sR*0.55,sy+sR*0.75,sx,sy+sR],
+    [sx-sR*0.55,sy+sR*0.75,sx-sR*0.85,sy+sR*0.1],
+    [sx-sR*0.75,sy-sR*0.5,sx,sy-sR]
+  ],c1('0.18)'));
+  S([
+    [sx,sy-sR],[sx+sR*0.75,sy-sR*0.5,sx+sR*0.85,sy+sR*0.1],
+    [sx+sR*0.55,sy+sR*0.75,sx,sy+sR],
+    [sx-sR*0.55,sy+sR*0.75,sx-sR*0.85,sy+sR*0.1],
+    [sx-sR*0.75,sy-sR*0.5,sx,sy-sR]
+  ],c1('0.12)'),lw);
+  S([[sx,sy-sR*0.5],[sx,sy+sR*0.5]],c4('0.1)'),lw*0.4);
+  S([[sx-sR*0.4,sy],[sx+sR*0.4,sy]],c4('0.1)'),lw*0.4);
+
+  F([
+    [px+7*s,tTop+5*s],
+    [px+14*s,tTop-8*s,px+18*s,tTop-torsoH*0.35],
+    [px+20*s,tTop-torsoH*0.5,px+18*s,tTop-torsoH*0.6]
   ],c1('0.3)'));
 
-  // Shield — polynomial hexagon
-  var sx=px-26*s, sy=py-legH*0.75;
-  var sR=torsoH*0.22;
-  P([
-    [sx,sy-sR],[sx+sR*0.7,sy-sR*0.5,sx+sR*0.8,sy+sR*0.1],
-    [sx+sR*0.5,sy+sR*0.7,sx,sy+sR],
-    [sx-sR*0.5,sy+sR*0.7,sx-sR*0.8,sy+sR*0.1],
-    [sx-sR*0.7,sy-sR*0.5,sx,sy-sR]
-  ],c1('0.25)'));
-  Q([
-    [sx,sy-sR],[sx+sR*0.7,sy-sR*0.5,sx+sR*0.8,sy+sR*0.1],
-    [sx+sR*0.5,sy+sR*0.7,sx,sy+sR],
-    [sx-sR*0.5,sy+sR*0.7,sx-sR*0.8,sy+sR*0.1],
-    [sx-sR*0.7,sy-sR*0.5,sx,sy-sR]
-  ],c1('0.18)'),lw);
-
-  // Arm up + Sword
-  P([
-    [px+6*s,tTop+5*s],
-    [px+12*s,tTop-5*s,px+16*s,tTop-torsoH*0.3],
-    [px+18*s,tTop-torsoH*0.5,px+16*s,tTop-torsoH*0.6]
-  ],c1('0.35)'));
-
-  var swx=px+16*s, swy=tTop-torsoH*0.6;
-  var swordL=torsoH*0.55;
-  P([
-    [swx-1*s,swy],[swx-0.5*s,swy-swordL*0.5,swx,swy-swordL],
-    [swx+0.5*s,swy-swordL*0.5,swx+1*s,swy]
-  ],c4('0.4)'));
-  Q([[swx,swy+2*s],[swx,swy-swordL*0.5,swx,swy-swordL]],c4('0.35)'),lw);
-  Q([[swx-4*s,swy+2*s],[swx,swy+3*s,swx+4*s,swy+2*s]],c4('0.25)'),lw);
-
-  // Tip glow
-  var tg=X.createRadialGradient(swx,swy-swordL,0,swx,swy-swordL,10*s);
-  tg.addColorStop(0,'rgba(255,255,220,'+(0.12+0.08*Math.sin(t*3))+')');
+  var swx=px+18*s, swy=tTop-torsoH*0.6;
+  var swordL=torsoH*0.65;
+  F([
+    [swx-1.5*s,swy],[swx-0.5*s,swy-swordL*0.5,swx,swy-swordL],
+    [swx+0.5*s,swy-swordL*0.5,swx+1.5*s,swy]
+  ],c4('0.3)'));
+  S([[swx,swy+3*s],[swx,swy-swordL]],c4('0.25)'),lw*0.7);
+  S([[swx-5*s,swy+3*s],[swx+5*s,swy+3*s]],c4('0.2)'),lw*0.8);
+  var tg=X.createRadialGradient(swx,swy-swordL,0,swx,swy-swordL,12*s);
+  tg.addColorStop(0,'rgba(255,255,220,'+(0.1+0.06*Math.sin(t*3))+')');
   tg.addColorStop(1,'rgba(255,255,220,0)');
-  X.fillStyle=tg;X.beginPath();X.arc(swx,swy-swordL,10*s,0,Math.PI*2);X.fill();
+  X.fillStyle=tg;X.beginPath();X.arc(swx,swy-swordL,12*s,0,Math.PI*2);X.fill();
 
-  // Head — ellipse at golden position
   var hx=px+2*s, hy=tTop-8*s;
-  X.fillStyle=c1('0.4)');X.beginPath();X.ellipse(hx,hy,headR,headR*1.2,0,0,Math.PI*2);X.fill();
-  X.fillStyle=c1('0.15)');X.beginPath();X.arc(hx,hy-2*s,headR*1.05,-Math.PI,0);X.fill();
+  X.fillStyle=c1('0.35)');X.beginPath();X.ellipse(hx,hy,headR*1.1,headR*1.3,0,0,Math.PI*2);X.fill();
+  X.strokeStyle=c1('0.12)');X.lineWidth=lw*0.5;X.beginPath();X.ellipse(hx,hy,headR*1.1,headR*1.3,0,0,Math.PI*2);X.stroke();
 
-  // === MININ (left) — mirror golden offset ===
-  var mx=BX-figH*0.35;
-  var my=BY-podH*0.4;
+  // ====== MININ (left) ======
+  var mx=cx-figH*0.32;
+  var my=podTop;
 
-  // Legs
-  P([
-    [mx-3*s,my],[mx-2*s,my-legH*0.4,mx,my-legH*0.7],
-    [mx+1*s,my-legH],[mx+4*s,my-legH*0.7,mx+5*s,my-legH*0.4],[mx+6*s,my]
-  ],c2('0.3)'));
-  P([
-    [mx+2*s,my],[mx+3*s,my-legH*0.4,mx+4*s,my-legH*0.7],
-    [mx+5*s,my-legH],[mx+8*s,my-legH*0.7,mx+8*s,my-legH*0.4],[mx+9*s,my]
+  F([
+    [mx-4*s,my],[mx-3*s,my-legH*0.35,mx-1*s,my-legH*0.65],
+    [mx+2*s,my-legH*0.95],[mx+5*s,my-legH*0.65,mx+6*s,my-legH*0.35],[mx+7*s,my]
   ],c2('0.25)'));
+  F([
+    [mx+1*s,my],[mx+2*s,my-legH*0.35,mx+4*s,my-legH*0.65],
+    [mx+6*s,my-legH*0.95],[mx+9*s,my-legH*0.65,mx+9*s,my-legH*0.35],[mx+10*s,my]
+  ],c2('0.2)'));
 
-  // Torso
   var mtBot=my-legH;
   var mtTop=mtBot-torsoH;
-  P([
-    [mx,mtBot],[mx+5*s,mtBot-torsoH*0.2,mx+8*s,mtBot-torsoH*0.6],
-    [mx+7*s,mtTop,mx+1*s,mtTop-4*s],
-    [mx-5*s,mtTop,mx-8*s,mtBot-torsoH*0.6],
-    [mx-6*s,mtBot-torsoH*0.2],[mx,mtBot]
-  ],c2('0.4)'));
-  Q([
-    [mx,mtBot],[mx+5*s,mtBot-torsoH*0.2,mx+8*s,mtBot-torsoH*0.6],
-    [mx+7*s,mtTop,mx+1*s,mtTop-4*s],
-    [mx-5*s,mtTop,mx-8*s,mtBot-torsoH*0.6],
-    [mx-6*s,mtBot-torsoH*0.2],[mx,mtBot]
-  ],c2('0.2)'),lw);
-
-  // Robe flare
-  P([
-    [mx,mtBot],[mx-8*s,mtBot+4*s,mx-12*s,mtBot+10*s],[mx-8*s,mtBot+6*s,mx-2*s,mtBot]
-  ],c2('0.12)'));
-  P([
-    [mx+5*s,mtBot],[mx+11*s,mtBot+4*s,mx+13*s,mtBot+10*s],[mx+9*s,mtBot+6*s,mx+6*s,mtBot]
-  ],c2('0.12)'));
-
-  // Left arm
-  P([
-    [mx-6*s,mtTop+5*s],
-    [mx-12*s,mtTop+torsoH*0.2,mx-18*s,mtBot-torsoH*0.3],
-    [mx-20*s,mtBot-torsoH*0.1,mx-18*s,my-legH*0.7]
-  ],c2('0.25)'));
-
-  // RIGHT ARM — pointing (iconic gesture)
-  P([
-    [mx+5*s,mtTop+5*s],
-    [mx+14*s,mtTop,mx+28*s,mtTop+torsoH*0.05],
-    [mx+42*s,mtTop+torsoH*0.1,mx+52*s,mtTop+torsoH*0.15]
+  F([
+    [mx,mtBot],[mx+5*s,mtBot-torsoH*0.15,mx+9*s,mtBot-torsoH*0.55],
+    [mx+8*s,mtTop,mx+1*s,mtTop-3*s],
+    [mx-5*s,mtTop,mx-8*s,mtBot-torsoH*0.55],
+    [mx-6*s,mtBot-torsoH*0.15],[mx,mtBot]
   ],c2('0.35)'));
-  Q([
-    [mx+5*s,mtTop+5*s],
-    [mx+14*s,mtTop,mx+28*s,mtTop+torsoH*0.05],
-    [mx+42*s,mtTop+torsoH*0.1,mx+52*s,mtTop+torsoH*0.15]
-  ],c2('0.18)'),lw*0.5);
+  S([
+    [mx,mtBot],[mx+5*s,mtBot-torsoH*0.15,mx+9*s,mtBot-torsoH*0.55],
+    [mx+8*s,mtTop,mx+1*s,mtTop-3*s],
+    [mx-5*s,mtTop,mx-8*s,mtBot-torsoH*0.55],
+    [mx-6*s,mtBot-torsoH*0.15],[mx,mtBot]
+  ],c2('0.15)'),lw);
 
-  // Finger
-  var ftx=mx+52*s, fty=mtTop+torsoH*0.14*s/s;
-  P([[ftx,fty-1*s],[ftx+10*s,fty-1.5*s],[ftx+10*s,fty+1.5*s],[ftx,fty+1*s]],c2('0.4)'));
+  var beltY=mtBot-torsoH*0.1;
+  S([[mx-7*s,beltY-2*s],[mx+9*s,beltY-2*s]],c4('0.08)'),lw*0.5);
 
-  // Energy rays from finger — polynomial curves
-  for(var ei=0;ei<5;ei++){
-    var ea=0.06+0.05*Math.sin(t*4+ei);
-    var er=15*s+ei*5*s;
-    Q([
-      [ftx+10*s,fty],
-      [ftx+10*s+er*0.5,fty+Math.sin(t*2+ei)*3*s,ftx+10*s+er,fty+Math.sin(t*3+ei)*4*s]
+  F([
+    [mx,mtBot],[mx-10*s,mtBot+5*s,mx-15*s,mtBot+12*s],
+    [mx-12*s,mtBot+7*s,mx-3*s,mtBot]
+  ],c2('0.08)'));
+  F([
+    [mx+5*s,mtBot],[mx+12*s,mtBot+5*s,mx+14*s,mtBot+12*s],
+    [mx+10*s,mtBot+7*s,mx+6*s,mtBot]
+  ],c2('0.08)'));
+
+  F([
+    [mx-5*s,mtTop+5*s],
+    [mx-11*s,mtTop+torsoH*0.2,mx-16*s,mtBot-torsoH*0.25],
+    [mx-18*s,mtBot-torsoH*0.1,mx-16*s,my-legH*0.65]
+  ],c2('0.2)'));
+
+  var armWave=Math.sin(t*1.5)*2*s;
+  F([
+    [mx+5*s,mtTop+3*s],
+    [mx+14*s,mtTop-2*s+armWave,mx+30*s,mtTop+torsoH*0.02+armWave],
+    [mx+45*s,mtTop+torsoH*0.08+armWave,mx+55*s,mtTop+torsoH*0.12+armWave]
+  ],c2('0.3)'));
+  S([
+    [mx+5*s,mtTop+3*s],
+    [mx+14*s,mtTop-2*s+armWave,mx+30*s,mtTop+torsoH*0.02+armWave],
+    [mx+45*s,mtTop+torsoH*0.08+armWave,mx+55*s,mtTop+torsoH*0.12+armWave]
+  ],c2('0.12)'),lw*0.5);
+
+  var ftx=mx+55*s, fty=mtTop+torsoH*0.11+armWave;
+  F([[ftx,fty-1.2*s],[ftx+12*s,fty-1.8*s],[ftx+12*s,fty+1.8*s],[ftx,fty+1.2*s]],c2('0.35)'));
+  S([[ftx,fty-1.2*s],[ftx+12*s,fty-1.8*s],[ftx+12*s,fty+1.8*s],[ftx,fty+1.2*s]],c2('0.15)'),lw*0.4);
+
+  for(var ei=0;ei<7;ei++){
+    var ea=0.04+0.03*Math.sin(t*3+ei*1.2);
+    var er=12*s+ei*6*s;
+    var eang=-0.15+ei*0.04+Math.sin(t*2+ei)*0.02;
+    S([
+      [ftx+12*s,fty],
+      [ftx+12*s+er*0.6,fty+Math.sin(t*2.5+ei)*3*s+eang*er,ftx+12*s+er,fty+Math.sin(t*3+ei)*4*s+eang*er]
     ],c2(ea+')'),lw*0.3);
   }
 
-  // Head
-  var mhx=mx+1*s, mhy=mtTop-6*s;
-  X.fillStyle=c2('0.4)');X.beginPath();X.ellipse(mhx,mhy,headR*0.9,headR*1.1,0,0,Math.PI*2);X.fill();
-  // Beard — polynomial curve
-  P([
-    [mhx-3*s,mhy+headR*0.5,mhx-1*s,mhy+headR*0.9],
-    [mhx,mhy+headR*1.3],
-    [mhx+1*s,mhy+headR*0.9,mhx+3*s,mhy+headR*0.5]
-  ],c3('0.2)'));
+  var mhx=mx+1*s, mhy=mtTop-5*s;
+  X.fillStyle=c2('0.35)');X.beginPath();X.ellipse(mhx,mhy,headR*0.95,headR*1.15,0,0,Math.PI*2);X.fill();
+  F([
+    [mhx-3*s,mhy+headR*0.4,mhx-1*s,mhy+headR*0.85],
+    [mhx,mhy+headR*1.4],
+    [mhx+1*s,mhy+headR*0.85,mhx+3*s,mhy+headR*0.4]
+  ],c3('0.15)'));
 
-  // === GLOWS ===
-  if(gl>0.05){
-    var g1=X.createRadialGradient(swx,swy-swordL,0,swx,swy-swordL,25*s*gl);
-    g1.addColorStop(0,'rgba(255,255,200,'+(0.07*gl)+')');g1.addColorStop(1,'rgba(255,255,200,0)');
-    X.fillStyle=g1;X.beginPath();X.arc(swx,swy-swordL,25*s*gl,0,Math.PI*2);X.fill();
-    var g2=X.createRadialGradient(ftx+10*s,fty,0,ftx+10*s,fty,18*s*gl);
-    g2.addColorStop(0,'rgba(255,220,100,'+(0.05*gl)+')');g2.addColorStop(1,'rgba(255,220,100,0)');
-    X.fillStyle=g2;X.beginPath();X.arc(ftx+10*s,fty,18*s*gl,0,Math.PI*2);X.fill();
-  }
-
-  // Kremlin silhouettes
-  X.globalAlpha=0.04;
-  for(var k=-3;k<=3;k++){
-    var kx=cx+k*50*s, ky=BY-70*s;
-    P([
-      [kx-4*s,ky+20*s],[kx-4*s,ky-3*s],
-      [kx,ky-12*s],[kx+4*s,ky-3*s],[kx+4*s,ky+20*s]
+  // ====== KREMLIN ======
+  X.globalAlpha=0.025;
+  for(var k=-4;k<=4;k++){
+    var kx=cx+k*55*s, ky=podTop-figH*0.8;
+    F([
+      [kx-5*s,ky+figH*0.35],[kx-5*s,ky-5*s],
+      [kx,ky-18*s],[kx+5*s,ky-5*s],[kx+5*s,ky+figH*0.35]
     ],c1('1)'));
+    S([[kx,ky-18*s],[kx,ky-28*s]],c1('1)'),lw*0.5);
   }
+  S([[cx-4*55*s-5*s,podTop-figH*0.8+figH*0.35],[cx+4*55*s+5*s,podTop-figH*0.8+figH*0.35]],c1('1)'),lw*0.3);
+  X.globalAlpha=1;
+
+  // ====== GLOWS ======
+  if(gl>0.05){
+    var g1=X.createRadialGradient(swx,swy-swordL,0,swx,swy-swordL,28*s*gl);
+    g1.addColorStop(0,'rgba(255,255,200,'+(0.06*gl)+')');g1.addColorStop(1,'rgba(255,255,200,0)');
+    X.fillStyle=g1;X.beginPath();X.arc(swx,swy-swordL,28*s*gl,0,Math.PI*2);X.fill();
+
+    var g2=X.createRadialGradient(ftx+12*s,fty,0,ftx+12*s,fty,20*s*gl);
+    g2.addColorStop(0,'rgba(255,200,80,'+(0.05*gl)+')');g2.addColorStop(1,'rgba(255,200,80,0)');
+    X.fillStyle=g2;X.beginPath();X.arc(ftx+12*s,fty,20*s*gl,0,Math.PI*2);X.fill();
+
+    var g3=X.createRadialGradient(cx,cy-20*s,0,cx,cy-20*s,figH*gl);
+    g3.addColorStop(0,'rgba(100,120,180,'+(0.02*gl)+')');g3.addColorStop(1,'rgba(100,120,180,0)');
+    X.fillStyle=g3;X.beginPath();X.arc(cx,cy-20*s,figH*gl,0,Math.PI*2);X.fill();
+  }
+
+  for(var pi=0;pi<25;pi++){
+    var ppx=cx+Math.sin(t*0.3+pi*2.5)*W*0.4;
+    var ppy=cy+Math.cos(t*0.2+pi*1.8)*H*0.4;
+    var pr=0.5+Math.sin(t+pi)*0.5;
+    X.fillStyle='rgba(200,210,230,'+(0.03+0.02*Math.sin(t*2+pi))+')';
+    X.beginPath();X.arc(ppx,ppy,pr*s,0,Math.PI*2);X.fill();
+  }
+
+  X.globalAlpha=0.05;X.font=(14*s)+'px serif';X.fillStyle=c4('1)');X.textAlign='center';
+  X.fillText('1612',cx,podTop+podH*0.5);X.textAlign='left';
   X.globalAlpha=1;
 
   requestAnimationFrame(draw);
