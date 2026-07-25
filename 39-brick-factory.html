@@ -1,0 +1,451 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>39 — Кирпичный Завод — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060608;overflow:hidden;font-family:sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #0af;color:#0af;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(0,170,255,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #0af5;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#0af;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:600px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Кирпичный Завод</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">&#9664;</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">&#9654;</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="speed" min="0" max="100" value="0" style="width:70px;accent-color:#0af"><span class="val" id="speedV">0</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+var stage=0,autoMode=false,autoTimer=0,maxStage=12,t=0;
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ'};
+document.getElementById('speed').oninput=function(){document.getElementById('speedV').textContent=this.value};
+
+var pts=['Карьер · 30м глубина · 50000м³/год · глина · суглинок','Экскаватор · 12м³ ковш · 48 тонн/час · 2000 оборотов','Дробилка · валковая · щековая · 200 тонн/сутки','Сито · 3 ступени · 0-5мм · 5-10мм · 10-20мм','Смеситель · ленточный · добавки · вода · 15% влажность','Пресс · экструзионный · 20МПа · 10000 кирпичей/час','Сушилка · тоннельная · 120°С · 48 часов · влажность 2%','Камера · 950°С · 24 часа · газ · 8 печей','Остывание · 72 часа · естественное · контролируемое','Сортировка · линия · робот · 12 размеров · 6 цветов','Пallet · 500 кирпичей · паллета · стреп-лента','Отгрузка · автопарк · 200 паллет/день · 50000 кирпичей'];
+
+function brick(x,y,w2,h2,col,rot){
+  X.save();X.translate(x,y);if(rot)X.rotate(rot);
+  X.fillStyle=col;X.fillRect(-w2/2,-h2/2,w2,h2);
+  X.strokeStyle='rgba(0,0,0,0.03)';X.lineWidth=0.3;X.strokeRect(-w2/2,-h2/2,w2,h2);
+  // Brick holes
+  X.fillStyle='rgba(0,0,0,0.02)';
+  X.fillRect(-w2/4,-h2/4,w2/8,h2/8);
+  X.fillRect(w2/8,-h2/4,w2/8,h2/8);
+  X.restore();
+}
+
+function conveyor(x1,y1,x2,y2,col,speed){
+  X.strokeStyle=col;X.lineWidth=2;
+  X.beginPath();X.moveTo(x1,y1);X.lineTo(x2,y2);X.stroke();
+  // Rollers
+  var dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+  var rollers=Math.floor(len/15);
+  for(var r=0;r<rollers;r++){
+    var frac=r/rollers;
+    var rx=x1+dx*frac,ry=y1+dy*frac;
+    X.fillStyle='rgba(100,100,110,0.04)';X.beginPath();X.arc(rx,ry,2,0,Math.PI*2);X.fill();
+  }
+  // Moving dots
+  for(var md=0;md<5;md++){
+    var mdf=((t*speed*30+md*(len/5))%len)/len;
+    var mdx=x1+dx*mdf,mdy=y1+dy*mdf;
+    X.fillStyle='rgba(200,100,50,0.06)';X.beginPath();X.arc(mdx,mdy,1.5,0,Math.PI*2);X.fill();
+  }
+}
+
+function flame(x,y,fl,fr){
+  for(var f=0;f<fl;f++){
+    var fx=x+Math.sin(t*5+f*fr)*3;
+    var fy=y-f*3-Math.sin(t*4+f)*2;
+    var fAlpha=0.08-f*0.015;
+    if(fAlpha>0){
+      X.fillStyle='rgba(255,'+Math.floor(100-f*20)+',30,'+fAlpha+')';
+      X.beginPath();X.arc(fx,fy,2-f*0.3,0,Math.PI*2);X.fill();
+    }
+  }
+}
+
+function lbl(t2,x,y,c,sz){X.globalAlpha=0.55;X.font=(sz||6)+'px monospace';X.fillStyle=c||'rgba(200,150,80,0.8)';X.textAlign='center';X.fillText(t2,x,y);X.textAlign='left';X.globalAlpha=1}
+
+function draw(){
+  var spd=parseInt(document.getElementById('speed').value);
+  if(autoMode){autoTimer+=0.016;if(autoTimer>2.5){autoTimer=0;if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ'}}}
+  t+=0.016;
+  X.fillStyle='#060608';X.fillRect(0,0,W,H);
+  var cx=W/2,gy=H*0.75,s=Math.min(W,H)/650;
+
+  // Ground
+  X.fillStyle='rgba(60,50,40,0.03)';X.fillRect(0,gy,W,H-gy);
+
+  // Factory outline (always visible)
+  X.fillStyle='rgba(70,65,55,0.03)';X.fillRect(W*0.05,gy-60*s,W*0.9,60*s);
+  X.strokeStyle='rgba(90,85,75,0.06)';X.lineWidth=0.5;X.strokeRect(W*0.05,gy-60*s,W*0.9,60*s);
+  // Chimney
+  X.fillStyle='rgba(80,75,65,0.04)';X.fillRect(W*0.85,gy-120*s,15*s,120*s);
+  X.strokeStyle='rgba(100,95,85,0.06)';X.lineWidth=0.5;X.strokeRect(W*0.85,gy-120*s,15*s,120*s);
+  // Smoke
+  for(var sm=0;sm<5;sm++){
+    var smx=W*0.85+7.5*s+Math.sin(t*0.5+sm*2)*5*s;
+    var smy=gy-120*s-sm*10*s-Math.sin(t+sm)*3;
+    X.fillStyle='rgba(150,140,130,'+(0.02-sm*0.003)+')';
+    X.beginPath();X.arc(smx,smy,4*s+sm*2,0,Math.PI*2);X.fill();
+  }
+  // Windows
+  for(var wn=0;wn<8;wn++){
+    var wnX=W*0.1+wn*W*0.11;
+    X.fillStyle='rgba(255,200,100,'+(0.02+Math.sin(t+wn)*0.01)+')';
+    X.fillRect(wnX,gy-50*s,8*s,12*s);
+  }
+
+  // === STAGE 0: Quarry ===
+  if(stage>=0){
+    var qX=W*0.12,qY=gy;
+    // Quarry pit
+    X.fillStyle='rgba(120,80,40,0.04)';X.beginPath();
+    X.moveTo(qX-30*s,qY);X.lineTo(qX-20*s,qY+20*s);X.lineTo(qX+20*s,qY+20*s);X.lineTo(qX+30*s,qY);
+    X.fill();
+    // Soil layers
+    for(var ql=0;ql<4;ql++){
+      X.strokeStyle='rgba(140,100,50,'+(0.03+ql*0.01)+')';X.lineWidth=0.3;
+      X.beginPath();X.moveTo(qX-25*s+ql*2*s,qY+ql*5*s);X.lineTo(qX+25*s-ql*2*s,qY+ql*5*s);X.stroke();
+    }
+    // Depth marker
+    X.strokeStyle='rgba(200,150,80,0.06)';X.lineWidth=0.3;
+    X.beginPath();X.moveTo(qX+35*s,qY);X.lineTo(qX+35*s,qY+20*s);X.stroke();
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(200,150,80,0.15)';X.textAlign='center';
+    X.fillText('30м',qX+40*s,qY+10*s);X.textAlign='left';
+    lbl('карьер · 30м · 50000м³/год · глина · суглинок',qX,qY+30*s,'rgba(200,150,80,0.5)',6);
+  }
+
+  // === STAGE 1: Excavator ===
+  if(stage>=1){
+    var ex=X*0.25,ey=gy-10*s;
+    // Body
+    X.fillStyle='rgba(180,160,50,0.05)';X.fillRect(ex-12*s,ey-10*s,24*s,12*s);
+    X.strokeStyle='rgba(200,180,70,0.08)';X.lineWidth=0.4;X.strokeRect(ex-12*s,ey-10*s,24*s,12*s);
+    // Cab
+    X.fillStyle='rgba(100,100,110,0.04)';X.fillRect(ex+2*s,ey-18*s,10*s,8*s);
+    // Boom
+    var boomAngle=Math.sin(t*0.5)*0.3-0.5;
+    X.strokeStyle='rgba(180,160,50,0.08)';X.lineWidth=2;
+    X.beginPath();X.moveTo(ex+8*s,ey-8*s);X.lineTo(ex+8*s+Math.cos(boomAngle)*30*s,ey-8*s+Math.sin(boomAngle)*30*s);X.stroke();
+    // Arm
+    var armX=ex+8*s+Math.cos(boomAngle)*30*s;
+    var armY=ey-8*s+Math.sin(boomAngle)*30*s;
+    X.beginPath();X.moveTo(armX,armY);X.lineTo(armX+5*s,armY+15*s);X.stroke();
+    // Bucket
+    X.fillStyle='rgba(120,120,130,0.05)';
+    X.beginPath();X.moveTo(armX+2*s,armY+12*s);X.lineTo(armX+8*s,armY+12*s);X.lineTo(armX+10*s,armY+18*s);X.lineTo(armX,armY+18*s);X.closePath();X.fill();
+    // Clay in bucket
+    X.fillStyle='rgba(150,100,50,0.05)';X.beginPath();
+    X.moveTo(armX+2*s,armY+14*s);X.lineTo(armX+8*s,armY+14*s);X.lineTo(armX+7*s,armY+16*s);X.lineTo(armX+3*s,armY+16*s);X.closePath();X.fill();
+    // Tracks
+    X.strokeStyle='rgba(100,100,110,0.05)';X.lineWidth=1;
+    X.beginPath();X.ellipse(ex,ey+2*s,14*s,3*s,0,0,Math.PI*2);X.stroke();
+    lbl('экскаватор · 12м³ ковш · 48 тонн/час',ex,ey-28*s,'rgba(180,160,50,0.5)',6);
+  }
+
+  // === STAGE 2: Crusher ===
+  if(stage>=2){
+    var crX=W*0.38,crY=gy-25*s;
+    // Crusher body
+    X.fillStyle='rgba(100,100,110,0.05)';X.fillRect(crX-15*s,crY-15*s,30*s,25*s);
+    X.strokeStyle='rgba(120,120,130,0.08)';X.lineWidth=0.5;X.strokeRect(crX-15*s,crY-15*s,30*s,25*s);
+    // Jaw plates
+    for(var jp=0;jp<2;jp++){
+      var jpx=crX-5*s+jp*10*s;
+      var jawOff=Math.sin(t*3)*2*s*(jp===0?1:-1);
+      X.strokeStyle='rgba(140,140,150,0.08)';X.lineWidth=1;
+      X.beginPath();X.moveTo(jpx,crY-12*s);X.lineTo(jpx+jawOff,crY+5*s);X.stroke();
+    }
+    // Crushing animation
+    for(var cc=0;cc<3;cc++){
+      var ccx=crX+Math.sin(t*3+cc)*4*s;
+      var ccy=crY-5*s+cc*3*s;
+      X.fillStyle='rgba(150,100,50,'+(0.04+Math.sin(t*5+cc)*0.02)+')';
+      X.beginPath();X.arc(ccx,ccy,1.5,0,Math.PI*2);X.fill();
+    }
+    // Hopper
+    X.strokeStyle='rgba(120,120,130,0.06)';X.lineWidth=0.4;
+    X.beginPath();X.moveTo(crX-12*s,crY-15*s);X.lineTo(crX-8*s,crY-22*s);X.lineTo(crX+8*s,crY-22*s);X.lineTo(crX+12*s,crY-15*s);X.stroke();
+    lbl('дробилка · валковая · щековая · 200 тонн/сутки',crX,crY+15*s,'rgba(140,140,150,0.5)',6);
+  }
+
+  // === STAGE 3: Sieve ===
+  if(stage>=3){
+    var svX=W*0.52,svY=gy-25*s;
+    // 3 sieve decks
+    for(var sd2=0;sd2<3;sd2++){
+      var svy2=svY-12*s+sd2*8*s;
+      X.strokeStyle='rgba(140,140,150,0.06)';X.lineWidth=0.3;
+      // Mesh
+      for(var mx=0;mx<6;mx++){
+        X.beginPath();X.moveTo(svX-12*s+mx*5*s,svy2);X.lineTo(svX-12*s+mx*5*s,svy2+6*s);X.stroke();
+      }
+      X.beginPath();X.moveTo(svX-12*s,svy2+6*s);X.lineTo(svX+12*s,svy2+6*s);X.stroke();
+      // Particles on sieve
+      for(var sp=0;sp<4;sp++){
+        var spx=svX-8*s+sp*5*s+Math.sin(t+sp+sd2)*2;
+        X.fillStyle='rgba(150,100,50,0.04)';X.beginPath();X.arc(spx,svy2+3*s,1,0,Math.PI*2);X.fill();
+      }
+      // Size labels
+      X.font=(2.5*s)+'px monospace';X.fillStyle='rgba(200,150,80,0.12)';X.textAlign='right';
+      X.fillText(['0-5мм','5-10мм','10-20мм'][sd2],svX+18*s,svy2+4*s);
+    }
+    X.textAlign='left';
+    // Shaker animation
+    X.strokeStyle='rgba(140,140,150,0.04)';X.lineWidth=0.3;
+    X.beginPath();X.moveTo(svX-14*s,svY-15*s);X.lineTo(svX+14*s,svY-15*s);X.stroke();
+    lbl('сито · 3 ступени · 0-5мм · 5-10мм · 10-20мм',svX,svY+15*s,'rgba(140,140,150,0.5)',6);
+  }
+
+  // === STAGE 4: Mixer ===
+  if(stage>=4){
+    var mxX=W*0.65,mxY=gy-30*s;
+    // Mixer drum
+    X.fillStyle='rgba(90,90,100,0.04)';X.beginPath();X.arc(mxX,mxY,12*s,0,Math.PI*2);X.fill();
+    X.strokeStyle='rgba(110,110,120,0.08)';X.lineWidth=0.5;X.beginPath();X.arc(mxX,mxY,12*s,0,Math.PI*2);X.stroke();
+    // Rotating blades
+    for(var bl=0;bl<4;bl++){
+      var bla=t*2+bl*Math.PI/2;
+      X.strokeStyle='rgba(130,130,140,0.06)';X.lineWidth=0.5;
+      X.beginPath();X.moveTo(mxX,mxY);X.lineTo(mxX+Math.cos(bla)*10*s,mxY+Math.sin(bla)*10*s);X.stroke();
+    }
+    // Material inside
+    for(var mi=0;mi<8;mi++){
+      var mia=t*2+mi*Math.PI/4;
+      var mir=5*s+Math.sin(t+mi)*2*s;
+      X.fillStyle='rgba(150,100,50,'+(0.03+Math.sin(t*3+mi)*0.01)+')';
+      X.beginPath();X.arc(mxX+Math.cos(mia)*mir,mxY+Math.sin(mia)*mir,1.5,0,Math.PI*2);X.fill();
+    }
+    // Water input
+    X.strokeStyle='rgba(0,150,255,0.04)';X.lineWidth=1;
+    X.beginPath();X.moveTo(mxX+12*s,mxY-8*s);X.lineTo(mxX+20*s,mxY-8*s);X.lineTo(mxX+20*s,mxY-15*s);X.stroke();
+    // Water drops
+    for(var wd=0;wd<3;wd++){
+      var wdy=mxY-12*s+((t*15+wd*5)%8);
+      if(wdy<mxY-4*s)X.fillStyle='rgba(0,150,255,0.06)';X.beginPath();X.arc(mxX+20*s,wdy,0.5,0,Math.PI*2);X.fill();
+    }
+    // Moisture indicator
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.12)';X.textAlign='center';
+    X.fillText('15% влажность',mxX,mxY+20*s);X.textAlign='left';
+    lbl('смеситель · ленточный · добавки · вода · 15%',mxX,mxY-20*s,'rgba(110,110,120,0.5)',6);
+  }
+
+  // === STAGE 5: Press ===
+  if(stage>=5){
+    var prX=W*0.78,prY=gy-25*s;
+    // Press frame
+    X.fillStyle='rgba(100,100,110,0.05)';X.fillRect(prX-18*s,prY-20*s,36*s,30*s);
+    X.strokeStyle='rgba(120,120,130,0.08)';X.lineWidth=0.5;X.strokeRect(prX-18*s,prY-20*s,36*s,30*s);
+    // Hydraulic ram
+    var ramOff=Math.sin(t*2)*3*s;
+    X.fillStyle='rgba(140,140,150,0.06)';X.fillRect(prX-10*s,prY-18*s+ramOff,20*s,8*s);
+    // Mold
+    X.strokeStyle='rgba(160,160,170,0.06)';X.lineWidth=0.4;
+    X.strokeRect(prX-8*s,prY-8*s,16*s,10*s);
+    // Brick being pressed
+    X.fillStyle='rgba(180,100,50,0.06)';X.fillRect(prX-7*s,prY-6*s,14*s,6*s);
+    // Pressure indicator
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(200,100,50,0.12)';X.textAlign='center';
+    X.fillText('20МПа',prX,prY-22*s);
+    X.fillText('10000/час',prX,prY+16*s);X.textAlign='left';
+    // Output conveyor
+    conveyor(prX+18*s,prY-2*s,W*0.9,prY-2*s,'rgba(100,100,110,0.04)',1);
+    lbl('пресс · экструзионный · 20МПа · 10000/час',prX,prY-30*s,'rgba(160,160,170,0.5)',6);
+  }
+
+  // === STAGE 6: Dryer ===
+  if(stage>=6){
+    var drX=W*0.2,drY=gy-50*s;
+    // Tunnel dryer
+    X.fillStyle='rgba(120,100,60,0.04)';X.fillRect(drX-30*s,drY-10*s,60*s,25*s);
+    X.strokeStyle='rgba(140,120,80,0.08)';X.lineWidth=0.5;X.strokeRect(drX-30*s,drY-10*s,60*s,25*s);
+    // Bricks inside
+    for(var bd=0;bd<8;bd++){
+      var bx=drX-25*s+bd*7*s;
+      brick(bx,drY+2*s,5*s,3*s,'rgba(180,100,50,0.04)');
+    }
+    // Heat waves
+    for(var hw=0;hw<6;hw++){
+      var hwX=drX-20*s+hw*8*s;
+      X.strokeStyle='rgba(255,150,50,'+(0.03+Math.sin(t*2+hw)*0.01)+')';X.lineWidth=0.3;
+      X.beginPath();X.moveTo(hwX,drY-10*s);X.quadraticCurveTo(hwX+Math.sin(t*3+hw)*3,drY-15*s,hwX,drY-20*s);X.stroke();
+    }
+    // Temperature
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(255,150,50,0.12)';X.textAlign='center';
+    X.fillText('120°С · 48ч · 2%',drX,drY+22*s);X.textAlign='left';
+    lbl('сушилка · тоннельная · 120°С · 48 часов · 2%',drX,drY-20*s,'rgba(255,150,50,0.5)',6);
+  }
+
+  // === STAGE 7: Kiln ===
+  if(stage>=7){
+    var klX=W*0.45,klY=gy-50*s;
+    // Kiln chambers (8)
+    for(var kc=0;kc<8;kc++){
+      var kcx=klX-35*s+kc*9*s;
+      // Chamber
+      X.fillStyle='rgba(100,50,20,0.04)';X.fillRect(kcx-3*s,klY-8*s,7*s,16*s);
+      X.strokeStyle='rgba(120,70,30,0.06)';X.lineWidth=0.3;X.strokeRect(kcx-3*s,klY-8*s,7*s,16*s);
+      // Fire inside
+      var fireIntensity=Math.sin(t*2+kc*0.5)*0.3+0.7;
+      if(fireIntensity>0.5){
+        for(var fi=0;fi<3;fi++){
+          flame(kcx+0.5*s,klY+2*s-fi*3*s,4,1.5+kc*0.3);
+        }
+      }
+      // Bricks stacked
+      for(var bk=0;bk<3;bk++){
+        X.fillStyle='rgba(200,100,30,'+(0.03*fireIntensity)+')';
+        X.fillRect(kcx-2*s,klY-6*s+bk*5*s,5*s,3*s);
+      }
+    }
+    // Temperature gradient
+    for(var tg=0;tg<8;tg++){
+      var tgX=klX-35*s+tg*9*s;
+      var tgTemp=400+tg*70;
+      X.font=(2*s)+'px monospace';X.fillStyle='rgba(255,100,30,0.1)';X.textAlign='center';
+      X.fillText(tgTemp+'°',tgX,klY+12*s);
+    }
+    X.textAlign='left';
+    // Gas input
+    X.strokeStyle='rgba(100,200,100,0.04)';X.lineWidth=1;
+    X.beginPath();X.moveTo(klX-35*s,klY+5*s);X.lineTo(klX-45*s,klY+5*s);X.stroke();
+    lbl('камера · 950°С · 24 часа · газ · 8 печей',klX,klY-18*s,'rgba(255,100,30,0.5)',6);
+  }
+
+  // === STAGE 8: Cooling ===
+  if(stage>=8){
+    var clX=W*0.7,clY=gy-50*s;
+    // Cooling tunnel
+    X.fillStyle='rgba(80,100,120,0.03)';X.fillRect(clX-25*s,clY-10*s,50*s,20*s);
+    X.strokeStyle='rgba(100,120,140,0.06)';X.lineWidth=0.4;X.strokeRect(clX-25*s,clY-10*s,50*s,20*s);
+    // Bricks cooling
+    for(var cb=0;cb<10;cb++){
+      var cbx=clX-20*s+cb*4*s;
+      var cbCol='rgba(180,'+Math.floor(100+cb*8)+',50,0.04)';
+      brick(cbx,clY+0,3*s,2*s,cbCol);
+    }
+    // Temperature decrease visualization
+    for(var td=0;td<5;td++){
+      var tdX=clX-20*s+td*10*s;
+      var tdTemp=950-td*150;
+      X.font=(2*s)+'px monospace';X.fillStyle='rgba(100,150,200,'+(0.1-td*0.015)+')';X.textAlign='center';
+      X.fillText(tdTemp+'°',tdX,clY+12*s);
+    }
+    X.textAlign='left';
+    // Fan symbols
+    for(var fn=0;fn<3;fn++){
+      var fnX=clX-15*s+fn*15*s;
+      X.strokeStyle='rgba(100,150,200,0.04)';X.lineWidth=0.3;
+      X.beginPath();X.arc(fnX,clY-12*s,3*s,0,Math.PI*2);X.stroke();
+      // Spinning blades
+      for(var fb=0;fb<3;fb++){
+        var fba=t*4+fb*Math.PI*2/3;
+        X.beginPath();X.moveTo(fnX,clY-12*s);X.lineTo(fnX+Math.cos(fba)*2.5*s,clY-12*s+Math.sin(fba)*2.5*s);X.stroke();
+      }
+    }
+    lbl('остывание · 72 часа · естественное · контролируемое',clX,clY+20*s,'rgba(100,150,200,0.5)',6);
+  }
+
+  // === STAGE 9: Sorting ===
+  if(stage>=9){
+    var soX=W*0.5,soY=gy-25*s;
+    // Sorting line
+    conveyor(W*0.3,soY,W*0.7,soY,'rgba(100,100,110,0.04)',1);
+    // Robot arm
+    var robotX=W*0.5+Math.sin(t)*15*s;
+    X.strokeStyle='rgba(150,150,160,0.06)';X.lineWidth=1;
+    X.beginPath();X.moveTo(robotX,soY-20*s);X.lineTo(robotX+5*s,soY-8*s);X.stroke();
+    X.beginPath();X.moveTo(robotX+5*s,soY-8*s);X.lineTo(robotX+8*s,soY-2*s);X.stroke();
+    // Sorting bins
+    for(var sb=0;sb<6;sb++){
+      var sbX=W*0.35+sb*W*0.06;
+      X.fillStyle='rgba(150,'+Math.floor(80+sb*20)+',50,0.03)';X.fillRect(sbX-4*s,soY+5*s,8*s,8*s);
+      X.strokeStyle='rgba(170,'+Math.floor(100+sb*20)+',70,0.05)';X.lineWidth=0.3;X.strokeRect(sbX-4*s,soY+5*s,8*s,8*s);
+      // Brick in bin
+      brick(sbX,soY+8*s,5*s,3*s,'rgba(180,100,50,0.03)');
+    }
+    // Color labels
+    X.font=(2*s)+'px monospace';X.fillStyle='rgba(200,150,80,0.1)';X.textAlign='center';
+    X.fillText('12 размеров · 6 цветов',W*0.5,soY+20*s);X.textAlign='left';
+    lbl('сортировка · линия · робот · 12 размеров · 6 цветов',soX,soY-28*s,'rgba(150,150,160,0.5)',6);
+  }
+
+  // === STAGE 10: Palletizing ===
+  if(stage>=10){
+    var plX=W*0.75,plY=gy-20*s;
+    // Pallet
+    X.fillStyle='rgba(140,120,80,0.04)';X.fillRect(plX-15*s,plY,30*s,5*s);
+    X.strokeStyle='rgba(160,140,100,0.06)';X.lineWidth=0.3;X.strokeRect(plX-15*s,plY,30*s,5*s);
+    // Stacked bricks
+    for(var row=0;row<5;row++){
+      for(var col=0;col<8;col++){
+        var brX=plX-13*s+col*3.3*s;
+        var brY=plY-2*s-row*3*s;
+        brick(brX,brY,3*s,2*s,'rgba(180,100,50,'+(0.04-row*0.005)+')');
+      }
+    }
+    // Strapping
+    X.strokeStyle='rgba(200,200,210,0.04)';X.lineWidth=0.3;
+    X.beginPath();X.moveTo(plX-14*s,plY-1*s);X.lineTo(plX-14*s,plY-16*s);X.stroke();
+    X.beginPath();X.moveTo(plX+14*s,plY-1*s);X.lineTo(plX+14*s,plY-16*s);X.stroke();
+    // Counter
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(200,150,80,0.12)';X.textAlign='center';
+    X.fillText('500 кирпичей',plX,plY+12*s);X.textAlign='left';
+    lbl('паллета · 500 кирпичей · стреп-лента',plX,plY-22*s,'rgba(200,150,80,0.5)',6);
+  }
+
+  // === STAGE 11: Final ===
+  if(stage>=11){
+    // Trucks
+    for(var tr=0;tr<3;tr++){
+      var trX=W*0.15+tr*W*0.25;
+      var trY=gy+10*s;
+      // Truck body
+      X.fillStyle='rgba(80,80,90,0.04)';X.fillRect(trX-20*s,trY-10*s,40*s,12*s);
+      X.strokeStyle='rgba(100,100,110,0.06)';X.lineWidth=0.4;X.strokeRect(trX-20*s,trY-10*s,40*s,12*s);
+      // Cab
+      X.fillStyle='rgba(90,90,100,0.04)';X.fillRect(trX+20*s,trY-8*s,10*s,10*s);
+      // Wheels
+      X.fillStyle='rgba(60,60,70,0.05)';X.beginPath();X.arc(trX-12*s,trY+3*s,3*s,0,Math.PI*2);X.fill();
+      X.beginPath();X.arc(trX+12*s,trY+3*s,3*s,0,Math.PI*2);X.fill();
+      // Pallets on truck
+      for(var tp=0;tp<2;tp++){
+        var tpX=trX-10*s+tp*15*s;
+        X.fillStyle='rgba(140,120,80,0.03)';X.fillRect(tpX-5*s,trY-8*s,10*s,3*s);
+        for(var tb=0;tb<3;tb++){
+          brick(tpX,trY-6*s-tb*2.5*s,7*s,2*s,'rgba(180,100,50,0.03)');
+        }
+      }
+    }
+    // Stats
+    X.font=(6*s)+'px monospace';X.fillStyle='rgba(200,150,80,0.12)';X.textAlign='center';
+    X.fillText('200 паллет/день · 50000 кирпичей',cx,gy+25*s);X.textAlign='left';
+    lbl('200 паллет · 50000 кирпичей · автопарк',cx,gy+35*s,'rgba(200,150,80,0.6)',7);
+  }
+
+  document.getElementById('part-label').textContent=pts[stage]||'';
+  X.fillStyle='rgba(200,150,80,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(200,150,80,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd3=0;sd3<=maxStage;sd3++){X.fillStyle=sd3<=stage?'rgba(200,150,80,0.25)':'rgba(200,150,80,0.06)';X.beginPath();X.arc(W*0.1+W*0.8*(sd3/maxStage),H-6.5,2,0,Math.PI*2);X.fill()}
+  requestAnimationFrame(draw);
+}
+draw();
+</script></body></html>
