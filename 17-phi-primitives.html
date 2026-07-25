@@ -24,6 +24,8 @@ canvas{display:block}
 <div id="ui">
 <div class="ctrl"><label>Обводка</label><input type="range" id="lw" min="0" max="3" value="1" step="0.5"><span class="val" id="lwV">1</span></div>
 <div class="ctrl"><label>Высота</label><input type="range" id="gl" min="0" max="100" value="50"><span class="val" id="glV">0.50</span></div>
+<div class="ctrl"><label>Наряд</label><button id="togD" style="background:none;border:1px solid #fc0;color:#fc0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px">NUDUS</button></div>
+<div class="ctrl"><label>Тип</label><button id="togT" style="background:none;border:1px solid #aaa;color:#aaa;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px">ТОГА</button></div>
 </div>
 <script>
 var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
@@ -35,6 +37,11 @@ document.getElementById('gl').oninput=function(){document.getElementById('glV').
 
 var PHI=1.618033988749895;
 var t=0;
+var dressed=false;
+var dressType=0; // 0=toga,1=lorica,2=paludamentum
+var dressNames=['ТОГА','ЛОРИКА','ИМПЕРАТОР'];
+document.getElementById('togD').onclick=function(){dressed=!dressed;this.textContent=dressed?'ROMA':'NUDUS';};
+document.getElementById('togT').onclick=function(){dressType=(dressType+1)%3;this.textContent=dressNames[dressType];};
 
 function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
 function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
@@ -303,6 +310,467 @@ function draw(){
     [legRX+legW/2+4*s,legTop+legH2],
     [legRX,legTop+legH2+8*s]
   ],'rgba(80,110,180,0.35)',lw*0.6);
+
+  // ====== ROMAN CLOTHING ======
+  if(dressed){
+    var clothElev=torsoElev*0.3; // clothing sits slightly above body
+
+    if(dressType===0){
+      // === TOGA — draped polynomial fabric ===
+      // Main drape from left shoulder across torso
+      var togaCol='rgba(240,235,220,0.1)';
+      var togaStroke='rgba(240,235,220,0.45)';
+      var togaFold='rgba(200,195,180,0.15)';
+
+      // Shadow of toga
+      X.globalAlpha=0.08;
+      F([
+        [torsoCX-torsoW*0.6+4*s,torsoCY-torsoH2*0.3+clothElev*0.3+4*s],
+        [torsoCX+torsoW*0.3+4*s,torsoCY-torsoH2*0.5+clothElev*0.3+4*s],
+        [torsoCX+torsoW*0.7+4*s,torsoCY+clothElev*0.3+4*s],
+        [torsoCX+torsoW*0.5+4*s,torsoCY+torsoH2*0.6+clothElev*0.3+4*s],
+        [torsoCX-torsoW*0.2+4*s,torsoCY+torsoH2*0.5+clothElev*0.3+4*s],
+        [torsoCX-torsoW*0.7+4*s,torsoCY-torsoH2*0.1+clothElev*0.3+4*s]
+      ],'rgba(0,0,0,0.6)');
+      X.globalAlpha=1;
+
+      // Main toga drape — wider, more flowing
+      F([
+        [torsoCX-torsoW*0.8,torsoCY-torsoH2*0.4-clothElev],
+        [torsoCX-torsoW*0.2,torsoCY-torsoH2*0.6-clothElev],
+        [torsoCX+torsoW*0.4,torsoCY-torsoH2*0.5-clothElev],
+        [torsoCX+torsoW*0.8,torsoCY-clothElev],
+        [torsoCX+torsoW*0.7,torsoCY+torsoH2*0.7-clothElev],
+        [torsoCX+torsoW*0.1,torsoCY+torsoH2*0.8-clothElev],
+        [torsoCX-torsoW*0.5,torsoCY+torsoH2*0.6-clothElev],
+        [torsoCX-torsoW*0.9,torsoCY+torsoH2*0.1-clothElev]
+      ],togaCol);
+      S([
+        [torsoCX-torsoW*0.8,torsoCY-torsoH2*0.4-clothElev],
+        [torsoCX-torsoW*0.2,torsoCY-torsoH2*0.6-clothElev],
+        [torsoCX+torsoW*0.4,torsoCY-torsoH2*0.5-clothElev],
+        [torsoCX+torsoW*0.8,torsoCY-clothElev],
+        [torsoCX+torsoW*0.7,torsoCY+torsoH2*0.7-clothElev],
+        [torsoCX+torsoW*0.1,torsoCY+torsoH2*0.8-clothElev],
+        [torsoCX-torsoW*0.5,torsoCY+torsoH2*0.6-clothElev],
+        [torsoCX-torsoW*0.9,torsoCY+torsoH2*0.1-clothElev]
+      ],togaStroke,lw*1.2);
+
+      // Fold lines — rich polynomial draping
+      var foldOff=Math.sin(t*0.5)*3*s;
+      S([
+        [torsoCX-torsoW*0.6,torsoCY-torsoH2*0.3-clothElev+foldOff,
+         torsoCX-torsoW*0.2,torsoCY+torsoH2*0.05-clothElev-foldOff,
+         torsoCX+torsoW*0.3,torsoCY+torsoH2*0.35-clothElev+foldOff,
+         torsoCX+torsoW*0.6,torsoCY+torsoH2*0.5-clothElev-foldOff]
+      ],togaFold,lw*0.6);
+      S([
+        [torsoCX-torsoW*0.4,torsoCY+foldOff*0.5-clothElev,
+         torsoCX,torsoCY+torsoH2*0.25-clothElev-foldOff*0.7,
+         torsoCX+torsoW*0.2,torsoCY+torsoH2*0.5-clothElev+foldOff*0.5,
+         torsoCX+torsoW*0.5,torsoCY+torsoH2*0.65-clothElev-foldOff*0.5]
+      ],togaFold,lw*0.5);
+      S([
+        [torsoCX+torsoW*0.0,torsoCY-torsoH2*0.4-clothElev-foldOff,
+         torsoCX+torsoW*0.35,torsoCY-torsoH2*0.15-clothElev+foldOff,
+         torsoCX+torsoW*0.6,torsoCY+torsoH2*0.15-clothElev-foldOff,
+         torsoCX+torsoW*0.7,torsoCY+torsoH2*0.45-clothElev+foldOff]
+      ],togaFold,lw*0.5);
+      S([
+        [torsoCX-torsoW*0.7,torsoCY-torsoH2*0.15-clothElev-foldOff*0.8,
+         torsoCX-torsoW*0.4,torsoCY+torsoH2*0.2-clothElev+foldOff*0.8,
+         torsoCX-torsoW*0.1,torsoCY+torsoH2*0.5-clothElev-foldOff*0.8]
+      ],togaFold,lw*0.4);
+      // Deep shadow folds
+      S([
+        [torsoCX+torsoW*0.15,torsoCY-torsoH2*0.25-clothElev+foldOff*1.2,
+         torsoCX+torsoW*0.45,torsoCY+torsoH2*0.05-clothElev-foldOff*1.2,
+         torsoCX+torsoW*0.65,torsoCY+torsoH2*0.35-clothElev+foldOff*1.2]
+      ],'rgba(160,155,140,0.12)',lw*0.7);
+
+      // Sinus — wide ceremonial sash from left shoulder to right hip
+      S([
+        [torsoCX-torsoW*0.55,torsoCY-torsoH2*0.45-clothElev,
+         torsoCX-torsoW*0.15,torsoCY-torsoH2*0.15-clothElev,
+         torsoCX+torsoW*0.2,torsoCY+torsoH2*0.15-clothElev,
+         torsoCX+torsoW*0.55,torsoCY+torsoH2*0.35-clothElev]
+      ],'rgba(180,40,40,0.4)',lw*2);
+      // Gold edge on sash
+      S([
+        [torsoCX-torsoW*0.55,torsoCY-torsoH2*0.47-clothElev,
+         torsoCX-torsoW*0.15,torsoCY-torsoH2*0.17-clothElev,
+         torsoCX+torsoW*0.2,torsoCY+torsoH2*0.13-clothElev,
+         torsoCX+torsoW*0.55,torsoCY+torsoH2*0.33-clothElev]
+      ],'rgba(255,200,80,0.2)',lw*0.4);
+
+      // Shoulder fibula — ornate golden brooch
+      X.fillStyle='rgba(255,200,80,0.3)';X.beginPath();
+      X.arc(torsoCX-torsoW*0.58,torsoCY-torsoH2*0.38-clothElev,6*s,0,Math.PI*2);X.fill();
+      X.strokeStyle='rgba(255,200,80,0.6)';X.lineWidth=lw*0.8;X.beginPath();
+      X.arc(torsoCX-torsoW*0.58,torsoCY-torsoH2*0.38-clothElev,6*s,0,Math.PI*2);X.stroke();
+      // Inner gem
+      X.fillStyle='rgba(180,40,40,0.4)';X.beginPath();
+      X.arc(torsoCX-torsoW*0.58,torsoCY-torsoH2*0.38-clothElev,2.5*s,0,Math.PI*2);X.fill();
+      // Rays from fibula
+      for(var fr=0;fr<8;fr++){
+        var frA=fr*Math.PI/4;
+        S([[torsoCX-torsoW*0.58+Math.cos(frA)*6*s,torsoCY-torsoH2*0.38-clothElev+Math.sin(frA)*6*s,
+            torsoCX-torsoW*0.58+Math.cos(frA)*9*s,torsoCY-torsoH2*0.38-clothElev+Math.sin(frA)*9*s]],
+          'rgba(255,200,80,0.2)',lw*0.3);
+      }
+
+      // Sandal straps on feet
+      for(var sl=0;sl<3;sl++){
+        var strapY=legTop+legH2+2*s+sl*3*s;
+        S([[legLX-legW/2-2*s,strapY],[legLX+legW/2+2*s,strapY]],'rgba(160,120,60,0.3)',lw*0.5);
+        S([[legRX-legW/2-2*s,strapY],[legRX+legW/2+2*s,strapY]],'rgba(160,120,60,0.3)',lw*0.5);
+      }
+
+      // Laurel wreath — grand imperial crown
+      for(var lw2=0;lw2<11;lw2++){
+        var leafA=-Math.PI*0.85+lw2*Math.PI*0.16;
+        var leafX=headX+Math.cos(leafA)*(headR+4*s);
+        var leafY=(headY-headElev)+Math.sin(leafA)*(headR+4*s);
+        var leafAng=leafA+Math.PI*0.5;
+        // Leaf
+        X.fillStyle='rgba(70,150,50,0.15)';
+        X.beginPath();
+        X.moveTo(leafX,leafY);
+        X.quadraticCurveTo(leafX+Math.cos(leafAng)*5*s,leafY+Math.sin(leafAng)*5*s-3*s,
+                           leafX+Math.cos(leafA)*8*s,leafY+Math.sin(leafA)*8*s);
+        X.quadraticCurveTo(leafX-Math.cos(leafAng)*3*s,leafY-Math.sin(leafAng)*3*s,leafX,leafY);
+        X.fill();
+        X.strokeStyle='rgba(100,190,60,0.45)';X.lineWidth=lw*0.5;
+        X.beginPath();X.moveTo(leafX,leafY);
+        X.quadraticCurveTo(leafX+Math.cos(leafAng)*5*s,leafY+Math.sin(leafAng)*5*s-3*s,
+                           leafX+Math.cos(leafA)*8*s,leafY+Math.sin(leafA)*8*s);
+        X.stroke();
+        // Center vein
+        S([[leafX,leafY],[leafX+Math.cos(leafA)*5*s,leafY+Math.sin(leafA)*5*s]],'rgba(120,200,70,0.2)',lw*0.3);
+      }
+      // Golden berries between leaves
+      for(var gb=0;gb<6;gb++){
+        var gbA=-Math.PI*0.78+gb*Math.PI*0.32;
+        var gbX=headX+Math.cos(gbA)*(headR+7*s);
+        var gbY=(headY-headElev)+Math.sin(gbA)*(headR+7*s);
+        X.fillStyle='rgba(255,200,80,0.3)';X.beginPath();X.arc(gbX,gbY,1.8*s,0,Math.PI*2);X.fill();
+      }
+      // Crown band
+      X.strokeStyle='rgba(255,200,80,0.3)';X.lineWidth=lw*0.5;
+      X.beginPath();X.arc(headX,headY-headElev,headR+3*s,-Math.PI*0.85,-Math.PI*0.85+11*Math.PI*0.16);X.stroke();
+
+    } else if(dressType===1){
+      // === LORICA SEGMENTATA — segmented Roman armor ===
+      var lorCol='rgba(180,160,120,0.12)';
+      var lorStroke='rgba(200,180,140,0.5)';
+      var lorSeg='rgba(160,140,100,0.25)';
+      var segCount=8;
+
+      // Shadow
+      X.globalAlpha=0.12;
+      F([
+        [torsoCX-torsoW*0.55+3*s,torsoCY-torsoH2*0.5+clothElev*0.3+3*s],
+        [torsoCX+torsoW*0.55+3*s,torsoCY-torsoH2*0.5+clothElev*0.3+3*s],
+        [torsoCX+torsoW*0.45+3*s,torsoCY+torsoH2*0.5+clothElev*0.3+3*s],
+        [torsoCX-torsoW*0.45+3*s,torsoCY+torsoH2*0.5+clothElev*0.3+3*s]
+      ],'rgba(0,0,0,0.6)');
+      X.globalAlpha=1;
+
+      // Main armor shape — trapezoid
+      F([
+        [torsoCX-torsoW*0.55,torsoCY-torsoH2*0.5-clothElev],
+        [torsoCX+torsoW*0.55,torsoCY-torsoH2*0.5-clothElev],
+        [torsoCX+torsoW*0.45,torsoCY+torsoH2*0.5-clothElev],
+        [torsoCX-torsoW*0.45,torsoCY+torsoH2*0.5-clothElev]
+      ],lorCol);
+      S([
+        [torsoCX-torsoW*0.55,torsoCY-torsoH2*0.5-clothElev],
+        [torsoCX+torsoW*0.55,torsoCY-torsoH2*0.5-clothElev],
+        [torsoCX+torsoW*0.45,torsoCY+torsoH2*0.5-clothElev],
+        [torsoCX-torsoW*0.45,torsoCY+torsoH2*0.5-clothElev]
+      ],lorStroke,lw*1.1);
+
+      // Horizontal segments
+      for(var si=1;si<segCount;si++){
+        var segF=si/segCount;
+        var segY=torsoCY-torsoH2*0.5+torsoH2*segF-clothElev;
+        var segW=torsoW*(0.55-segF*0.1);
+        S([[torsoCX-segW,segY],[torsoCX+segW,segY]],lorSeg,lw*0.6);
+        // Segment overlap highlight
+        S([[torsoCX-segW,segY-1*s],[torsoCX+segW,segY-1*s]],'rgba(220,200,160,0.1)',lw*0.3);
+      }
+
+      // Vertical center line
+      S([[torsoCX,torsoCY-torsoH2*0.5-clothElev],[torsoCX,torsoCY+torsoH2*0.5-clothElev]],'rgba(160,140,100,0.2)',lw*0.4);
+
+      // Shoulder guards — grand curved bands with gold trim
+      for(var sg=0;sg<2;sg++){
+        var sgSide=sg===0?-1:1;
+        var sgX=torsoCX+sgSide*torsoW*0.55;
+        // Main shoulder plate
+        F([
+          [sgX,torsoCY-torsoH2*0.48-clothElev,
+           sgX+sgSide*torsoW*0.25,torsoCY-torsoH2*0.58-clothElev,
+           sgX+sgSide*torsoW*0.35,torsoCY-torsoH2*0.45-clothElev,
+           sgX+sgSide*torsoW*0.1,torsoCY-torsoH2*0.4-clothElev]
+        ],'rgba(180,160,120,0.08)');
+        S([
+          [sgX,torsoCY-torsoH2*0.48-clothElev,
+           sgX+sgSide*torsoW*0.25,torsoCY-torsoH2*0.58-clothElev,
+           sgX+sgSide*torsoW*0.35,torsoCY-torsoH2*0.45-clothElev,
+           sgX+sgSide*torsoW*0.1,torsoCY-torsoH2*0.4-clothElev]
+        ],lorStroke,lw*0.9);
+        // Gold edge
+        S([
+          [sgX+sgSide*torsoW*0.05,torsoCY-torsoH2*0.46-clothElev,
+           sgX+sgSide*torsoW*0.22,torsoCY-torsoH2*0.56-clothElev,
+           sgX+sgSide*torsoW*0.32,torsoCY-torsoH2*0.44-clothElev]
+        ],'rgba(255,200,80,0.25)',lw*0.5);
+        // Leather straps with studs
+        S([
+          [sgX+sgSide*torsoW*0.1,torsoCY-torsoH2*0.5-clothElev,
+           sgX+sgSide*torsoW*0.15,torsoCY-torsoH2*0.1-clothElev]
+        ],'rgba(140,100,50,0.35)',lw*0.7);
+        // Gold studs on straps
+        for(var si2=0;si2<3;si2++){
+          var studY=torsoCY-torsoH2*0.4-clothElev+si2*torsoH2*0.15;
+          X.fillStyle='rgba(255,200,80,0.3)';
+          X.beginPath();X.arc(sgX+sgSide*torsoW*0.12,studY,1.5*s,0,Math.PI*2);X.fill();
+        }
+      }
+
+      // Belt — ornate cingulum with gold buckle
+      var beltY=torsoCY+torsoH2*0.15-clothElev;
+      S([[torsoCX-torsoW*0.52,beltY],[torsoCX+torsoW*0.52,beltY]],'rgba(200,160,80,0.5)',lw*1.5);
+      // Gold edges
+      S([[torsoCX-torsoW*0.52,beltY-2*s],[torsoCX+torsoW*0.52,beltY-2*s]],'rgba(255,200,80,0.2)',lw*0.3);
+      S([[torsoCX-torsoW*0.52,beltY+2*s],[torsoCX+torsoW*0.52,beltY+2*s]],'rgba(255,200,80,0.2)',lw*0.3);
+      // Central buckle
+      X.fillStyle='rgba(255,200,80,0.3)';X.beginPath();
+      X.arc(torsoCX,beltY,5*s,0,Math.PI*2);X.fill();
+      X.strokeStyle='rgba(255,200,80,0.6)';X.lineWidth=lw*0.6;X.beginPath();
+      X.arc(torsoCX,beltY,5*s,0,Math.PI*2);X.stroke();
+      // Eagle on buckle
+      X.strokeStyle='rgba(255,220,120,0.3)';X.lineWidth=lw*0.3;
+      X.beginPath();X.moveTo(torsoCX,beltY-3*s);
+      X.quadraticCurveTo(torsoCX+4*s,beltY-1*s,torsoCX+2*s,beltY+2*s);
+      X.moveTo(torsoCX,beltY-3*s);
+      X.quadraticCurveTo(torsoCX-4*s,beltY-1*s,torsoCX-2*s,beltY+2*s);
+      X.stroke();
+      // Hanging strips (pteryges) — more of them, with gold tips
+      for(var bi=0;bi<7;bi++){
+        var bx=torsoCX-torsoW*0.36+bi*torsoW*0.12;
+        var bHang=10*s+Math.sin(t*2+bi)*2.5*s;
+        var bW=bi%2===0?2*s:1.5*s;
+        S([[bx,beltY+3*s],[bx,beltY+3*s+bHang]],'rgba(200,160,80,0.35)',lw*0.6);
+        // Gold tip
+        F([
+          [bx-bW,beltY+3*s+bHang],[bx+bW,beltY+3*s+bHang],[bx,beltY+3*s+bHang+4*s]
+        ],'rgba(255,200,80,0.25)');
+        X.strokeStyle='rgba(255,200,80,0.4)';X.lineWidth=lw*0.3;
+        X.beginPath();X.moveTo(bx-bW,beltY+3*s+bHang);
+        X.lineTo(bx,beltY+3*s+bHang+4*s);X.lineTo(bx+bW,beltY+3*s+bHang);X.stroke();
+      }
+
+      // Gladius — ornate short sword with gold fittings
+      var glX=torsoCX-torsoW*0.48;
+      var glY=torsoCY+torsoH2*0.18-clothElev;
+      // Scabbard — leather with gold bands
+      S([[glX,glY],[glX-4*s,glY+torsoH2*0.42]],'rgba(140,100,50,0.5)',lw*1.2);
+      // Gold bands on scabbard
+      for(var gb2=0;gb2<3;gb2++){
+        var gbY=glY+torsoH2*0.1+gb2*torsoH2*0.12;
+        var gbXoff=glX-gb2*1*s;
+        S([[gbXoff-3*s,gbY],[gbXoff+2*s,gbY]],'rgba(255,200,80,0.3)',lw*0.5);
+      }
+      // Handle — wrapped grip
+      S([[glX+1*s,glY-2*s],[glX+3*s,glY-10*s]],'rgba(200,180,140,0.5)',lw*1);
+      // Cross guard
+      S([[glX-2*s,glY-2*s],[glX+5*s,glY-2*s]],'rgba(255,200,80,0.4)',lw*0.8);
+      // Pommel — golden orb
+      X.fillStyle='rgba(255,200,80,0.3)';X.beginPath();X.arc(glX+3*s,glY-11*s,2.5*s,0,Math.PI*2);X.fill();
+      X.strokeStyle='rgba(255,200,80,0.5)';X.lineWidth=lw*0.4;X.beginPath();X.arc(glX+3*s,glY-11*s,2.5*s,0,Math.PI*2);X.stroke();
+
+      // Caligae — Roman boots
+      for(var cb=0;cb<2;cb++){
+        var cbX=cb===0?legLX:legRX;
+        // Boot shaft
+        F([
+          [cbX-legW/2-1*s,legTop+legH2-4*s],[cbX+legW/2+1*s,legTop+legH2-4*s],
+          [cbX+legW/2+2*s,legTop+legH2+6*s],[cbX-legW/2-2*s,legTop+legH2+6*s]
+        ],'rgba(140,100,50,0.1)');
+        S([
+          [cbX-legW/2-1*s,legTop+legH2-4*s],[cbX+legW/2+1*s,legTop+legH2-4*s],
+          [cbX+legW/2+2*s,legTop+legH2+6*s],[cbX-legW/2-2*s,legTop+legH2+6*s]
+        ],'rgba(160,120,60,0.35)',lw*0.6);
+        // Sole
+        S([[cbX-legW/2-3*s,legTop+legH2+6*s],[cbX+legW/2+3*s,legTop+legH2+6*s]],'rgba(80,60,30,0.3)',lw*0.8);
+      }
+
+    } else {
+      // === PALUDAMENTUM — Imperial purple commander's cloak ===
+      var palCol='rgba(120,30,100,0.1)';
+      var palStroke='rgba(150,40,130,0.45)';
+
+      // Shadow
+      X.globalAlpha=0.12;
+      F([
+        [torsoCX-torsoW*0.9+4*s,torsoCY-torsoH2*0.55+clothElev*0.3+4*s],
+        [torsoCX+torsoW*0.35+4*s,torsoCY-torsoH2*0.6+clothElev*0.3+4*s],
+        [torsoCX+torsoW*0.9+4*s,torsoCY+torsoH2*0.15+clothElev*0.3+4*s],
+        [torsoCX+torsoW*0.7+4*s,torsoCY+torsoH2*0.9+clothElev*0.3+4*s],
+        [torsoCX-torsoW*0.5+4*s,torsoCY+torsoH2*0.8+clothElev*0.3+4*s],
+        [torsoCX-torsoW*1.0+4*s,torsoCY+clothElev*0.3+4*s]
+      ],'rgba(0,0,0,0.5)');
+      X.globalAlpha=1;
+
+      // Main cloak — imperial purple, grand sweep
+      var palWave=Math.sin(t*0.8)*4*s;
+      var palWave2=Math.cos(t*0.6)*3*s;
+      F([
+        [torsoCX-torsoW*0.9,torsoCY-torsoH2*0.55-clothElev],
+        [torsoCX+torsoW*0.35,torsoCY-torsoH2*0.6-clothElev],
+        [torsoCX+torsoW*0.9,torsoCY+torsoH2*0.15-clothElev+palWave],
+        [torsoCX+torsoW*0.7,torsoCY+torsoH2*0.9-clothElev-palWave2],
+        [torsoCX+torsoW*0.1,torsoCY+torsoH2*0.85-clothElev+palWave],
+        [torsoCX-torsoW*0.5,torsoCY+torsoH2*0.8-clothElev-palWave2],
+        [torsoCX-torsoW*1.0,torsoCY-clothElev-palWave]
+      ],palCol);
+      S([
+        [torsoCX-torsoW*0.9,torsoCY-torsoH2*0.55-clothElev],
+        [torsoCX+torsoW*0.35,torsoCY-torsoH2*0.6-clothElev],
+        [torsoCX+torsoW*0.9,torsoCY+torsoH2*0.15-clothElev+palWave],
+        [torsoCX+torsoW*0.7,torsoCY+torsoH2*0.9-clothElev-palWave2],
+        [torsoCX+torsoW*0.1,torsoCY+torsoH2*0.85-clothElev+palWave],
+        [torsoCX-torsoW*0.5,torsoCY+torsoH2*0.8-clothElev-palWave2],
+        [torsoCX-torsoW*1.0,torsoCY-clothElev-palWave]
+      ],palStroke,lw*1.3);
+
+      // Deep flowing folds — polynomial curves
+      S([
+        [torsoCX-torsoW*0.7,torsoCY-torsoH2*0.3-clothElev+palWave,
+         torsoCX-torsoW*0.3,torsoCY+torsoH2*0.1-clothElev-palWave2,
+         torsoCX+torsoW*0.4,torsoCY+torsoH2*0.5-clothElev+palWave,
+         torsoCX+torsoW*0.6,torsoCY+torsoH2*0.7-clothElev-palWave2]
+      ],'rgba(100,25,85,0.2)',lw*0.7);
+      S([
+        [torsoCX+torsoW*0.0,torsoCY-torsoH2*0.45-clothElev-palWave2,
+         torsoCX+torsoW*0.5,torsoCY-clothElev+palWave,
+         torsoCX+torsoW*0.8,torsoCY+torsoH2*0.25-clothElev-palWave2,
+         torsoCX+torsoW*0.6,torsoCY+torsoH2*0.6-clothElev+palWave]
+      ],'rgba(100,25,85,0.15)',lw*0.5);
+      S([
+        [torsoCX-torsoW*0.4,torsoCY+torsoH2*0.2-clothElev+palWave*1.2,
+         torsoCX-torsoW*0.1,torsoCY+torsoH2*0.5-clothElev-palWave2*1.2,
+         torsoCX+torsoW*0.3,torsoCY+torsoH2*0.75-clothElev+palWave*1.2]
+      ],'rgba(100,25,85,0.12)',lw*0.5);
+
+      // Gold border — double line along entire edge
+      S([
+        [torsoCX-torsoW*0.9,torsoCY-torsoH2*0.55-clothElev,
+         torsoCX-torsoW*1.0,torsoCY-clothElev-palWave,
+         torsoCX-torsoW*0.5,torsoCY+torsoH2*0.8-clothElev-palWave2,
+         torsoCX+torsoW*0.1,torsoCY+torsoH2*0.85-clothElev+palWave]
+      ],'rgba(255,200,80,0.35)',lw*0.8);
+      S([
+        [torsoCX+torsoW*0.35,torsoCY-torsoH2*0.6-clothElev,
+         torsoCX+torsoW*0.9,torsoCY+torsoH2*0.15-clothElev+palWave,
+         torsoCX+torsoW*0.7,torsoCY+torsoH2*0.9-clothElev-palWave2]
+      ],'rgba(255,200,80,0.35)',lw*0.8);
+      // Inner gold line
+      S([
+        [torsoCX-torsoW*0.85,torsoCY-torsoH2*0.5-clothElev,
+         torsoCX-torsoW*0.95,torsoCY+torsoH2*0.05-clothElev-palWave,
+         torsoCX-torsoW*0.45,torsoCY+torsoH2*0.75-clothElev-palWave2]
+      ],'rgba(255,200,80,0.15)',lw*0.4);
+
+      // Purple stripe pattern along border
+      for(var ps=0;ps<8;ps++){
+        var psF=ps/8;
+        var psX=torsoCX-torsoW*0.9+torsoW*(0.05+psF*0.15);
+        var psY=torsoCY-torsoH2*0.5+torsoH2*psF*0.8-clothElev;
+        X.fillStyle='rgba(150,40,130,0.08)';
+        X.fillRect(psX,psY,torsoW*0.04,4*s);
+      }
+
+      // Fibula on right shoulder — grand imperial brooch
+      var fibX=torsoCX+torsoW*0.33;
+      var fibY=torsoCY-torsoH2*0.57-clothElev;
+      // Outer ring
+      X.strokeStyle='rgba(255,200,80,0.5)';X.lineWidth=lw*0.8;
+      X.beginPath();X.arc(fibX,fibY,7*s,0,Math.PI*2);X.stroke();
+      // Inner ring
+      X.beginPath();X.arc(fibX,fibY,4*s,0,Math.PI*2);X.stroke();
+      // Center gem — deep red
+      X.fillStyle='rgba(200,30,30,0.4)';X.beginPath();X.arc(fibX,fibY,2.5*s,0,Math.PI*2);X.fill();
+      // Rays
+      for(var fr2=0;fr2<12;fr2++){
+        var frA2=fr2*Math.PI/6;
+        var frL=fr2%3===0?10*s:7*s;
+        S([[fibX+Math.cos(frA2)*7*s,fibY+Math.sin(frA2)*7*s,
+            fibX+Math.cos(frA2)*frL,fibY+Math.sin(frA2)*frL]],
+          'rgba(255,200,80,0.2)',lw*0.3);
+      }
+
+      // Imperial crest on helmet — tall transverse crest
+      var crestBaseY=headY-headElev-headR-1*s;
+      // Crest base — curved band
+      F([
+        [headX-10*s,crestBaseY+2*s],
+        [headX-8*s,crestBaseY-4*s],
+        [headX+8*s,crestBaseY-4*s],
+        [headX+10*s,crestBaseY+2*s]
+      ],'rgba(200,40,40,0.12)');
+      S([
+        [headX-10*s,crestBaseY+2*s],
+        [headX-8*s,crestBaseY-4*s],
+        [headX+8*s,crestBaseY-4*s],
+        [headX+10*s,crestBaseY+2*s]
+      ],'rgba(220,60,60,0.5)',lw*0.8);
+      // Tall crest plume — horsehair
+      for(var cp=0;cp<12;cp++){
+        var cpX=headX-8*s+cp*1.3*s;
+        var cpH=14*s+Math.sin(t*1.5+cp*0.5)*2*s;
+        var cpWave=Math.sin(t*2+cp)*1.5*s;
+        S([
+          [cpX,crestBaseY-4*s,
+           cpX+cpWave,crestBaseY-4*s-cpH*0.6,
+           cpX+cpWave*0.5,crestBaseY-4*s-cpH]
+        ],'rgba(220,60,60,0.3)',lw*0.6);
+      }
+      // Gold crest holder
+      S([[headX-8*s,crestBaseY-4*s],[headX+8*s,crestBaseY-4*s]],'rgba(255,200,80,0.35)',lw*0.6);
+
+      // Caligae — ornate Roman boots with gold buckles
+      for(var cb2=0;cb2<2;cb2++){
+        var cbX2=cb2===0?legLX:legRX;
+        // Boot shaft — taller
+        F([
+          [cbX2-legW/2-2*s,legTop+legH2-8*s],[cbX2+legW/2+2*s,legTop+legH2-8*s],
+          [cbX2+legW/2+3*s,legTop+legH2+7*s],[cbX2-legW/2-3*s,legTop+legH2+7*s]
+        ],'rgba(140,100,50,0.12)');
+        S([
+          [cbX2-legW/2-2*s,legTop+legH2-8*s],[cbX2+legW/2+2*s,legTop+legH2-8*s],
+          [cbX2+legW/2+3*s,legTop+legH2+7*s],[cbX2-legW/2-3*s,legTop+legH2+7*s]
+        ],'rgba(160,120,60,0.4)',lw*0.7);
+        // Cross straps
+        for(var cs=0;cs<3;cs++){
+          var csY=legTop+legH2-6*s+cs*4*s;
+          S([[cbX2-legW/2-1*s,csY],[cbX2+legW/2+1*s,csY]],'rgba(200,160,80,0.25)',lw*0.4);
+        }
+        // Gold buckle
+        X.fillStyle='rgba(255,200,80,0.3)';X.beginPath();
+        X.arc(cbX2,legTop+legH2-6*s,2*s,0,Math.PI*2);X.fill();
+        // Sole with hobnails
+        S([[cbX2-legW/2-4*s,legTop+legH2+7*s],[cbX2+legW/2+4*s,legTop+legH2+7*s]],'rgba(80,60,30,0.35)',lw*0.9);
+        for(var hn=0;hn<4;hn++){
+          var hnX=cbX2-legW/2+hn*legW/3;
+          X.fillStyle='rgba(180,160,120,0.2)';X.beginPath();
+          X.arc(hnX,legTop+legH2+8*s,1*s,0,Math.PI*2);X.fill();
+        }
+      }
+    }
+  }
 
   // ====== FLOATING φ-PRIMITIVES around figure ======
   // Orbiting geometric shapes at golden ratio distances
