@@ -1,0 +1,410 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>38 — Водопровод Останкинской Башни — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060608;overflow:hidden;font-family:sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #0af;color:#0af;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(0,170,255,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #0af5;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#0af;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:600px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Водопровод Останкинской Башни</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">&#9664;</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">&#9654;</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="speed" min="0" max="100" value="0" style="width:70px;accent-color:#0af"><span class="val" id="speedV">0</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+var stage=0,autoMode=false,autoTimer=0,maxStage=12,t=0;
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ'};
+document.getElementById('speed').oninput=function(){document.getElementById('speedV').textContent=this.value};
+
+var pts=['Артезианская скважина · 120м · чистый песчаник · 3 л/сек','Насосная станция · 2 насоса · давление 16 атм','Фильтрация · уголь · умягчение · обезжелезивание · 99.9%','Подача вверх · 540м · 16 ступеней · каждый 35м','Резервуар · 15м³ · аварийный · запас на 2 часа','Ресторан «Седьмое небо» · 320м · мойка · кухня · бар','Технический · охлаждение передатчиков · 400кВт · 12л/мин','Пожарный · 300м³ · 2 насоса · 80м³/ч · 12 точек','Туалеты · 48 точек · 6 этажей · смыв · канализация','Дренаж · конденсат · отопление · 200л/час','Контроль · датчики · расходомер · давление · температура','Итог · 540м · 12 ступеней · 8 систем · 24ч в сутки'];
+
+function waterPipe(x,y1,y2,col,flow){
+  X.strokeStyle=col;X.lineWidth=2;X.setLineDash([4,4]);
+  X.beginPath();X.moveTo(x,y1);X.lineTo(x,y2);X.stroke();
+  X.setLineDash([]);
+  // Flow dots
+  if(flow>0){
+    for(var fd=0;fd<5;fd++){
+      var fy=y1+((t*30*flow+fd*(Math.abs(y2-y1)/4))%(Math.abs(y2-y1)));
+      X.fillStyle='rgba(0,170,255,0.12)';X.beginPath();X.arc(x,fy,1.5,0,Math.PI*2);X.fill();
+    }
+  }
+}
+
+function waterDrop(x,y,r,col){
+  X.fillStyle=col;X.beginPath();X.arc(x,y,r,0,Math.PI*2);X.fill();
+}
+
+function label(t2,x,y,c,sz){X.globalAlpha=0.55;X.font=(sz||6)+'px monospace';X.fillStyle=c||'rgba(0,170,255,0.8)';X.textAlign='center';X.fillText(t2,x,y);X.textAlign='left';X.globalAlpha=1}
+
+function draw(){
+  var spd=parseInt(document.getElementById('speed').value);
+  if(autoMode){autoTimer+=0.016;if(autoTimer>2.5){autoTimer=0;if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ'}}}
+  t+=0.016;
+  X.fillStyle='#060608';X.fillRect(0,0,W,H);
+  var cx=W/2,gy=H*0.82,s=Math.min(W,H)/700;
+
+  // === Tower outline (always visible as reference) ===
+  var tH=H*0.6,tW=18*s,tTop=gy-tH;
+  // Tower body
+  X.fillStyle='rgba(60,60,70,0.03)';X.fillRect(cx-tW/2,tTop,tW,tH);
+  X.strokeStyle='rgba(80,80,90,0.06)';X.lineWidth=0.5;
+  // Tower tapers
+  X.beginPath();
+  X.moveTo(cx-tW*1.2,gy);X.lineTo(cx-tW/2,gy-tH*0.15);
+  X.lineTo(cx-tW/2,gy-tH*0.6);X.lineTo(cx-tW/4,tTop);
+  X.lineTo(cx+tW/4,tTop);X.lineTo(cx+tW/2,gy-tH*0.6);
+  X.lineTo(cx+tW/2,gy-tH*0.15);X.lineTo(cx+tW*1.2,gy);
+  X.stroke();
+  // Observation decks
+  for(var dk=0;dk<3;dk++){
+    var dkY=gy-tH*0.2-dk*tH*0.15;
+    var dkW=tW*(1.8-dk*0.3);
+    X.strokeStyle='rgba(80,80,90,0.05)';X.lineWidth=0.3;
+    X.beginPath();X.moveTo(cx-dkW/2,dkY);X.lineTo(cx+dkW/2,dkY);X.stroke();
+  }
+  // Antenna
+  X.strokeStyle='rgba(80,80,90,0.04)';X.lineWidth=0.4;
+  X.beginPath();X.moveTo(cx,tTop);X.lineTo(cx,tTop-30*s);X.stroke();
+  // Antenna tip light
+  X.fillStyle='rgba(255,50,50,'+(0.04+Math.sin(t*2)*0.02)+')';
+  X.beginPath();X.arc(cx,tTop-30*s,1.5,0,Math.PI*2);X.fill();
+
+  // === STAGE 0: Artesian well ===
+  if(stage>=0){
+    var wy=gy+15*s;
+    // Ground cross-section
+    X.fillStyle='rgba(100,80,50,0.04)';X.fillRect(cx-40*s,gy,80*s,25*s);
+    // Soil layers
+    for(var sl=0;sl<4;sl++){
+      var slY=gy+sl*6*s;
+      X.strokeStyle='rgba(120,100,60,'+(0.03+sl*0.01)+')';X.lineWidth=0.3;
+      X.beginPath();X.moveTo(cx-40*s,slY);X.lineTo(cx+40*s,slY);X.stroke();
+    }
+    // Sandstone
+    X.fillStyle='rgba(150,140,100,0.03)';X.fillRect(cx-25*s,gy+15*s,50*s,10*s);
+    // Well pipe
+    X.strokeStyle='rgba(150,150,160,0.08)';X.lineWidth=2;
+    X.beginPath();X.moveTo(cx,gy);X.lineTo(cx,gy+25*s);X.stroke();
+    // Water rising
+    for(var wr=0;wr<8;wr++){
+      var wry=gy+20*s-((t*20+wr*3)%20)*s;
+      if(wry>gy)waterDrop(cx+Math.sin(t+wr)*1,wry,1,'rgba(0,170,255,0.1)');
+    }
+    // Water level indicator
+    X.strokeStyle='rgba(0,170,255,0.06)';X.lineWidth=0.5;
+    X.beginPath();X.moveTo(cx-20*s,gy+18*s);X.lineTo(cx+20*s,gy+18*s);X.stroke();
+    // Measurement
+    X.font=(4*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.15)';X.textAlign='center';
+    X.fillText('120м',cx+30*s,gy+20*s);X.textAlign='left';
+    label('артезианская скважина · 120м · песчаник · 3 л/сек',cx,gy+35*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 1: Pumping station ===
+  if(stage>=1){
+    var psX=cx-50*s,psY=gy-5*s;
+    // Pump room
+    X.fillStyle='rgba(50,50,60,0.04)';X.fillRect(psX-20*s,psY-15*s,40*s,20*s);
+    X.strokeStyle='rgba(70,70,80,0.08)';X.lineWidth=0.4;X.strokeRect(psX-20*s,psY-15*s,40*s,20*s);
+    // Two pumps
+    for(var pm=0;pm<2;pm++){
+      var pmX=psX-8*s+pm*16*s;
+      X.fillStyle='rgba(80,80,90,0.05)';X.beginPath();X.arc(pmX,psY-5*s,5*s,0,Math.PI*2);X.fill();
+      X.strokeStyle='rgba(100,100,110,0.08)';X.lineWidth=0.4;X.beginPath();X.arc(pmX,psY-5*s,5*s,0,Math.PI*2);X.stroke();
+      // Spinning impeller
+      for(var ip=0;ip<3;ip++){
+        var ipa=t*3+ip*Math.PI*2/3+pm*Math.PI/2;
+        X.strokeStyle='rgba(120,120,130,0.06)';X.lineWidth=0.3;
+        X.beginPath();X.moveTo(pmX,psY-5*s);X.lineTo(pmX+Math.cos(ipa)*4*s,psY-5*s+Math.sin(ipa)*4*s);X.stroke();
+      }
+    }
+    // Pressure gauge
+    X.strokeStyle='rgba(100,100,110,0.06)';X.lineWidth=0.3;
+    X.beginPath();X.arc(psX+20*s,psY-10*s,3*s,0,Math.PI*2);X.stroke();
+    var needleA=-Math.PI*0.4+Math.sin(t)*0.08;
+    X.beginPath();X.moveTo(psX+20*s,psY-10*s);X.lineTo(psX+20*s+Math.cos(needleA)*2.5*s,psY-10*s+Math.sin(needleA)*2.5*s);X.stroke();
+    // Pressure reading
+    X.font=(3.5*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.15)';X.textAlign='center';
+    X.fillText('16 атм',psX+20*s,psY-15*s);X.textAlign='left';
+    label('насосная · 2 насоса · 16 атм',psX,psY-25*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 2: Filtration ===
+  if(stage>=2){
+    var flX=cx+50*s,flY=gy-5*s;
+    // Filter tanks
+    for(var ft=0;ft<3;ft++){
+      var ftX=flX-20*s+ft*20*s;
+      X.fillStyle='rgba(60,80,60,0.04)';X.fillRect(ftX-5*s,flY-18*s,10*s,18*s);
+      X.strokeStyle='rgba(80,100,80,0.08)';X.lineWidth=0.4;X.strokeRect(ftX-5*s,flY-18*s,10*s,18*s);
+      // Filter media
+      for(var fm=0;fm<4;fm++){
+        X.fillStyle='rgba(100,120,100,'+(0.03+ft*0.01)+')';
+        X.fillRect(ftX-4*s,flY-2*s-fm*4*s,8*s,3*s);
+      }
+      // Flow arrows
+      X.strokeStyle='rgba(0,170,255,0.04)';X.lineWidth=0.3;
+      X.beginPath();X.moveTo(ftX,flY-16*s);X.lineTo(ftX,flY-4*s);X.stroke();
+    }
+    // Labels
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.1)';X.textAlign='center';
+    X.fillText('уголь',flX-20*s,flY+4*s);X.fillText('смягчение',flX,flY+4*s);X.fillText('обезжел.',flX+20*s,flY+4*s);
+    X.textAlign='left';
+    label('фильтрация · уголь · умягчение · 99.9%',flX,flY-28*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 3: Pipe up tower ===
+  if(stage>=3){
+    // Main riser pipe
+    waterPipe(cx+tW/2+4*s,gy,tTop+20*s,'rgba(0,170,255,0.06)',1);
+    // Booster stations every 35m
+    for(var bs=0;bs<16;bs++){
+      var bsY=gy-bs*(tH/16);
+      if(bsY<tTop)break;
+      X.fillStyle='rgba(80,80,90,0.04)';X.fillRect(cx+tW/2+2*s,bsY-2*s,4*s,4*s);
+      // Pump symbol
+      X.strokeStyle='rgba(0,170,255,0.04)';X.lineWidth=0.3;
+      X.beginPath();X.arc(cx+tW/2+4*s,bsY,2*s,0,Math.PI*2);X.stroke();
+    }
+    // Flow direction arrows
+    for(var fa=0;fa<6;fa++){
+      var faY=gy-fa*tH/8;
+      if(faY<tTop)break;
+      X.fillStyle='rgba(0,170,255,0.06)';
+      X.beginPath();X.moveTo(cx+tW/2+4*s,faY-3*s);X.lineTo(cx+tW/2+2*s,faY);X.lineTo(cx+tW/2+6*s,faY);X.closePath();X.fill();
+    }
+    label('подача вверх · 540м · 16 ступеней · 35м каждая',cx+tW/2+4*s,tTop+15*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 4: Reservoir ===
+  if(stage>=4){
+    var rvY=gy-tH*0.1;
+    // Tank
+    X.fillStyle='rgba(0,100,180,0.04)';X.fillRect(cx-tW/2-15*s,rvY-10*s,30*s,15*s);
+    X.strokeStyle='rgba(0,140,220,0.08)';X.lineWidth=0.5;X.strokeRect(cx-tW/2-15*s,rvY-10*s,30*s,15*s);
+    // Water level
+    var wl=Math.sin(t*0.3)*0.2+0.7;
+    X.fillStyle='rgba(0,120,200,0.05)';X.fillRect(cx-tW/2-14*s,rvY-10*s+14*s*(1-wl),28*s,14*s*wl);
+    // Level marker
+    X.strokeStyle='rgba(0,170,255,0.06)';X.lineWidth=0.3;
+    X.beginPath();X.moveTo(cx-tW/2-15*s,rvY-10*s+14*s*(1-wl));X.lineTo(cx-tW/2-20*s,rvY-10*s+14*s*(1-wl));X.stroke();
+    // Connection pipe
+    waterPipe(cx-tW/2-15*s,rvY-3*s,rvY+5*s,'rgba(0,170,255,0.04)',0.5);
+    // Volume label
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.12)';X.textAlign='center';
+    X.fillText('15м³',cx-tW/2,rvY-12*s);
+    X.fillText('2 часа запас',cx-tW/2,rvY+10*s);
+    X.textAlign='left';
+    label('резервуар · 15м³ · аварийный · запас 2ч',cx-tW/2,rvY-20*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 5: Restaurant 320m ===
+  if(stage>=5){
+    var rtY=gy-tH*0.55;
+    // Restaurant deck
+    X.fillStyle='rgba(180,140,80,0.03)';X.fillRect(cx-tW*0.8,rtY,tW*1.6,8*s);
+    X.strokeStyle='rgba(200,160,100,0.06)';X.lineWidth=0.3;X.strokeRect(cx-tW*0.8,rtY,tW*1.6,8*s);
+    // Kitchen fixtures
+    var fixX=[cx-12*s,cx,cx+12*s];
+    var fixN=['мойка','кухня','бар'];
+    for(var fx2=0;fx2<3;fx2++){
+      // Faucet
+      X.strokeStyle='rgba(200,180,120,0.06)';X.lineWidth=0.4;
+      X.beginPath();X.moveTo(fixX[fx2],rtY-8*s);X.lineTo(fixX[fx2],rtY-4*s);X.stroke();
+      X.beginPath();X.arc(fixX[fx2],rtY-8*s,2*s,0,Math.PI,true);X.stroke();
+      // Water drops
+      if(stage>=5){
+        for(var fd2=0;fd2<3;fd2++){
+          var fdY=rtY-4*s+((t*15+fd2*5)%10);
+          if(fdY<rtY+6*s)waterDrop(fixX[fx2]+Math.sin(t+fd2)*1,fdY,0.5,'rgba(0,170,255,0.08)');
+        }
+      }
+      X.font=(3*s)+'px monospace';X.fillStyle='rgba(200,160,100,0.12)';X.textAlign='center';
+      X.fillText(fixN[fx2],fixX[fx2],rtY+12*s);
+    }
+    X.textAlign='left';
+    label('ресторан «Седьмое небо» · 320м · мойка · кухня · бар',cx,rtY-15*s,'rgba(200,160,100,0.5)',6);
+  }
+
+  // === STAGE 6: Technical cooling ===
+  if(stage>=6){
+    var tcY=gy-tH*0.7;
+    // Transmitter
+    X.fillStyle='rgba(180,80,80,0.03)';X.fillRect(cx-8*s,tcY-10*s,16*s,10*s);
+    X.strokeStyle='rgba(200,100,100,0.06)';X.lineWidth=0.3;X.strokeRect(cx-8*s,tcY-10*s,16*s,10*s);
+    // Heat waves
+    for(var hw=0;hw<4;hw++){
+      X.strokeStyle='rgba(255,100,50,'+(0.02+Math.sin(t+hw)*0.01)+')';X.lineWidth=0.3;
+      X.beginPath();X.moveTo(cx-6*s+hw*4*s,tcY-12*s);X.quadraticCurveTo(cx-6*s+hw*4*s+Math.sin(t*2+hw)*2,tcY-16*s,cx-6*s+hw*4*s,tcY-20*s);X.stroke();
+    }
+    // Cooling pipes
+    waterPipe(cx-12*s,tcY-5*s,tcY+5*s,'rgba(0,170,255,0.04)',0.8);
+    waterPipe(cx+12*s,tcY-5*s,tcY+5*s,'rgba(0,170,255,0.04)',0.8);
+    // Flow rate
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.12)';X.textAlign='center';
+    X.fillText('400кВт · 12л/мин',cx,tcY+12*s);X.textAlign='left';
+    label('технический · охлаждение передатчиков · 400кВт',cx,tcY-25*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 7: Fire suppression ===
+  if(stage>=7){
+    var frY=gy-tH*0.3;
+    // Fire tank
+    X.fillStyle='rgba(180,50,50,0.03)';X.fillRect(cx+tW/2+8*s,frY-8*s,15*s,12*s);
+    X.strokeStyle='rgba(200,70,70,0.06)';X.lineWidth=0.4;X.strokeRect(cx+tW/2+8*s,frY-8*s,15*s,12*s);
+    // Water level
+    X.fillStyle='rgba(0,100,180,0.04)';X.fillRect(cx+tW/2+9*s,frY-2*s,13*s,5*s);
+    // Sprinkler heads
+    for(var sp=0;sp<4;sp++){
+      var spX=cx-tW+sp*(tW*2/3);
+      X.strokeStyle='rgba(200,70,70,0.04)';X.lineWidth=0.3;
+      X.beginPath();X.moveTo(spX,frY-8*s);X.lineTo(spX,frY-5*s);X.stroke();
+      X.beginPath();X.moveTo(spX-2*s,frY-5*s);X.lineTo(spX+2*s,frY-5*s);X.stroke();
+    }
+    // Emergency test spray
+    if(Math.sin(t*0.5)>0.9){
+      for(var ts=0;ts<3;ts++){
+        var tsX=cx-5*s+ts*5*s;
+        waterDrop(tsX,frY-3*s+Math.sin(t*5+ts)*2,0.5,'rgba(255,100,50,0.04)');
+      }
+    }
+    // Pipe to tank
+    waterPipe(cx+tW/2+15*s,frY-2*s,frY+8*s,'rgba(200,70,70,0.03)',0.3);
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(200,70,70,0.12)';X.textAlign='center';
+    X.fillText('300м³ · 80м³/ч · 12 точек',cx+tW/2+15*s,frY+14*s);X.textAlign='left';
+    label('пожарный · 300м³ · 2 насоса · 12 точек',cx+tW/2+15*s,frY-18*s,'rgba(200,70,70,0.5)',6);
+  }
+
+  // === STAGE 8: Toilets ===
+  if(stage>=8){
+    var tlY=gy-tH*0.42;
+    // 6 floors of toilets
+    for(var tf=0;tf<6;tf++){
+      var tlfY=tlY-tf*8*s;
+      // Floor
+      X.strokeStyle='rgba(80,80,90,0.04)';X.lineWidth=0.2;
+      X.beginPath();X.moveTo(cx-tW,tlfY);X.lineTo(cx+tW,tlfY);X.stroke();
+      // Toilet symbols (simple)
+      for(var tc=0;tc<8;tc++){
+        var tcX=cx-tW+5*s+tc*(tW*2/8);
+        X.fillStyle='rgba(180,180,190,0.02)';X.fillRect(tcX-1*s,tlfY-3*s,2*s,3*s);
+      }
+    }
+    // Main drain pipe
+    waterPipe(cx-tW/2-4*s,tlY,tlY-48*s,'rgba(0,120,180,0.04)',-0.5);
+    // Flush animation
+    for(var fl2=0;fl2<3;fl2++){
+      var flY2=tlY-fl2*16*s-((t*15)%16)*s;
+      waterDrop(cx-tW/2-4*s,flY2,0.8,'rgba(0,150,200,0.06)');
+    }
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.12)';X.textAlign='center';
+    X.fillText('48 точек · 6 этажей',cx-tW/2-4*s,tlY+6*s);X.textAlign='left';
+    label('туалеты · 48 точек · 6 этажей · смыв · канализация',cx-tW/2-4*s,tlY+16*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 9: Drainage ===
+  if(stage>=9){
+    var drY=gy+5*s;
+    // Condensation collector
+    X.fillStyle='rgba(80,80,90,0.03)';X.fillRect(cx-15*s,drY-5*s,30*s,8*s);
+    X.strokeStyle='rgba(100,100,110,0.06)';X.lineWidth=0.3;X.strokeRect(cx-15*s,drY-5*s,30*s,8*s);
+    // Droplets forming
+    for(var dp=0;dp<6;dp++){
+      var dpX=cx-10*s+dp*4*s;
+      var dpY=drY-3*s+Math.sin(t+dp)*1;
+      waterDrop(dpX,dpY,0.6,'rgba(0,170,255,0.06)');
+    }
+    // Heating coils
+    for(var hc=0;hc<3;hc++){
+      X.strokeStyle='rgba(200,100,50,'+(0.03+Math.sin(t+hc)*0.01)+')';X.lineWidth=0.3;
+      X.beginPath();X.arc(cx+20*s+hc*5*s,drY,3*s,0,Math.PI*2);X.stroke();
+    }
+    // Flow rate
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.12)';X.textAlign='center';
+    X.fillText('200л/час · конденсат · отопление',cx,drY+12*s);X.textAlign='left';
+    label('дренаж · конденсат · отопление · 200л/час',cx,drY-12*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 10: Monitoring ===
+  if(stage>=10){
+    var mnY=gy-tH*0.08;
+    // Control panel
+    X.fillStyle='rgba(30,30,40,0.06)';X.fillRect(cx+25*s,mnY-15*s,35*s,25*s);
+    X.strokeStyle='rgba(0,170,255,0.06)';X.lineWidth=0.4;X.strokeRect(cx+25*s,mnY-15*s,35*s,25*s);
+    // Screen
+    X.fillStyle='rgba(0,20,40,0.05)';X.fillRect(cx+27*s,mnY-13*s,31*s,12*s);
+    // Data points on screen
+    for(var dp2=0;dp2<4;dp2++){
+      var dpx=cx+28*s+dp2*7*s;
+      var dpy=mnY-10*s+Math.sin(t*2+dp2)*3*s;
+      X.fillStyle='rgba(0,255,100,'+(0.06+Math.sin(t+dp2)*0.02)+')';
+      X.beginPath();X.arc(dpx,dpy,1,0,Math.PI*2);X.fill();
+      if(dp2>0){
+        X.strokeStyle='rgba(0,255,100,0.03)';X.lineWidth=0.2;
+        X.beginPath();X.moveTo(dpx-7*s,mnY-10*s+Math.sin(t*2+dp2-1)*3*s);X.lineTo(dpx,dpy);X.stroke();
+      }
+    }
+    // LED indicators
+    for(var ld=0;ld<4;ld++){
+      var ldX=cx+28*s+ld*7*s;
+      X.fillStyle='rgba(0,'+(150+ld*30)+',100,'+(0.04+Math.sin(t*3+ld)*0.02)+')';
+      X.beginPath();X.arc(ldX,mnY-2*s,1.5,0,Math.PI*2);X.fill();
+    }
+    // Labels
+    X.font=(2.5*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.12)';X.textAlign='center';
+    X.fillText('датчики · расходомер · давление · температура',cx+42*s,mnY+14*s);X.textAlign='left';
+    label('контроль · датчики · расходомер · давление · температура',cx+42*s,mnY-22*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 11: Final ===
+  if(stage>=11){
+    // Highlight all systems
+    X.globalAlpha=0.03;
+    X.fillStyle='rgba(0,170,255,1)';X.fillRect(cx-tW/2-20*s,tTop,tW+40*s,tH+30*s);
+    X.globalAlpha=1;
+    // System count
+    X.font=(8*s)+'px monospace';X.fillStyle='rgba(0,170,255,0.15)';X.textAlign='center';
+    X.fillText('540м',cx+35*s,gy-20*s);
+    X.fillText('12 ступеней',cx+35*s,gy-10*s);
+    X.fillText('8 систем',cx+35*s,gy);
+    X.fillText('24ч',cx+35*s,gy+10*s);
+    X.textAlign='left';
+    // Animated water flow through entire system
+    for(var aw=0;aw<20;aw++){
+      var awY=gy-((t*40+aw*25)%(tH+50*s));
+      if(awY>tTop-10*s){
+        waterDrop(cx+tW/2+4*s,awY,1,'rgba(0,170,255,0.04)');
+      }
+    }
+    label('540м · 12 ступеней · 8 систем · 24ч в сутки',cx,gy+25*s,'rgba(0,170,255,0.6)',7);
+  }
+
+  document.getElementById('part-label').textContent=pts[stage]||'';
+  X.fillStyle='rgba(0,170,255,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(0,170,255,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd=0;sd<=maxStage;sd++){X.fillStyle=sd<=stage?'rgba(0,170,255,0.25)':'rgba(0,170,255,0.06)';X.beginPath();X.arc(W*0.1+W*0.8*(sd/maxStage),H-6.5,2,0,Math.PI*2);X.fill()}
+  requestAnimationFrame(draw);
+}
+draw();
+</script></body></html>
