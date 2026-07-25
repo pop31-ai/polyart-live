@@ -1,0 +1,408 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>47 — Путешествие к Луне — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060608;overflow:hidden;font-family:sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #0af;color:#0af;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(0,170,255,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #0af5;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#0af;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:600px}
+#timer{position:absolute;top:14px;right:20px;color:rgba(255,255,255,0.3);font-size:12px;font-family:monospace;z-index:10}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Путешествие к Луне</div>
+<div id="part-label"></div>
+<div id="timer">00:00 / 03:00</div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">&#9664;</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">&#9654;</button></div>
+<div class="ctrl"><label>Автопутешествие</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="speed" min="0" max="100" value="0" style="width:70px;accent-color:#0af"><span class="val" id="speedV">0</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+var stage=0,autoMode=false,autoTimer=0,maxStage=12,t=0,journeyTime=0,journeyDuration=180;
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ';if(autoMode)journeyTime=0};
+document.getElementById('speed').oninput=function(){document.getElementById('speedV').textContent=this.value};
+
+function lbl(t2,x,y,c,sz){X.globalAlpha=0.55;X.font=(sz||6)+'px monospace';X.fillStyle=c||'rgba(200,220,255,0.8)';X.textAlign='center';X.fillText(t2,x,y);X.textAlign='left';X.globalAlpha=1}
+
+function draw(){
+  var spd=parseInt(document.getElementById('speed').value);
+  t+=0.016;
+  
+  // Auto mode with real-time progression
+  if(autoMode){
+    journeyTime+=0.016*(1+spd*0.05);
+    if(journeyTime>=journeyDuration){journeyTime=0;stage=0}
+    // Map journey time to stages
+    var progress=journeyTime/journeyDuration;
+    stage=Math.min(maxStage,Math.floor(progress*(maxStage+1)));
+    document.getElementById('stageV').textContent=stage+'/'+maxStage;
+  }
+  
+  // Timer display
+  var mins=Math.floor(journeyTime/60);
+  var secs=Math.floor(journeyTime%60);
+  document.getElementById('timer').textContent=String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0')+' / 03:00';
+  
+  X.fillStyle='#060608';X.fillRect(0,0,W,H);
+  var cx=W/2,cy=H*0.5,s=Math.min(W,H)/650;
+  
+  // Deep space
+  for(var st=0;st<120;st++){
+    var br=0.008+Math.sin(st*5.7+t*0.1)*0.004;
+    X.fillStyle='rgba(255,255,255,'+br+')';
+    X.beginPath();X.arc((Math.sin(st*3.7)*0.5+0.5)*W,(Math.cos(st*2.3)*0.5+0.5)*H,0.3+Math.sin(st)*0.15,0,Math.PI*2);X.fill();
+  }
+  
+  // === STAGE 0: Countdown ===
+  if(stage===0){
+    // Launch pad
+    X.fillStyle='rgba(80,80,90,0.04)';X.fillRect(cx-30*s,H*0.6,60*s,H*0.4);
+    // Rocket
+    X.fillStyle='rgba(200,200,210,0.06)';X.fillRect(cx-4*s,H*0.3,8*s,H*0.3);
+    X.beginPath();X.moveTo(cx-4*s,H*0.3);X.lineTo(cx,H*0.22);X.lineTo(cx+4*s,H*0.3);X.closePath();X.fill();
+    X.strokeStyle='rgba(180,180,190,0.08)';X.lineWidth=0.5;X.strokeRect(cx-4*s,H*0.3,8*s,H*0.3);
+    // Launch tower
+    X.strokeStyle='rgba(150,150,160,0.06)';X.lineWidth=1;
+    X.beginPath();X.moveTo(cx-20*s,H*0.6);X.lineTo(cx-20*s,H*0.25);X.stroke();
+    X.beginPath();X.moveTo(cx-15*s,H*0.35);X.lineTo(cx-4*s,H*0.35);X.stroke();
+    // Countdown
+    var countdown=10-Math.floor(journeyTime*0.5);
+    if(countdown<0)countdown=0;
+    X.font=(20*s)+'px monospace';X.fillStyle='rgba(255,100,50,'+(0.1+Math.sin(t*3)*0.05)+')';X.textAlign='center';
+    X.fillText(countdown>0?countdown.toString():'ПУСК!',cx,H*0.5);
+    X.textAlign='left';
+    // Smoke building
+    for(var sm=0;sm<15;sm++){
+      X.fillStyle='rgba(150,150,160,'+(0.02-sm*0.001)+')';
+      X.beginPath();X.arc(cx+Math.sin(sm*2)*10*s,H*0.6+sm*5*s,5*s+sm*2,0,Math.PI*2);X.fill();
+    }
+    lbl('00:00 — обратный отсчёт · стартовая площадка · Байконур',cx,H*0.15,'rgba(255,100,50,0.6)',7);
+  }
+  
+  // === STAGE 1: Launch ===
+  if(stage===1){
+    // Rocket ascending
+    var rocketY=H*0.6-Math.min(journeyTime*50,H*0.5);
+    X.fillStyle='rgba(200,200,210,0.06)';X.fillRect(cx-4*s,rocketY,8*s,H*0.15);
+    X.beginPath();X.moveTo(cx-4*s,rocketY);X.lineTo(cx,rocketY-10*s);X.lineTo(cx+4*s,rocketY);X.closePath();X.fill();
+    // Flame
+    for(var fl=0;fl<15;fl++){
+      var flY=rocketY+H*0.15+fl*4*s;
+      var flAlpha=0.08-fl*0.005;
+      if(flAlpha>0){
+        X.fillStyle='rgba(255,'+Math.floor(200-fl*10)+',50,'+flAlpha+')';
+        X.beginPath();X.arc(cx+Math.sin(t*8+fl)*3,flY,3-fl*0.15,0,Math.PI*2);X.fill();
+      }
+    }
+    // Exhaust trail
+    for(var et=0;et<30;et++){
+      var etY=rocketY+H*0.15+et*8*s;
+      X.fillStyle='rgba(200,200,220,'+(0.02-et*0.0006)+')';
+      X.beginPath();X.arc(cx+Math.sin(et*0.5)*et*0.5,etY,2+et*0.3,0,Math.PI*2);X.fill();
+    }
+    // Speed indicator
+    X.font=(4*s)+'px monospace';X.fillStyle='rgba(255,200,100,0.15)';X.textAlign='center';
+    X.fillText('28000 км/ч',cx,rocketY-20*s);X.textAlign='left';
+    lbl('00:30 — старт · Протон-М · 28000 км/ч · 8.5 мин',cx,H*0.1,'rgba(255,200,100,0.6)',7);
+  }
+  
+  // === STAGE 2: Earth orbit ===
+  if(stage===2){
+    // Earth from orbit
+    var earthR=80*s;
+    X.fillStyle='rgba(30,100,180,0.06)';X.beginPath();X.arc(cx,cy+40*s,earthR,0,Math.PI*2);X.fill();
+    // Continents
+    X.fillStyle='rgba(40,130,60,0.04)';X.beginPath();X.arc(cx-20*s,cy+30*s,30*s,0,Math.PI*2);X.fill();
+    X.beginPath();X.arc(cx+25*s,cy+50*s,25*s,0,Math.PI*2);X.fill();
+    // Atmosphere glow
+    X.strokeStyle='rgba(100,180,255,0.04)';X.lineWidth=2;X.beginPath();X.arc(cx,cy+40*s,earthR+5*s,0,Math.PI*2);X.stroke();
+    // ISS visible
+    var issAngle=t*0.5;
+    var issX=cx+Math.cos(issAngle)*90*s;
+    var issY=cy+40*s+Math.sin(issAngle)*20*s;
+    X.fillStyle='rgba(255,255,255,0.06)';X.beginPath();X.arc(issX,issY,2*s,0,Math.PI*2);X.fill();
+    // Solar panels glint
+    X.strokeStyle='rgba(100,200,255,0.04)';X.lineWidth=0.5;
+    X.beginPath();X.moveTo(issX-4*s,issY);X.lineTo(issX+4*s,issY);X.stroke();
+    // Orbit ring
+    X.strokeStyle='rgba(100,180,255,0.03)';X.lineWidth=0.5;
+    X.beginPath();X.ellipse(cx,cy+40*s,earthR+10*s,25*s,0,0,Math.PI*2);X.stroke();
+    lbl('01:00 — орбита Земли · 408км · МКС · стыковка',cx,H*0.1,'rgba(100,180,255,0.6)',7);
+  }
+  
+  // === STAGE 3: Trans-lunar injection ===
+  if(stage===3){
+    // Earth receding
+    var earthScale=0.6+Math.sin(t*0.2)*0.1;
+    X.fillStyle='rgba(30,100,180,0.04)';X.beginPath();X.arc(W*0.3,cy+20*s,50*s*earthScale,0,Math.PI*2);X.fill();
+    X.fillStyle='rgba(40,130,60,0.03)';X.beginPath();X.arc(W*0.3-10*s,cy+15*s,20*s*earthScale,0,Math.PI*2);X.fill();
+    // Moon ahead
+    var moonScale=0.3+Math.sin(t*0.15)*0.05;
+    X.fillStyle='rgba(180,180,190,0.04)';X.beginPath();X.arc(W*0.7,cy-10*s,30*s*moonScale,0,Math.PI*2);X.fill();
+    // Trajectory arc
+    X.strokeStyle='rgba(255,200,100,0.04)';X.lineWidth=0.5;X.setLineDash([4,4]);
+    X.beginPath();X.moveTo(W*0.3,cy+20*s);X.quadraticCurveTo(cx,cy-60*s,W*0.7,cy-10*s);X.stroke();
+    X.setLineDash([]);
+    // Spacecraft on trajectory
+    var trajFrac=0.3+Math.sin(t*0.3)*0.05;
+    var scX=W*0.3+trajFrac*(W*0.4);
+    var scY=cy+20*s-trajFrac*30*s-Math.sin(trajFrac*Math.PI)*40*s;
+    X.fillStyle='rgba(200,200,210,0.06)';X.beginPath();X.arc(scX,scY,3*s,0,Math.PI*2);X.fill();
+    // Engine glow
+    X.fillStyle='rgba(100,200,255,'+(0.03+Math.sin(t*4)*0.015)+')';
+    X.beginPath();X.arc(scX-3*s,scY,2*s,0,Math.PI*2);X.fill();
+    lbl('01:30 — выход на траекторию · 384000км · 3 дня',cx,H*0.1,'rgba(255,200,100,0.6)',7);
+  }
+  
+  // === STAGE 4: Lunar orbit ===
+  if(stage===4){
+    // Moon large
+    var moonX=cx+20*s,moonY=cy;
+    X.fillStyle='rgba(180,180,190,0.06)';X.beginPath();X.arc(moonX,moonY,60*s,0,Math.PI*2);X.fill();
+    // Craters
+    X.fillStyle='rgba(160,160,170,0.04)';
+    X.beginPath();X.arc(moonX-15*s,moonY-20*s,12*s,0,Math.PI*2);X.fill();
+    X.beginPath();X.arc(moonX+20*s,moonY+10*s,8*s,0,Math.PI*2);X.fill();
+    X.beginPath();X.arc(moonX-5*s,moonY+25*s,6*s,0,Math.PI*2);X.fill();
+    X.beginPath();X.arc(moonX+15*s,moonY-15*s,4*s,0,Math.PI*2);X.fill();
+    // Orbiting spacecraft
+    var orbAngle=t*0.8;
+    var orbX=moonX+Math.cos(orbAngle)*75*s;
+    var orbY=moonY+Math.sin(orbAngle)*20*s;
+    X.fillStyle='rgba(255,255,255,0.06)';X.beginPath();X.arc(orbX,orbY,2*s,0,Math.PI*2);X.fill();
+    // Orbit path
+    X.strokeStyle='rgba(255,200,100,0.03)';X.lineWidth=0.5;
+    X.beginPath();X.ellipse(moonX,moonY,75*s,20*s,0,0,Math.PI*2);X.stroke();
+    // Earth in distance
+    X.fillStyle='rgba(30,100,180,0.03)';X.beginPath();X.arc(W*0.1,H*0.2,15*s,0,Math.PI*2);X.fill();
+    lbl('01:45 — лунная орбита · 100км · сближение',cx,H*0.1,'rgba(255,200,100,0.6)',7);
+  }
+  
+  // === STAGE 5: Landing ===
+  if(stage===5){
+    // Lunar surface
+    X.fillStyle='rgba(100,100,110,0.04)';X.fillRect(0,H*0.65,W,H*0.35);
+    // Craters on surface
+    for(var lc=0;lc<8;lc++){
+      X.fillStyle='rgba(80,80,90,0.03)';X.beginPath();
+      X.arc(W*0.1+lc*W*0.12,H*0.7+Math.sin(lc)*20*s,15*s+Math.sin(lc*3)*5*s,0,Math.PI*2);X.fill();
+    }
+    // Lander descending
+    var landerY=H*0.3+Math.min(journeyTime*10,H*0.35);
+    X.fillStyle='rgba(200,200,210,0.06)';
+    X.beginPath();X.moveTo(cx-8*s,landerY);X.lineTo(cx-12*s,landerY+10*s);
+    X.lineTo(cx+12*s,landerY+10*s);X.lineTo(cx+8*s,landerY);X.closePath();X.fill();
+    // Legs
+    X.strokeStyle='rgba(180,180,190,0.06)';X.lineWidth=0.8;
+    X.beginPath();X.moveTo(cx-10*s,landerY+10*s);X.lineTo(cx-15*s,landerY+18*s);X.stroke();
+    X.beginPath();X.moveTo(cx+10*s,landerY+10*s);X.lineTo(cx+15*s,landerY+18*s);X.stroke();
+    // Descent engine
+    for(var de=0;de<5;de++){
+      X.fillStyle='rgba(255,200,100,'+(0.04-de*0.006)+')';
+      X.beginPath();X.arc(cx+Math.sin(t*5+de)*2,landerY+12*s+de*3,2-de*0.3,0,Math.PI*2);X.fill();
+    }
+    // Dust
+    if(landerY>H*0.55){
+      for(var du=0;du<10;du++){
+        X.fillStyle='rgba(150,150,160,'+(0.02*(1-Math.abs(landerY-H*0.65)/(H*0.1)))+')';
+        X.beginPath();X.arc(cx+Math.sin(du*2)*30*s,H*0.65+Math.random()*5*s,3+du*0.5,0,Math.PI*2);X.fill();
+      }
+    }
+    lbl('02:00 — снижение · посадочный модуль · пыль',cx,H*0.1,'rgba(200,200,210,0.6)',7);
+  }
+  
+  // === STAGE 6: Moonwalk ===
+  if(stage===6){
+    // Lunar surface detail
+    X.fillStyle='rgba(100,100,110,0.05)';X.fillRect(0,H*0.6,W,W*1);
+    // Footprints
+    for(var fp=0;fp<8;fp++){
+      X.fillStyle='rgba(80,80,90,0.04)';
+      X.beginPath();X.ellipse(W*0.3+fp*20*s,H*0.68+Math.sin(fp)*5*s,3*s,1.5*s,0,0,Math.PI*2);X.fill();
+    }
+    // Astronaut on surface
+    var astX=W*0.5+Math.sin(t*0.3)*10*s;
+    var astY=H*0.58;
+    // Body
+    X.fillStyle='rgba(255,255,255,0.07)';X.fillRect(astX-5*s,astY-15*s,10*s,18*s);
+    // Helmet
+    X.fillStyle='rgba(200,220,240,0.07)';X.beginPath();X.arc(astX,astY-20*s,6*s,0,Math.PI*2);X.fill();
+    X.strokeStyle='rgba(150,200,255,0.07)';X.lineWidth=0.5;X.beginPath();X.arc(astX,astY-20*s,6*s,0,Math.PI*2);X.stroke();
+    // Visor
+    X.fillStyle='rgba(100,180,255,0.05)';X.beginPath();X.arc(astX,astY-20*s,4*s,Math.PI*0.7,Math.PI*0.3,true);X.fill();
+    // Flag
+    X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.5;
+    X.beginPath();X.moveTo(astX+15*s,astY-5*s);X.lineTo(astX+15*s,astY-30*s);X.stroke();
+    X.fillStyle='rgba(200,50,50,0.04)';X.fillRect(astX+15*s,astY-30*s,12*s,8*s);
+    X.fillStyle='rgba(50,50,200,0.04)';X.fillRect(astX+15*s,astY-22*s,12*s,8*s);
+    // Earth in sky
+    X.fillStyle='rgba(30,100,180,0.04)';X.beginPath();X.arc(W*0.8,H*0.15,20*s,0,Math.PI*2);X.fill();
+    X.fillStyle='rgba(40,130,60,0.03)';X.beginPath();X.arc(W*0.8-5*s,H*0.15-3*s,8*s,0,Math.PI*2);X.fill();
+    // Lander in background
+    X.fillStyle='rgba(200,200,210,0.04)';
+    X.beginPath();X.moveTo(W*0.25,H*0.58);X.lineTo(W*0.23,H*0.62);X.lineTo(W*0.27,H*0.62);X.closePath();X.fill();
+    lbl('02:10 — высадка · «Маленький шаг» · флаг · Земля',cx,H*0.1,'rgba(255,255,255,0.6)',7);
+  }
+  
+  // === STAGE 7: Ascent ===
+  if(stage===7){
+    // Ascent stage launching from surface
+    var ascY=H*0.6-Math.min((journeyTime-84)*30,H*0.4);
+    X.fillStyle='rgba(200,200,210,0.06)';X.fillRect(cx-5*s,ascY,10*s,8*s);
+    X.beginPath();X.moveTo(cx-5*s,ascY);X.lineTo(cx,ascY-5*s);X.lineTo(cx+5*s,ascY);X.closePath();X.fill();
+    // Descent stage remains
+    X.fillStyle='rgba(150,150,160,0.04)';X.fillRect(cx-8*s,H*0.6,16*s,5*s);
+    // Exhaust
+    for(var ae=0;ae<8;ae++){
+      X.fillStyle='rgba(255,200,100,'+(0.04-ae*0.004)+')';
+      X.beginPath();X.arc(cx+Math.sin(t*6+ae)*2,ascY+8*s+ae*3,2-ae*0.2,0,Math.PI*2);X.fill();
+    }
+    // Surface receding
+    X.fillStyle='rgba(100,100,110,0.03)';X.fillRect(0,H*0.65,W,H*0.35);
+    lbl('02:15 — взлёт с Луны · стыковка · выход на орбиту',cx,H*0.1,'rgba(255,200,100,0.6)',7);
+  }
+  
+  // === STAGE 8: Return trajectory ===
+  if(stage===8){
+    // Earth approaching
+    var earthScale2=0.4+Math.sin(t*0.2)*0.1;
+    X.fillStyle='rgba(30,100,180,0.05)';X.beginPath();X.arc(W*0.6,cy,60*s*earthScale2,0,Math.PI*2);X.fill();
+    X.fillStyle='rgba(40,130,60,0.04)';X.beginPath();X.arc(W*0.6-15*s,cy-10*s,25*s*earthScale2,0,Math.PI*2);X.fill();
+    // Moon receding
+    X.fillStyle='rgba(180,180,190,0.03)';X.beginPath();X.arc(W*0.15,cy+10*s,20*s,0,Math.PI*2);X.fill();
+    // Return trajectory
+    X.strokeStyle='rgba(100,200,255,0.04)';X.lineWidth=0.5;X.setLineDash([3,3]);
+    X.beginPath();X.moveTo(W*0.15,cy+10*s);X.quadraticCurveTo(cx,cy-50*s,W*0.6,cy);X.stroke();
+    X.setLineDash([]);
+    // Spacecraft returning
+    var retFrac=0.5+Math.sin(t*0.3)*0.05;
+    var retX=W*0.15+retFrac*(W*0.45);
+    var retY=cy+10*s-retFrac*10*s-Math.sin(retFrac*Math.PI)*50*s;
+    X.fillStyle='rgba(200,200,210,0.06)';X.beginPath();X.arc(retX,retY,2.5*s,0,Math.PI*2);X.fill();
+    // Heat shield glow on reentry
+    X.fillStyle='rgba(255,150,50,'+(0.02+Math.sin(t*4)*0.01)+')';
+    X.beginPath();X.arc(retX+3*s,retY,3*s,0,Math.PI*2);X.fill();
+    lbl('02:30 — обратный путь · 384000км · 3 дня',cx,H*0.1,'rgba(100,200,255,0.6)',7);
+  }
+  
+  // === STAGE 9: Reentry ===
+  if(stage===9){
+    // Capsule entering atmosphere
+    var capY=H*0.2+Math.min((journeyTime-108)*20,H*0.4);
+    X.fillStyle='rgba(200,200,210,0.06)';
+    X.beginPath();X.moveTo(cx-6*s,capY+10*s);X.lineTo(cx-6*s,capY-5*s);
+    X.quadraticCurveTo(cx,capY-15*s,cx+6*s,capY-5*s);X.lineTo(cx+6*s,capY+10*s);X.closePath();X.fill();
+    // Heat shield
+    X.fillStyle='rgba(255,100,50,0.06)';X.beginPath();X.arc(cx,capY+10*s,7*s,0,Math.PI);X.fill();
+    // Plasma trail
+    for(var pt=0;pt<20;pt++){
+      var ptY=capY+10*s+pt*5*s;
+      X.fillStyle='rgba(255,'+Math.floor(200-pt*8)+','+Math.floor(50+pt*5)+','+(0.04-pt*0.002)+')';
+      X.beginPath();X.arc(cx+Math.sin(pt*0.5)*pt*0.5,ptY,3-pt*0.1,0,Math.PI*2);X.fill();
+    }
+    // Speed
+    X.font=(4*s)+'px monospace';X.fillStyle='rgba(255,150,50,0.15)';X.textAlign='center';
+    X.fillText('11км/с → 200м/с',cx,capY-25*s);X.textAlign='left';
+    lbl('02:40 — вход в атмосферу · 11км/с · температура 3000°С',cx,H*0.1,'rgba(255,150,50,0.6)',7);
+  }
+  
+  // === STAGE 10: Parachutes ===
+  if(stage===10){
+    // Parachutes deployed
+    var chY=H*0.3+Math.min((journeyTime-120)*8,H*0.3);
+    // Canopy
+    X.fillStyle='rgba(255,100,50,0.06)';X.beginPath();X.arc(cx,chY-30*s,25*s,Math.PI,0);X.fill();
+    X.fillStyle='rgba(255,150,50,0.04)';X.beginPath();X.arc(cx,chY-30*s,20*s,Math.PI,0);X.fill();
+    // Lines
+    X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.3;
+    X.beginPath();X.moveTo(cx-20*s,chY-30*s);X.lineTo(cx-5*s,chY);X.stroke();
+    X.beginPath();X.moveTo(cx+20*s,chY-30*s);X.lineTo(cx+5*s,chY);X.stroke();
+    X.beginPath();X.moveTo(cx,chY-30*s);X.lineTo(cx,chY);X.stroke();
+    // Capsule
+    X.fillStyle='rgba(200,200,210,0.06)';
+    X.beginPath();X.moveTo(cx-5*s,chY+8*s);X.lineTo(cx-5*s,chY-3*s);
+    X.quadraticCurveTo(cx,capY-10*s,cx+5*s,chY-3*s);X.lineTo(cx+5*s,chY+8*s);X.closePath();X.fill();
+    // Splash zone
+    X.fillStyle='rgba(30,80,150,0.03)';X.fillRect(0,H*0.75,W,H*0.25);
+    // Waves
+    X.strokeStyle='rgba(50,120,200,0.03)';X.lineWidth=0.5;
+    X.beginPath();for(var wv=0;wv<W;wv+=3){var wvy=H*0.75+Math.sin(wv*0.03+t*2)*3;if(wv===0)X.moveTo(wv,wvy);else X.lineTo(wv,wvy)}X.stroke();
+    // Recovery ship
+    X.fillStyle='rgba(80,80,90,0.04)';X.fillRect(W*0.7,H*0.73,25*s,8*s);
+    X.fillStyle='rgba(90,90,100,0.04)';X.fillRect(W*0.7+25*s,H*0.74,8*s,7*s);
+    lbl('02:50 — парашюты · торможение · океан · корабль',cx,H*0.1,'rgba(100,200,255,0.6)',7);
+  }
+  
+  // === STAGE 11: Splashdown ===
+  if(stage===11){
+    // Ocean
+    X.fillStyle='rgba(20,60,120,0.04)';X.fillRect(0,H*0.6,W,H*0.4);
+    // Waves
+    for(var wl=0;wl<4;wl++){
+      X.strokeStyle='rgba(50,120,200,'+(0.03+wl*0.005)+')';X.lineWidth=0.5;
+      X.beginPath();for(var wv2=0;wv2<W;wv2+=3){var wvy2=H*0.6+wl*15*s+Math.sin(wv2*0.02+t*2+wl)*4;if(wv2===0)X.moveTo(wv2,wvy2);else X.lineTo(wv2,wvy2)}X.stroke();
+    }
+    // Capsule floating
+    var capFloatX=cx+Math.sin(t*0.5)*5*s;
+    var capFloatY=H*0.58+Math.sin(t*0.8)*3*s;
+    X.fillStyle='rgba(200,200,210,0.06)';
+    X.beginPath();X.moveTo(capFloatX-6*s,capFloatY+8*s);X.lineTo(capFloatX-6*s,capFloatY-3*s);
+    X.quadraticCurveTo(capFloatX,capFloatY-12*s,capFloatX+6*s,capFloatY-3*s);X.lineTo(capFloatX+6*s,capFloatY+8*s);X.closePath();X.fill();
+    // Parachute in water
+    X.fillStyle='rgba(255,100,50,0.03)';X.beginPath();X.ellipse(capFloatX+20*s,capFloatY+5*s,15*s,5*s,0.3,0,Math.PI*2);X.fill();
+    // Helicopters
+    for(var hc=0;hc<3;hc++){
+      var hcX=W*0.3+hc*W*0.2+Math.sin(t+hc)*10*s;
+      var hcY=H*0.3+hc*15*s;
+      X.fillStyle='rgba(100,100,110,0.04)';X.fillRect(hcX-5*s,hcY-2*s,10*s,4*s);
+      // Rotors
+      X.strokeStyle='rgba(200,200,210,0.04)';X.lineWidth=0.5;
+      X.beginPath();X.moveTo(hcX-12*s,hcY-2*s);X.lineTo(hcX+12*s,hcY-2*s);X.stroke();
+    }
+    // Recovery ship
+    X.fillStyle='rgba(80,80,90,0.05)';X.fillRect(W*0.6,H*0.55,30*s,10*s);
+    X.fillStyle='rgba(90,90,100,0.04)';X.fillRect(W*0.6+30*s,H*0.56,10*s,9*s);
+    // Celebration
+    X.font=(5*s)+'px monospace';X.fillStyle='rgba(255,220,100,'+(0.08+Math.sin(t*2)*0.04)+')';X.textAlign='center';
+    X.fillText('САЛЮТ!',cx,H*0.45);X.textAlign='left';
+    // Fireworks
+    for(var fw=0;fw<8;fw++){
+      var fwX=cx+Math.sin(fw*1.7)*80*s;
+      var fwY=H*0.35+Math.cos(fw*2.3)*30*s;
+      var fwAlpha=0.04+Math.sin(t*3+fw)*0.02;
+      X.fillStyle='hsla('+(fw*45)+',80%,60%,'+fwAlpha+')';
+      X.beginPath();X.arc(fwX,fwY,2+Math.sin(t*4+fw),0,Math.PI*2);X.fill();
+    }
+    lbl('03:00 — приводнение · 3 дня · 384000км · HOME',cx,H*0.15,'rgba(255,220,100,0.7)',8);
+  }
+  
+  // Stage descriptions
+  var stageNames=['Обратный отсчёт','Старт','Орбита Земли','Траектория к Луне','Лунная орбита','Снижение','Высадка','Взлёт','Обратный путь','Вход в атмосферу','Парашюты','Приводнение'];
+  document.getElementById('part-label').textContent=stageNames[stage]||'';
+  
+  // Progress bar
+  X.fillStyle='rgba(255,255,255,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(255,255,255,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd=0;sd<=maxStage;sd++){X.fillStyle=sd<=stage?'rgba(255,255,255,0.25)':'rgba(255,255,255,0.06)';X.beginPath();X.arc(W*0.1+W*0.8*(sd/maxStage),H-6.5,2,0,Math.PI*2);X.fill()}
+  
+  requestAnimationFrame(draw);
+}
+draw();
+</script></body></html>
