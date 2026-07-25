@@ -23,7 +23,7 @@ canvas{display:block}
 <body>
 <canvas id="c"></canvas>
 <div id="title">Polynomial Mandala</div>
-<div id="info">Симметрия полиномиальных корней вращается вечно</div>
+<div id="info">Бесконечная симметрия полиномиальных корней</div>
 <div id="presets">
 <button class="pb" onclick="lp(0)">Космос</button>
 <button class="pb" onclick="lp(1)">Огонь</button>
@@ -68,18 +68,41 @@ function lp(i){const p=presets[i];Object.keys(p).forEach(k=>{document.getElement
 function gv(id){return parseFloat(document.getElementById(id).value)}
 
 let t=0;
-const stars=Array.from({length:350},()=>({x:Math.random(),y:Math.random(),s:Math.random()*1.2+0.2,b:Math.random()}));
+
+const stars=Array.from({length:400},()=>({x:Math.random(),y:Math.random(),s:Math.random()*1.2+0.2,b:Math.random()}));
+
+const mandalaParticles=Array.from({length:80},()=>({
+  angle:Math.random()*Math.PI*2,
+  radius:Math.random()*300+20,
+  speed:Math.random()*0.005+0.002,
+  size:Math.random()*1.5+0.5,
+  alpha:Math.random()*0.4+0.1,
+  hue:Math.random()*60-30
+}));
+
+const sacredGeometry=[];
 
 function draw(){
   const sym=Math.round(gv('sym')),lay=Math.round(gv('lay')),deg=Math.round(gv('deg'));
   const rot=gv('rot')/100,dep=Math.round(gv('dep')),pul=gv('pul')/100;
   t+=0.01;
 
-  X.fillStyle='rgba(5,5,16,0.04)';
+  X.fillStyle='rgba(5,5,16,0.03)';
   X.fillRect(0,0,W,H);
 
   const cx=W/2,cy=H/2,sc=Math.min(W,H)/10;
 
+  // Background particles
+  mandalaParticles.forEach(p=>{
+    p.angle+=p.speed;
+    const x=cx+Math.cos(p.angle)*p.radius;
+    const y=cy+Math.sin(p.angle)*p.radius;
+    const pulse=0.6+0.4*Math.sin(t*3+p.angle*2);
+    X.fillStyle=`hsla(${(globalHue+p.hue)%360},50%,60%,${p.alpha*pulse})`;
+    X.beginPath();X.arc(x,y,p.size*pulse,0,Math.PI*2);X.fill();
+  });
+
+  // Stars
   stars.forEach(s=>{
     const fl=0.2+0.15*Math.sin(t*1.2+s.b*10);
     X.fillStyle=`rgba(180,180,255,${fl*0.3})`;
@@ -88,11 +111,25 @@ function draw(){
 
   const globalHue=(t*10)%360;
 
+  // Sacred geometry lines
+  for(let i=0;i<sym;i++){
+    const angle=i*Math.PI*2/sym+t*rot;
+    const len=sc*2.5;
+    const endX=cx+Math.cos(angle)*len;
+    const endY=cy+Math.sin(angle)*len;
+    const alpha=0.1+0.05*Math.sin(t*2+i);
+    X.strokeStyle=`hsla(${(globalHue+i*30)%360},60%,50%,${alpha})`;
+    X.lineWidth=0.5;
+    X.beginPath();X.moveTo(cx,cy);X.lineTo(endX,endY);X.stroke();
+  }
+
+  // Main mandala layers
   for(let layer=0;layer<lay;layer++){
     const layerR=sc*(1+layer*0.7)*(0.9+0.1*Math.sin(t*pul*3+layer));
     const layerHue=(globalHue+layer*45)%360;
     const alpha=0.35-layer*0.02;
 
+    // Petal shapes
     for(let s=0;s<sym;s++){
       const angle=s*Math.PI*2/sym+t*rot+layer*0.1;
       const nextAngle=(s+1)*Math.PI*2/sym+t*rot+layer*0.1;
@@ -127,6 +164,7 @@ function draw(){
       X.stroke();
     }
 
+    // Ornamental rings
     for(let ring=0;ring<dep;ring++){
       const ringR=layerR*(0.3+ring*0.2);
       const ringHue=(layerHue+ring*25)%360;
@@ -142,6 +180,7 @@ function draw(){
       X.closePath();X.stroke();
     }
 
+    // Decorative dots
     for(let s=0;s<sym;s++){
       const angle=s*Math.PI*2/sym+t*rot+layer*0.1;
       const tipR=layerR*(1.1+0.2*Math.sin(t*1.5+s+layer*0.4));
@@ -158,6 +197,7 @@ function draw(){
     }
   }
 
+  // Outer decorative rings
   for(let ring=0;ring<4;ring++){
     const r=sc*(0.5+ring*0.8);
     const hue=(globalHue+ring*60+90)%360;
@@ -171,12 +211,21 @@ function draw(){
     X.closePath();X.stroke();
   }
 
+  // Core glow
   const corePulse=1+0.2*Math.sin(t*2);
   const coreGrad=X.createRadialGradient(cx,cy,0,cx,cy,sc*0.8*corePulse);
   coreGrad.addColorStop(0,`hsla(${(globalHue+180)%360},100%,95%,0.15)`);
   coreGrad.addColorStop(0.3,`hsla(${(globalHue+120)%360},90%,70%,0.08)`);
   coreGrad.addColorStop(1,`hsla(${globalHue},80%,40%,0)`);
   X.fillStyle=coreGrad;X.beginPath();X.arc(cx,cy,sc*0.8*corePulse,0,Math.PI*2);X.fill();
+
+  // Central jewel
+  const jewelPulse=1+0.3*Math.sin(t*4);
+  const jewelGrad=X.createRadialGradient(cx,cy,0,cx,cy,8*jewelPulse);
+  jewelGrad.addColorStop(0,'rgba(255,255,255,0.9)');
+  jewelGrad.addColorStop(0.3,`hsla(${globalHue},100%,80%,0.6)`);
+  jewelGrad.addColorStop(1,`hsla(${globalHue},80%,50%,0)`);
+  X.fillStyle=jewelGrad;X.beginPath();X.arc(cx,cy,8*jewelPulse,0,Math.PI*2);X.fill();
 
   requestAnimationFrame(draw);
 }

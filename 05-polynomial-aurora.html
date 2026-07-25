@@ -6,34 +6,35 @@
 <title>Polynomial Aurora</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#020408;overflow:hidden;font-family:'Segoe UI',sans-serif}
+body{background:#020510;overflow:hidden;font-family:'Segoe UI',sans-serif}
 canvas{display:block}
-#title{position:absolute;top:16px;left:50%;transform:translateX(-50%);color:#fff;font-size:20px;letter-spacing:6px;text-transform:uppercase;text-shadow:0 0 20px #0ff,0 0 40px #088;z-index:10}
 #ui{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:10;flex-wrap:wrap;justify-content:center}
 .ctrl{display:flex;flex-direction:column;align-items:center;gap:3px}
-.ctrl label{color:#8ff;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;text-shadow:0 0 4px #088}
+.ctrl label{color:#8cf;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;text-shadow:0 0 6px #0af}
 .ctrl input[type=range]{width:100px;accent-color:#0ff;cursor:pointer}
-.ctrl .val{color:#0ff;font-size:12px;font-weight:bold;text-shadow:0 0 6px #0ff}
-#presets{position:absolute;top:16px;right:16px;z-index:10;display:flex;gap:6px;flex-wrap:wrap;max-width:220px;justify-content:flex-end}
-.pb{padding:4px 10px;background:rgba(0,255,255,0.06);border:1px solid #0ff3;color:#0ff;font-size:9px;cursor:pointer;border-radius:3px;text-transform:uppercase;letter-spacing:1px;transition:all .2s}
-.pb:hover{background:rgba(0,255,255,0.2);text-shadow:0 0 6px #0ff}
+.ctrl .val{color:#0ff;font-size:12px;font-weight:bold;text-shadow:0 0 8px #0ff}
+#title{position:absolute;top:16px;left:50%;transform:translateX(-50%);color:#fff;font-size:20px;letter-spacing:6px;text-transform:uppercase;text-shadow:0 0 20px #0f8,0 0 40px #0af;z-index:10}
+#preset{position:absolute;top:16px;right:16px;z-index:10;display:flex;gap:6px;flex-wrap:wrap;max-width:220px;justify-content:flex-end}
+.pb{padding:4px 10px;background:rgba(0,255,150,0.06);border:1px solid #0f83;color:#0f8;font-size:9px;cursor:pointer;border-radius:3px;text-transform:uppercase;letter-spacing:1px;transition:all .2s}
+.pb:hover{background:rgba(0,255,150,0.2);text-shadow:0 0 6px #0f8}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="title">Polynomial Aurora</div>
-<div id="presets">
-<button class="pb" onclick="lp(0)">Сияние</button>
-<button class="pb" onclick="lp(1)">Закат</button>
-<button class="pb" onclick="lp(2)">Ледяное</button>
-<button class="pb" onclick="lp(3)">Огонь</button>
+<div id="preset">
+<button class="pb" onclick="lp(0)">Зима</button>
+<button class="pb" onclick="lp(1)">Лето</button>
+<button class="pb" onclick="lp(2)">Шторм</button>
+<button class="pb" onclick="lp(3)">Тишина</button>
 </div>
 <div id="ui">
-<div class="ctrl"><label>Полосы</label><input type="range" id="bands" min="3" max="15" value="7"><span class="val" id="bandsV">7</span></div>
-<div class="ctrl"><label>Амплитуда</label><input type="range" id="amp" min="1" max="100" value="50"><span class="val" id="ampV">50</span></div>
-<div class="ctrl"><label>Скорость</label><input type="range" id="spd" min="1" max="100" value="40"><span class="val" id="spdV">0.40</span></div>
-<div class="ctrl"><label>Насыщенность</label><input type="range" id="sat" min="10" max="100" value="80"><span class="val" id="satV">80</span></div>
-<div class="ctrl"><label>Степень</label><input type="range" id="deg" min="2" max="12" value="5"><span class="val" id="degV">5</span></div>
+<div class="ctrl"><label>Полосы</label><input type="range" id="bands" min="3" max="12" value="6"><span class="val" id="bandsV">6</span></div>
+<div class="ctrl"><label>Амплитуда</label><input type="range" id="amp" min="10" max="100" value="50"><span class="val" id="ampV">50</span></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="speed" min="1" max="100" value="35"><span class="val" id="speedV">0.35</span></div>
+<div class="ctrl"><label>Насыщенность</label><input type="range" id="sat" min="20" max="100" value="70"><span class="val" id="satV">70%</span></div>
+<div class="ctrl"><label>Степень</label><input type="range" id="deg" min="2" max="8" value="4"><span class="val" id="degV">4</span></div>
+<div class="ctrl"><label>Свечение</label><input type="range" id="glow" min="1" max="8" value="5"><span class="val" id="glowV">5</span></div>
 </div>
 <script>
 const C=document.getElementById('c'),X=C.getContext('2d');
@@ -41,130 +42,146 @@ let W,H;
 function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
 resize();addEventListener('resize',resize);
 
-const S={bands:'bandsV',amp:'ampV',spd:'spdV',sat:'satV',deg:'degV'};
+const S={bands:'bandsV',amp:'ampV',speed:'speedV',sat:'satV',deg:'degV',glow:'glowV'};
 Object.keys(S).forEach(k=>{
   document.getElementById(k).addEventListener('input',()=>{
     const v=parseFloat(document.getElementById(k).value);
-    let t=v+'';if(k==='spd')t=(v/100).toFixed(2);
+    let t=v+'';if(k==='speed')t=(v/100).toFixed(2);if(k==='sat')t=v+'%';
     document.getElementById(S[k]).textContent=t;
   });
 });
 
 const presets=[
-  {bands:7,amp:50,spd:40,sat:80,deg:5},
-  {bands:5,amp:40,spd:30,sat:90,deg:4},
-  {bands:9,amp:60,spd:50,sat:70,deg:6},
-  {bands:6,amp:70,spd:60,sat:95,deg:7},
+  {bands:6,amp:50,speed:35,sat:70,deg:4,glow:5},
+  {bands:8,amp:70,speed:50,sat:85,deg:5,glow:6},
+  {bands:10,amp:90,speed:70,sat:90,deg:6,glow:7},
+  {bands:4,amp:30,speed:20,sat:50,deg:3,glow:4},
 ];
 function lp(i){const p=presets[i];Object.keys(p).forEach(k=>{document.getElementById(k).value=p[k];document.getElementById(k).dispatchEvent(new Event('input'));});}
 
 function gv(id){return parseFloat(document.getElementById(id).value)}
 
 let t=0;
-const stars=Array.from({length:500},()=>({x:Math.random(),y:Math.random()*0.5,s:Math.random()*1.5+0.3,b:Math.random()}));
+const stars=Array.from({length:400},()=>({x:Math.random(),y:Math.random(),s:Math.random()*1+0.2,b:Math.random()}));
 
-function polyVal(x,coeffs){
-  let s=0;for(let i=0;i<coeffs.length;i++)s+=coeffs[i]*Math.pow(x,i);return s;
+const auroraLayers=[];
+for(let i=0;i<15;i++){
+  auroraLayers.push({
+    baseY:0.2+i*0.03,
+    amplitude:0.05+Math.random()*0.05,
+    frequency:0.002+Math.random()*0.003,
+    phase:Math.random()*Math.PI*2,
+    speed:0.3+Math.random()*0.4,
+    hueOffset:Math.random()*60-30,
+    alpha:0.1+Math.random()*0.15
+  });
 }
 
+const particles=Array.from({length:200},()=>({
+  x:Math.random()*2000,
+  y:Math.random()*600+100,
+  vx:Math.random()*0.5+0.2,
+  vy:(Math.random()-0.5)*0.3,
+  size:Math.random()*2+0.5,
+  hue:Math.random()*60-30,
+  alpha:Math.random()*0.4+0.1,
+  life:Math.random()
+}));
+
 function draw(){
-  const bands=Math.round(gv('bands')),amp=gv('amp')/100,spd=gv('spd')/100,sat=gv('sat')/100,deg=Math.round(gv('deg'));
+  const nBands=Math.round(gv('bands')),amp=gv('amp')/100,spd=gv('speed')/100,sat=gv('sat')/100,deg=Math.round(gv('deg')),gl=Math.round(gv('glow'));
   t+=spd*0.016;
 
-  X.fillStyle='rgba(2,4,8,0.15)';
-  X.fillRect(0,0,W,H);
+  // Night sky
+  const skyGrad=X.createLinearGradient(0,0,0,H);
+  skyGrad.addColorStop(0,'#020510');
+  skyGrad.addColorStop(0.3,'#050a15');
+  skyGrad.addColorStop(0.6,'#0a1020');
+  skyGrad.addColorStop(1,'#101828');
+  X.fillStyle=skyGrad;X.fillRect(0,0,W,H);
 
-  const groundY=H*0.72;
-
-  for(let i=0;i<3;i++){
-    const gx=i*W*0.4+W*0.1;
-    const gy=groundY+20;
-    const gw=W*0.35;
-    const grad=X.createRadialGradient(gx,gy,0,gx,gy+50,gw*0.5);
-    grad.addColorStop(0,'rgba(15,25,15,0.4)');
-    grad.addColorStop(1,'rgba(5,10,5,0)');
-    X.fillStyle=grad;
-    X.fillRect(gx-gw*0.5,gy-20,gw,80);
-  }
-
-  X.fillStyle='#0a150a';
-  X.beginPath();
-  X.moveTo(0,groundY);
-  for(let x=0;x<=W;x+=3){
-    const h=Math.sin(x*0.008)*15+Math.sin(x*0.02)*8+Math.sin(x*0.003)*25;
-    X.lineTo(x,groundY+h);
-  }
-  X.lineTo(W,H);X.lineTo(0,H);X.closePath();
-  X.fill();
-
-  for(let b=0;b<bands;b++){
-    const baseY=H*0.15+b*H*0.07;
-    const coeffs=[];
-    for(let i=0;i<=deg;i++){
-      coeffs.push((Math.sin(t*0.3+i*1.7+b*2.1)*0.8+Math.cos(t*0.2+i*0.9+b*1.3)*0.5)*amp);
-    }
-
-    const hue=(b*45+t*15)%360;
-    const alpha=(0.08+0.04*Math.sin(t+b))*sat;
-
-    for(let layer=5;layer>=0;layer--){
-      const layerAlpha=alpha/(layer*0.8+1);
-      const layerWidth=(layer+1)*8;
-      const offsetY=layer*3;
-
-      X.beginPath();
-      X.moveTo(0,baseY+offsetY);
-      for(let x=0;x<=W;x+=2){
-        const nx=(x/W-0.5)*8;
-        const y=polyVal(nx,coeffs)*H*0.02;
-        const wave=Math.sin(x*0.005+t+b)*20*amp;
-        const screenY=baseY+y+wave+offsetY;
-        X.lineTo(x,screenY);
-      }
-      for(let x=W;x>=0;x-=2){
-        const nx=(x/W-0.5)*8;
-        const y=polyVal(nx,coeffs)*H*0.02;
-        const wave=Math.sin(x*0.005+t+b)*20*amp;
-        X.lineTo(x,baseY+y+wave+offsetY+layerWidth);
-      }
-      X.closePath();
-
-      const grad=X.createLinearGradient(0,baseY+offsetY,0,baseY+offsetY+layerWidth);
-      grad.addColorStop(0,`hsla(${hue},90%,60%,${layerAlpha})`);
-      grad.addColorStop(0.5,`hsla(${hue+15},85%,55%,${layerAlpha*0.7})`);
-      grad.addColorStop(1,`hsla(${hue+30},80%,50%,${layerAlpha*0.3})`);
-      X.fillStyle=grad;
-      X.fill();
-    }
-
-    X.strokeStyle=`hsla(${hue},80%,65%,${alpha*0.5})`;
-    X.lineWidth=1;
-    X.beginPath();
-    for(let x=0;x<=W;x+=3){
-      const nx=(x/W-0.5)*8;
-      const y=polyVal(nx,coeffs)*H*0.02;
-      const wave=Math.sin(x*0.005+t+b)*20*amp;
-      x===0?X.moveTo(x,baseY+y+wave):X.lineTo(x,baseY+y+wave);
-    }
-    X.stroke();
-  }
-
+  // Stars
   stars.forEach(s=>{
-    const fl=0.3+0.3*Math.sin(t*2+s.b*15)+0.2*Math.sin(t*0.8+s.b*9);
-    X.fillStyle=`rgba(200,220,255,${fl*0.6})`;
+    const fl=0.3+0.3*Math.sin(t*1.5+s.b*10);
+    X.fillStyle=`rgba(200,200,255,${fl*0.4})`;
     X.beginPath();X.arc(s.x*W,s.y*H,s.s,0,Math.PI*2);X.fill();
   });
 
-  for(let i=0;i<12;i++){
-    const px=(Math.sin(t*0.1+i*3.1)*0.3+0.5)*W;
-    const py=(Math.cos(t*0.08+i*2.3)*0.1+0.25)*H;
-    const s=2+Math.sin(t+i)*1;
-    const h=(t*20+i*30)%360;
-    const grad=X.createRadialGradient(px,py,0,px,py,s*20);
-    grad.addColorStop(0,`hsla(${h},90%,70%,0.06)`);
-    grad.addColorStop(1,`hsla(${h},80%,40%,0)`);
-    X.fillStyle=grad;X.beginPath();X.arc(px,py,s*20,0,Math.PI*2);X.fill();
+  // Mountain silhouette
+  X.fillStyle='#080810';
+  X.beginPath();X.moveTo(0,H);
+  for(let x=0;x<=W;x+=20){
+    const y=H*0.7+Math.sin(x*0.005)*40+Math.sin(x*0.01)*20+Math.sin(x*0.002)*60;
+    X.lineTo(x,y);
   }
+  X.lineTo(W,H);X.closePath();X.fill();
+
+  // Aurora bands
+  auroraLayers.forEach((layer,li)=>{
+    if(li>=nBands)return;
+    const baseY=H*layer.baseY;
+    const hue=(140+li*25+layer.hueOffset)%360;
+
+    for(let g=gl;g>0;g--){
+      X.beginPath();
+      X.moveTo(-10,baseY);
+      for(let x=-10;x<=W+10;x+=4){
+        let y=baseY;
+        for(let w=0;w<3;w++){
+          const freq=layer.frequency*(1+w*0.5);
+          const a=layer.amplitude*H*(0.5+w*0.3)*amp;
+          const phase=layer.phase+t*layer.speed+w*1.5;
+          y+=Math.sin(x*freq+phase)*a;
+        }
+        // Polynomial modulation
+        const nx=(x/W-0.5)*deg;
+        y+=Math.sin(nx*2+t*0.5)*10*amp;
+        X.lineTo(x,y);
+      }
+      X.lineTo(W+10,baseY+80);
+      X.lineTo(-10,baseY+80);
+      X.closePath();
+
+      const grad=X.createLinearGradient(0,baseY-30,0,baseY+80);
+      grad.addColorStop(0,`hsla(${hue},${sat*100}%,60%,${layer.alpha/g*0.5})`);
+      grad.addColorStop(0.3,`hsla(${(hue+20)%360},${sat*90}%,50%,${layer.alpha/g*0.8})`);
+      grad.addColorStop(0.7,`hsla(${(hue+40)%360},${sat*80}%,40%,${layer.alpha/g*0.4})`);
+      grad.addColorStop(1,`hsla(${(hue+60)%360},${sat*70}%,30%,0)`);
+      X.fillStyle=grad;X.fill();
+    }
+  });
+
+  // Aurora particles (cosmic dust)
+  particles.forEach(p=>{
+    p.x+=p.vx;
+    p.y+=p.vy+Math.sin(t+p.x*0.01)*0.2;
+    if(p.x>W+20)p.x=-20;
+    if(p.y<50||p.y>H*0.6)p.vy*=-1;
+
+    p.life+=0.005;
+    const pulse=0.5+0.5*Math.sin(t*3+p.life*10);
+    const alpha=p.alpha*pulse;
+
+    X.fillStyle=`hsla(${(160+p.hue)%360},70%,70%,${alpha})`;
+    X.beginPath();X.arc(p.x,p.y,p.size*pulse,0,Math.PI*2);X.fill();
+  });
+
+  // Reflection on snow/mountains
+  const reflY=H*0.72;
+  for(let i=0;i<30;i++){
+    const rx=Math.random()*W;
+    const ry=reflY+Math.random()*30;
+    const rh=Math.floor(140+Math.random()*60);
+    X.fillStyle=`hsla(${rh},50%,50%,0.02)`;
+    X.beginPath();X.arc(rx,ry,Math.random()*2+0.5,0,Math.PI*2);X.fill();
+  }
+
+  // Horizon glow
+  const horizGrad=X.createLinearGradient(0,H*0.65,0,H*0.75);
+  horizGrad.addColorStop(0,'rgba(0,200,150,0)');
+  horizGrad.addColorStop(0.5,'rgba(0,150,100,0.03)');
+  horizGrad.addColorStop(1,'rgba(0,100,80,0)');
+  X.fillStyle=horizGrad;X.fillRect(0,H*0.65,W,H*0.1);
 
   requestAnimationFrame(draw);
 }

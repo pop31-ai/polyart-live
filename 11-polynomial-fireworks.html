@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polynomial Fireworks</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050008;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:3px}
+.ctrl label{color:#daf;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;text-shadow:0 0 6px #f0f}
+.ctrl input[type=range]{width:100px;accent-color:#f0f;cursor:pointer}
+.ctrl .val{color:#f0f;font-size:12px;font-weight:bold;text-shadow:0 0 8px #f0f}
+#title{position:absolute;top:16px;left:50%;transform:translateX(-50%);color:#fff;font-size:20px;letter-spacing:6px;text-transform:uppercase;text-shadow:0 0 20px #ff0,0 0 40px #f80;z-index:10}
+#preset{position:absolute;top:16px;right:16px;z-index:10;display:flex;gap:6px;flex-wrap:wrap;max-width:220px;justify-content:flex-end}
+.pb{padding:4px 10px;background:rgba(255,100,0,0.06);border:1px solid #f803;color:#fa0;font-size:9px;cursor:pointer;border-radius:3px;text-transform:uppercase;letter-spacing:1px;transition:all .2s}
+.pb:hover{background:rgba(255,100,0,0.2);text-shadow:0 0 6px #f80}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Polynomial Fireworks</div>
+<div id="preset">
+<button class="pb" onclick="lp(0)">Классика</button>
+<button class="pb" onclick="lp(1)">Хризантема</button>
+<button class="pb" onclick="lp(2)">Пальма</button>
+<button class="pb" onclick="lp(3)">Каскад</button>
+</div>
+<div id="ui">
+<div class="ctrl"><label>Разряды</label><input type="range" id="bursts" min="1" max="12" value="5"><span class="val" id="burstsV">5</span></div>
+<div class="ctrl"><label>Частиц</label><input type="range" id="parts" min="50" max="500" value="200"><span class="val" id="partsV">200</span></div>
+<div class="ctrl"><label>Гравитация</label><input type="range" id="grav" min="0" max="100" value="30"><span class="val" id="gravV">0.30</span></div>
+<div class="ctrl"><label>Трассировка</label><input type="range" id="trail" min="0" max="100" value="60"><span class="val" id="trailV">0.60</span></div>
+<div class="ctrl"><label>Палитра</label><input type="range" id="hue" min="0" max="360" value="30"><span class="val" id="hueV">30°</span></div>
+</div>
+<script>
+const C=document.getElementById('c'),X=C.getContext('2d');
+let W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+const S={bursts:'burstsV',parts:'partsV',grav:'gravV',trail:'trailV',hue:'hueV'};
+Object.keys(S).forEach(k=>{
+  document.getElementById(k).addEventListener('input',()=>{
+    const v=parseFloat(document.getElementById(k).value);
+    let t=v+'';if(k==='grav'||k==='trail')t=(v/100).toFixed(2);
+    document.getElementById(S[k]).textContent=t;
+  });
+});
+
+const presets=[
+  {bursts:5,parts:200,grav:30,trail:60,hue:30},
+  {bursts:8,parts:300,grav:25,trail:70,hue:330},
+  {bursts:4,parts:150,grav:40,trail:50,hue:120},
+  {bursts:10,parts:250,grav:20,trail:80,hue:200},
+];
+function lp(i){const p=presets[i];Object.keys(p).forEach(k=>{document.getElementById(k).value=p[k];document.getElementById(k).dispatchEvent(new Event('input'));});}
+
+function gv(id){return parseFloat(document.getElementById(id).value)}
+
+let fireworks=[];
+let particles=[];
+
+class Firework{
+  constructor(x,targetY,hue){
+    this.x=x;this.y=H;this.targetY=targetY;
+    this.vy=-(Math.random()*8+12);
+    this.hue=hue+(Math.random()-0.5)*30;
+    this.alive=true;
+    this.trail=[];
+  }
+  update(){
+    this.trail.push({x:this.x,y:this.y});
+    if(this.trail.length>15)this.trail.shift();
+    this.y+=this.vy;this.vy+=0.15;
+    if(this.vy>=-2||this.y<=this.targetY){
+      this.alive=false;
+      explode(this.x,this.y,this.hue);
+    }
+  }
+  draw(){
+    for(let i=0;i<this.trail.length;i++){
+      const alpha=i/this.trail.length*0.5;
+      X.fillStyle=`hsla(${this.hue},80%,70%,${alpha})`;
+      X.beginPath();X.arc(this.trail[i].x,this.trail[i].y,1.5,0,Math.PI*2);X.fill();
+    }
+    X.fillStyle=`hsla(${this.hue},90%,80%,0.9)`;
+    X.beginPath();X.arc(this.x,this.y,2,0,Math.PI*2);X.fill();
+  }
+}
+
+class Particle{
+  constructor(x,y,hue){
+    this.x=x;this.y=y;
+    const a=Math.random()*Math.PI*2;
+    const v=Math.random()*6+2;
+    this.vx=Math.cos(a)*v;this.vy=Math.sin(a)*v;
+    this.hue=hue+(Math.random()-0.5)*40;
+    this.life=1;this.decay=Math.random()*0.015+0.008;
+    this.size=Math.random()*2+0.5;
+    this.trail=[];
+    this.gravity=gv('grav')/100*0.1;
+  }
+  update(){
+    this.trail.push({x:this.x,y:this.y});
+    if(this.trail.length>12)this.trail.shift();
+    this.x+=this.vx;this.y+=this.vy;
+    this.vy+=this.gravity;this.vx*=0.99;
+    this.life-=this.decay;
+  }
+  draw(){
+    const trailLen=gv('trail')/100;
+    for(let i=0;i<this.trail.length;i++){
+      const alpha=i/this.trail.length*this.life*0.3*trailLen;
+      X.fillStyle=`hsla(${this.hue},80%,60%,${alpha})`;
+      X.beginPath();X.arc(this.trail[i].x,this.trail[i].y,this.size*0.5,0,Math.PI*2);X.fill();
+    }
+    const glow=this.life*0.8;
+    X.fillStyle=`hsla(${this.hue},90%,70%,${glow})`;
+    X.beginPath();X.arc(this.x,this.y,this.size*this.life,0,Math.PI*2);X.fill();
+  }
+}
+
+function explode(x,y,hue){
+  const n=Math.round(gv('parts'));
+  for(let i=0;i<n;i++)particles.push(new Particle(x,y,hue));
+}
+
+let t=0;let lastLaunch=0;
+const bgStars=Array.from({length:200},()=>({x:Math.random(),y:Math.random(),s:Math.random()*1+0.2,b:Math.random()}));
+
+function draw(){
+  const nBursts=Math.round(gv('bursts')),hue=gv('hue');
+  t+=0.016;
+
+  X.fillStyle='rgba(5,0,8,0.15)';
+  X.fillRect(0,0,W,H);
+
+  // Background stars
+  bgStars.forEach(s=>{
+    const fl=0.2+0.1*Math.sin(t*2+s.b*6);
+    X.fillStyle=`rgba(180,180,220,${fl*0.2})`;
+    X.beginPath();X.arc(s.x*W,s.y*H,s.s,0,Math.PI*2);X.fill();
+  });
+
+  // Launch new fireworks
+  if(t-lastLaunch>0.8/nBursts*3){
+    const x=Math.random()*W*0.6+W*0.2;
+    const targetY=Math.random()*H*0.4+H*0.1;
+    fireworks.push(new Firework(x,targetY,hue));
+    lastLaunch=t;
+  }
+
+  // Update and draw fireworks
+  fireworks=fireworks.filter(f=>{f.update();if(f.alive){f.draw();return true;}return false;});
+
+  // Update and draw particles
+  particles=particles.filter(p=>{p.update();if(p.life>0){p.draw();return true;}return false;});
+
+  // Ground glow
+  const groundGrad=X.createLinearGradient(0,H-40,0,H);
+  groundGrad.addColorStop(0,'rgba(255,100,0,0)');
+  groundGrad.addColorStop(1,`hsla(${hue},60%,20%,0.1)`);
+  X.fillStyle=groundGrad;X.fillRect(0,H-40,W,40);
+
+  requestAnimationFrame(draw);
+}
+
+lp(0);draw();
+</script>
+</body>
+</html>

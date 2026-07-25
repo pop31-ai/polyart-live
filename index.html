@@ -42,8 +42,8 @@ body{background:#080810;color:#ccc;font-family:'Segoe UI',sans-serif}
 <div class="preview"><canvas id="p1"></canvas></div>
 <div class="info">
 <h3>Polynomial Nebula</h3>
-<p>Корни полинома как звёзды туманности. Настраиваемая степень, вращение, палитра.</p>
-<div class="tags"><span class="tag">корни</span><span class="tag">анимация</span><span class="tag">6 пресетов</span></div>
+<p>Корни полинома как звёзды туманности с кометными хвостами и пылевыми облаками.</p>
+<div class="tags"><span class="tag">корни</span><span class="tag">кометы</span><span class="tag">6 пресетов</span></div>
 </div>
 </div>
 
@@ -78,8 +78,8 @@ body{background:#080810;color:#ccc;font-family:'Segoe UI',sans-serif}
 <div class="preview"><canvas id="p5"></canvas></div>
 <div class="info">
 <h3>Polynomial Aurora</h3>
-<p>Северное сияние из полиномиальных кривых. Многополосная анимация.</p>
-<div class="tags"><span class="tag">аврора</span><span class="tag">полосы</span><span class="tag">4 пресета</span></div>
+<p>Северное сияние с горным силуэтом и звёздным небом. Многополосная анимация.</p>
+<div class="tags"><span class="tag">аврора</span><span class="tag">горы</span><span class="tag">4 пресета</span></div>
 </div>
 </div>
 
@@ -88,7 +88,7 @@ body{background:#080810;color:#ccc;font-family:'Segoe UI',sans-serif}
 <div class="info">
 <h3>Root Mixer</h3>
 <p>Перетаскивай корни мышью — плотность, итерации, фаза меняются мгновенно.</p>
-<div class="tags"><span class="tag">drag&drop</span><span class="tag">密度</span><span class="tag">3 режима</span></div>
+<div class="tags"><span class="tag">drag&drop</span><span class="tag">плотность</span><span class="tag">3 режима</span></div>
 </div>
 </div>
 
@@ -96,7 +96,7 @@ body{background:#080810;color:#ccc;font-family:'Segoe UI',sans-serif}
 <div class="preview"><canvas id="p7"></canvas></div>
 <div class="info">
 <h3>Polynomial Mandala</h3>
-<p>Симметрическая мандала из полиномиальных корней. Коронная работа коллекции.</p>
+<p>Симметрическая мандала с сакральной геометрией. Коронная работа коллекции.</p>
 <div class="tags"><span class="tag">мандала</span><span class="tag">симметрия</span><span class="tag">6 пресетов</span></div>
 </div>
 </div>
@@ -119,6 +119,33 @@ body{background:#080810;color:#ccc;font-family:'Segoe UI',sans-serif}
 </div>
 </div>
 
+<div class="card" onclick="open('10-polynomial-galaxy.html')">
+<div class="preview"><canvas id="p10"></canvas></div>
+<div class="info">
+<h3>Polynomial Galaxy</h3>
+<p>Спиральная галактика с рукавами, пылевыми дорожками и центральным выпуклым ядром.</p>
+<div class="tags"><span class="tag">галактика</span><span class="tag">спираль</span><span class="tag">4 пресета</span></div>
+</div>
+</div>
+
+<div class="card" onclick="open('11-polynomial-fireworks.html')">
+<div class="preview"><canvas id="p11"></canvas></div>
+<div class="info">
+<h3>Polynomial Fireworks</h3>
+<p>Фейерверки с физикой частиц, гравитацией и хвостовой трассировкой.</p>
+<div class="tags"><span class="tag">частицы</span><span class="tag">физика</span><span class="tag">4 пресета</span></div>
+</div>
+</div>
+
+<div class="card" onclick="open('12-polynomial-ocean.html')">
+<div class="preview"><canvas id="p12"></canvas></div>
+<div class="info">
+<h3>Polynomial Ocean</h3>
+<p>Полиномиальные волны с пеной, рыбами, пузырьками и подводным миром.</p>
+<div class="tags"><span class="tag">океан</span><span class="tag">волны</span><span class="tag">4 пресета</span></div>
+</div>
+</div>
+
 </div>
 
 <div class="footer">
@@ -137,6 +164,9 @@ const previews=[
   {id:'p7',fn:(ctx,w,h,t)=>{ctx.fillStyle='#050510';ctx.fillRect(0,0,w,h);const cx=w/2,cy=h/2;for(let s=0;s<8;s++){const a=s*Math.PI/4+t*0.2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*60,cy+Math.sin(a)*60);ctx.strokeStyle=`hsla(${s*45},80%,60%,0.3)`;ctx.lineWidth=2;ctx.stroke();}for(let r=0;r<3;r++){ctx.beginPath();for(let a=0;a<=Math.PI*2;a+=0.05){const rr=20+r*20+Math.sin(a*8+t)*5;ctx.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr);}ctx.closePath();ctx.strokeStyle=`hsla(${r*60+300},70%,50%,0.2)`;ctx.lineWidth=1;ctx.stroke();}}},
   {id:'p8',fn:(ctx,w,h,t)=>{ctx.fillStyle='rgba(8,4,14,0.15)';ctx.fillRect(0,0,w,h);for(let i=0;i<30;i++){const x=(Math.sin(t*0.3+i*2.1)*0.3+0.5)*w;const y=(Math.cos(t*0.2+i*1.7)*0.3+0.5)*h;const s=1+Math.sin(t+i)*0.5;ctx.fillStyle=`hsla(${(t*20+i*12)%360},80%,60%,0.4)`;ctx.beginPath();ctx.arc(x,y,s,0,Math.PI*2);ctx.fill();}}},
   {id:'p9',fn:(ctx,w,h,t)=>{ctx.fillStyle='#0a0a14';ctx.fillRect(0,0,w,h);const cx=w/2,cy=h/2;for(let i=0;i<8;i++){const a=i*Math.PI/4+t*0.4;const r=30+15*Math.sin(t+i);const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;ctx.fillStyle=`hsla(${i*45+50},90%,70%,0.7)`;ctx.beginPath();ctx.arc(x,y,2+Math.sin(t*2+i),0,Math.PI*2);ctx.fill();if(i>0){const pa=(i-1)*Math.PI/4+t*0.4;const pr=30+15*Math.sin(t+i-1);ctx.strokeStyle=`hsla(${i*45+50},60%,50%,0.2)`;ctx.beginPath();ctx.moveTo(cx+Math.cos(pa)*pr,cy+Math.sin(pa)*pr);ctx.lineTo(x,y);ctx.stroke();}}}},
+  {id:'p10',fn:(ctx,w,h,t)=>{ctx.fillStyle='#020008';ctx.fillRect(0,0,w,h);const cx=w/2,cy=h/2;for(let i=0;i<200;i++){const arm=i%3;const armAngle=arm*Math.PI*2/3;const dist=(i/200)*100;const spiralAngle=dist*0.08+armAngle;const x=cx+Math.cos(spiralAngle+t*0.1)*dist;const y=cy+Math.sin(spiralAngle+t*0.1)*dist*0.4;const alpha=0.3+Math.sin(t+i)*0.2;ctx.fillStyle=`hsla(${260+i*0.5},70%,60%,${alpha})`;ctx.beginPath();ctx.arc(x,y,1,0,Math.PI*2);ctx.fill();}}},
+  {id:'p11',fn:(ctx,w,h,t)=>{ctx.fillStyle='rgba(5,0,8,0.15)';ctx.fillRect(0,0,w,h);for(let i=0;i<20;i++){const x=(Math.sin(t*0.5+i*3)*0.3+0.5)*w;const y=(Math.cos(t*0.4+i*2.5)*0.3+0.5)*h;const s=2+Math.sin(t*2+i)*1;ctx.fillStyle=`hsla(${(t*30+i*18)%360},90%,60%,0.5)`;ctx.beginPath();ctx.arc(x,y,s,0,Math.PI*2);ctx.fill();}}},
+  {id:'p12',fn:(ctx,w,h,t)=>{ctx.fillStyle='#020810';ctx.fillRect(0,0,w,h);for(let l=0;l<4;l++){ctx.beginPath();ctx.moveTo(0,h*0.4+l*25);for(let x=0;x<=w;x+=3){const y=h*0.4+l*25+Math.sin(x*0.01+t+l)*15+Math.sin(x*0.005+t*1.5)*8;ctx.lineTo(x,y);}ctx.strokeStyle=`hsla(${210+l*10},60%,45%,0.3)`;ctx.lineWidth=2;ctx.stroke();}}}
 ];
 
 let t=0;

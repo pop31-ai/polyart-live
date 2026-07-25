@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polynomial Galaxy</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#020008;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:3px}
+.ctrl label{color:#daf;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;text-shadow:0 0 6px #a0f}
+.ctrl input[type=range]{width:100px;accent-color:#f0f;cursor:pointer}
+.ctrl .val{color:#f0f;font-size:12px;font-weight:bold;text-shadow:0 0 8px #f0f}
+#title{position:absolute;top:16px;left:50%;transform:translateX(-50%);color:#fff;font-size:20px;letter-spacing:6px;text-transform:uppercase;text-shadow:0 0 20px #a0f,0 0 40px #f0f;z-index:10}
+#preset{position:absolute;top:16px;right:16px;z-index:10;display:flex;gap:6px;flex-wrap:wrap;max-width:220px;justify-content:flex-end}
+.pb{padding:4px 10px;background:rgba(255,0,255,0.06);border:1px solid #f0f3;color:#f8f;font-size:9px;cursor:pointer;border-radius:3px;text-transform:uppercase;letter-spacing:1px;transition:all .2s}
+.pb:hover{background:rgba(255,0,255,0.2);text-shadow:0 0 6px #f0f}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Polynomial Galaxy</div>
+<div id="preset">
+<button class="pb" onclick="lp(0)">Спираль</button>
+<button class="pb" onclick="lp(1)">Эллипс</button>
+<button class="pb" onclick="lp(2)">Кольцо</button>
+<button class="pb" onclick="lp(3)">Двойная</button>
+</div>
+<div id="ui">
+<div class="ctrl"><label>Руки</label><input type="range" id="arms" min="1" max="8" value="3"><span class="val" id="armsV">3</span></div>
+<div class="ctrl"><label>Звёзд</label><input type="range" id="stars" min="100" max="2000" value="800"><span class="val" id="starsV">800</span></div>
+<div class="ctrl"><label>Вращение</label><input type="range" id="rot" min="1" max="100" value="30"><span class="val" id="rotV">0.30</span></div>
+<div class="ctrl"><label>Толщина</label><input type="range" id="thick" min="1" max="10" value="4"><span class="val" id="thickV">4</span></div>
+<div class="ctrl"><label>Свечение</label><input type="range" id="glow" min="1" max="8" value="4"><span class="val" id="glowV">4</span></div>
+<div class="ctrl"><label>Палитра</label><input type="range" id="hue" min="0" max="360" value="260"><span class="val" id="hueV">260°</span></div>
+</div>
+<script>
+const C=document.getElementById('c'),X=C.getContext('2d');
+let W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight;generateStars();}
+resize();addEventListener('resize',resize);
+
+const S={arms:'armsV',stars:'starsV',rot:'rotV',thick:'thickV',glow:'glowV',hue:'hueV'};
+Object.keys(S).forEach(k=>{
+  document.getElementById(k).addEventListener('input',()=>{
+    const v=parseFloat(document.getElementById(k).value);
+    let t=v+'';if(k==='rot')t=(v/100).toFixed(2);
+    document.getElementById(S[k]).textContent=t;
+    if(k==='stars')generateStars();
+  });
+});
+
+const presets=[
+  {arms:3,stars:800,rot:30,thick:4,glow:4,hue:260},
+  {arms:2,stars:1200,rot:25,thick:5,glow:5,hue:30},
+  {arms:4,stars:600,rot:40,thick:3,glow:6,hue:180},
+  {arms:6,stars:1000,rot:20,thick:6,glow:3,hue:330},
+];
+function lp(i){const p=presets[i];Object.keys(p).forEach(k=>{document.getElementById(k).value=p[k];document.getElementById(k).dispatchEvent(new Event('input'));});}
+
+function gv(id){return parseFloat(document.getElementById(id).value)}
+
+let galaxyStars=[];
+function generateStars(){
+  const n=Math.round(gv('stars'));
+  const arms=Math.round(gv('arms'));
+  galaxyStars=[];
+  for(let i=0;i<n;i++){
+    const armIdx=i%arms;
+    const armAngle=armIdx*Math.PI*2/arms;
+    const dist=Math.random()*Math.random()*350+10;
+    const spiralAngle=dist*0.008+armAngle;
+    const scatter=(Math.random()-0.5)*gv('thick')*4*Math.exp(-dist*0.005);
+    const x=Math.cos(spiralAngle)*dist+scatter;
+    const y=Math.sin(spiralAngle)*dist*0.4+scatter*0.5;
+    const size=Math.random()*1.5+0.3+Math.exp(-dist*0.008)*1.5;
+    const hue=gv('hue')+(Math.random()-0.5)*60+dist*0.05;
+    const alpha=0.3+Math.random()*0.5+Math.exp(-dist*0.006)*0.4;
+    galaxyStars.push({x,y,size,hue,alpha,phase:Math.random()*Math.PI*2});
+  }
+}
+
+let t=0;
+const bgStars=Array.from({length:300},()=>({x:Math.random(),y:Math.random(),s:Math.random()*1.2+0.2,b:Math.random()}));
+
+function draw(){
+  const arms=Math.round(gv('arms')),rot=gv('rot')/100,gl=Math.round(gv('glow')),hue=gv('hue');
+  t+=0.008;
+
+  X.fillStyle='rgba(2,0,8,0.05)';
+  X.fillRect(0,0,W,H);
+
+  const cx=W/2,cy=H/2;
+
+  // Background stars
+  bgStars.forEach(s=>{
+    const fl=0.2+0.2*Math.sin(t*1.5+s.b*8);
+    X.fillStyle=`rgba(180,180,220,${fl*0.3})`;
+    X.beginPath();X.arc(s.x*W,s.y*H,s.s,0,Math.PI*2);X.fill();
+  });
+
+  // Central bulge
+  const bulgePulse=1+0.1*Math.sin(t*2);
+  const bulgeGrad=X.createRadialGradient(cx,cy,0,cx,cy,60*bulgePulse);
+  bulgeGrad.addColorStop(0,`hsla(${hue},80%,90%,0.4)`);
+  bulgeGrad.addColorStop(0.3,`hsla(${hue},70%,70%,0.2)`);
+  bulgeGrad.addColorStop(0.6,`hsla(${hue+30},60%,50%,0.08)`);
+  bulgeGrad.addColorStop(1,`hsla(${hue+60},50%,30%,0)`);
+  X.fillStyle=bulgeGrad;X.beginPath();X.arc(cx,cy,60*bulgePulse,0,Math.PI*2);X.fill();
+
+  // Galaxy stars
+  galaxyStars.forEach(s=>{
+    const px=cx+s.x*Math.cos(t*rot)-s.y*Math.sin(t*rot);
+    const py=cy+s.x*Math.sin(t*rot)*0.4+s.y*Math.cos(t*rot)*0.4;
+    const twinkle=0.7+0.3*Math.sin(t*4+s.phase);
+    const alpha=s.alpha*twinkle;
+
+    // Glow
+    for(let g=gl;g>0;g--){
+      const rr=s.size*g*2;
+      const grad=X.createRadialGradient(px,py,0,px,py,rr);
+      grad.addColorStop(0,`hsla(${s.hue%360},80%,80%,${alpha*0.15/g})`);
+      grad.addColorStop(1,`hsla(${s.hue%360},60%,40%,0)`);
+      X.fillStyle=grad;X.beginPath();X.arc(px,py,rr,0,Math.PI*2);X.fill();
+    }
+
+    // Star core
+    X.fillStyle=`hsla(${s.hue%360},70%,90%,${alpha})`;
+    X.beginPath();X.arc(px,py,s.size*twinkle,0,Math.PI*2);X.fill();
+  });
+
+  // Dust lanes
+  for(let a=0;a<Math.PI*2;a+=0.02){
+    const r=80+Math.sin(a*arms+t*0.5)*120;
+    const x=cx+Math.cos(a+t*rot*0.3)*r;
+    const y=cy+Math.sin(a+t*rot*0.3)*r*0.4;
+    const alpha=0.02+0.01*Math.sin(a*3+t);
+    X.fillStyle=`hsla(${(hue+60)%360},40%,30%,${alpha})`;
+    X.beginPath();X.arc(x,y,3,0,Math.PI*2);X.fill();
+  }
+
+  requestAnimationFrame(draw);
+}
+
+lp(0);draw();
+</script>
+</body>
+</html>
