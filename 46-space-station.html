@@ -1,0 +1,444 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>46 — Космическая Станция — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060608;overflow:hidden;font-family:sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #0af;color:#0af;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(0,170,255,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #0af5;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#0af;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:600px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Космическая Станция</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">&#9664;</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">&#9654;</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Скорость</label><input type="range" id="speed" min="0" max="100" value="0" style="width:70px;accent-color:#0af"><span class="val" id="speedV">0</span></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+var stage=0,autoMode=false,autoTimer=0,maxStage=12,t=0;
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ'};
+document.getElementById('speed').oninput=function(){document.getElementById('speedV').textContent=this.value};
+
+var pts=['Орбита · 408км · 28000км/ч · 90 мин · МКС · наклонение 51.6°','Запуск · Протон · 7.7 тонн · Байконур · 8.5 мин · ступень','Сборка · 160 модулей · 420 тонн · 110 м · 15 стран · 1998-2011','Энергия · солнечные · 120кВт · Li-ion · аккумуляторы · вращение','Жизнь · 6 человек · 16 спальни · 2 туалета · кухня · спортзал','Наука · 300 экспериментов · микрогравитация · белки · кристаллы','Выход · скафандр · Orlan · 7.5 часов · 2 atmosferы · страховка','Связь · TDRS · лазер · 300Мбит/с · латентность 0.5сек','Манёвр · прогрев · 12 тонн топлива · 4 двигателя · 90 мин','Мусор · 200 отходов/год · мешки · сжигание · 200км · атмосфера','Спасение · SpaceX Crew · 4 человека · 20 часов · шлюз','Будущее · Gateway · Луна · 2025 · NextStation · Mars'];
+
+function solarPanel(x,y,w2,h2,angle,col){
+  X.save();X.translate(x,y);X.rotate(angle);
+  // Panel
+  X.fillStyle=col;X.fillRect(-w2/2,-h2/2,w2,h2);
+  X.strokeStyle='rgba(0,0,0,0.04)';X.lineWidth=0.3;X.strokeRect(-w2/2,-h2/2,w2,h2);
+  // Cells
+  for(var sc=0;sc<4;sc++){
+    X.strokeStyle='rgba(0,0,0,0.02)';X.lineWidth=0.2;
+    X.beginPath();X.moveTo(-w2/2,-h2/2+sc*(h2/4));X.lineTo(w2/2,-h2/2+sc*(h2/4));X.stroke();
+  }
+  for(var sc2=0;sc2<8;sc2++){
+    X.beginPath();X.moveTo(-w2/2+sc2*(w2/8),-h2/2);X.lineTo(-w2/2+sc2*(w2/8),h2/2);X.stroke();
+  }
+  X.restore();
+}
+
+function module(mx,my,mw,mh,col){
+  X.fillStyle=col;X.fillRect(mx-mw/2,my-mh/2,mw,mh);
+  X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.5;X.strokeRect(mx-mw/2,my-mh/2,mw,mh);
+  // Windows
+  for(var mw2=0;mw2<3;mw2++){
+    X.fillStyle='rgba(150,200,255,0.04)';X.beginPath();
+    X.arc(mx-mw/4+mw2*(mw/4),my,2*s,0,Math.PI*2);X.fill();
+  }
+}
+
+function astronaut(ax,ay,s2,rot){
+  X.save();X.translate(ax,ay);X.rotate(rot||0);
+  // Body
+  X.fillStyle='rgba(255,255,255,0.06)';X.fillRect(-4*s2,-8*s2,8*s2,12*s2);
+  // Helmet
+  X.fillStyle='rgba(200,220,240,0.06)';X.beginPath();X.arc(0,-10*s2,5*s2,0,Math.PI*2);X.fill();
+  X.strokeStyle='rgba(150,200,255,0.06)';X.lineWidth=0.4;X.beginPath();X.arc(0,-10*s2,5*s2,0,Math.PI*2);X.stroke();
+  // Visor
+  X.fillStyle='rgba(100,180,255,0.04)';X.beginPath();X.arc(0,-10*s2,3*s2,Math.PI*0.8,Math.PI*0.2,true);X.fill();
+  // Backpack
+  X.fillStyle='rgba(200,200,210,0.04)';X.fillRect(-6*s2,-8*s2,2*s2,10*s2);
+  // Arms
+  X.strokeStyle='rgba(255,255,255,0.05)';X.lineWidth=1.5*s2;
+  X.beginPath();X.moveTo(-4*s2,-4*s2);X.lineTo(-8*s2,0);X.stroke();
+  X.beginPath();X.moveTo(4*s2,-4*s2);X.lineTo(8*s2,-2*s2);X.stroke();
+  // Legs
+  X.beginPath();X.moveTo(-2*s2,4*s2);X.lineTo(-3*s2,8*s2);X.stroke();
+  X.beginPath();X.moveTo(2*s2,4*s2);X.lineTo(3*s2,8*s2);X.stroke();
+  X.restore();
+}
+
+function earth(ex,ey,er){
+  X.fillStyle='rgba(30,100,180,0.04)';X.beginPath();X.arc(ex,ey,er,0,Math.PI*2);X.fill();
+  // Continents
+  X.fillStyle='rgba(40,130,60,0.03)';X.beginPath();X.arc(ex-er*0.3,ey-er*0.2,er*0.4,0,Math.PI*2);X.fill();
+  X.beginPath();X.arc(ex+er*0.3,ey+er*0.1,er*0.3,0,Math.PI*2);X.fill();
+  // Clouds
+  X.fillStyle='rgba(255,255,255,0.02)';X.beginPath();X.ellipse(ex+er*0.2,ey-er*0.3,er*0.5,er*0.1,0.3,0,Math.PI*2);X.fill();
+  // Atmosphere
+  X.strokeStyle='rgba(100,180,255,0.03)';X.lineWidth=1;X.beginPath();X.arc(ex,ey,er+3,0,Math.PI*2);X.stroke();
+}
+
+function lbl(t2,x,y,c,sz){X.globalAlpha=0.55;X.font=(sz||6)+'px monospace';X.fillStyle=c||'rgba(200,220,255,0.8)';X.textAlign='center';X.fillText(t2,x,y);X.textAlign='left';X.globalAlpha=1}
+
+function draw(){
+  var spd=parseInt(document.getElementById('speed').value);
+  if(autoMode){autoTimer+=0.016;if(autoTimer>2.5){autoTimer=0;if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage}else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ'}}}
+  t+=0.016;
+  X.fillStyle='#060608';X.fillRect(0,0,W,H);
+  var cx=W/2,cy=H*0.45,s=Math.min(W,H)/650;
+
+  // Deep space
+  for(var st=0;st<120;st++){
+    var br=0.008+Math.sin(st*5.7+t*0.2)*0.004;
+    X.fillStyle='rgba(255,255,255,'+br+')';
+    X.beginPath();X.arc((Math.sin(st*3.7)*0.5+0.5)*W,(Math.cos(st*2.3)*0.5+0.5)*H,0.3+Math.sin(st)*0.15,0,Math.PI*2);X.fill();
+  }
+
+  // Nebula hint
+  X.globalAlpha=0.005;
+  X.fillStyle='rgba(80,40,120,1)';X.beginPath();X.arc(W*0.2,H*0.3,100*s,0,Math.PI*2);X.fill();
+  X.fillStyle='rgba(40,80,120,1)';X.beginPath();X.arc(W*0.8,H*0.6,80*s,0,Math.PI*2);X.fill();
+  X.globalAlpha=1;
+
+  // Earth
+  earth(W*0.5,H*1.1,120*s);
+
+  // === STAGE 0: Orbit ===
+  if(stage>=0){
+    // Orbit path
+    X.strokeStyle='rgba(100,180,255,0.04)';X.lineWidth=0.5;
+    X.beginPath();X.ellipse(cx,cy+20*s,200*s,30*s,0.2,0,Math.PI*2);X.stroke();
+    // ISS tiny dot on orbit
+    var issAngle=t*0.5;
+    var issX=cx+Math.cos(issAngle)*200*s;
+    var issY=cy+20*s+Math.sin(issAngle)*30*s;
+    X.fillStyle='rgba(255,255,255,0.06)';X.beginPath();X.arc(issX,issY,2*s,0,Math.PI*2);X.fill();
+    // Stats
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(100,180,255,0.12)';X.textAlign='center';
+    X.fillText('408км · 28000км/ч · 90 мин · 51.6°',cx,cy-20*s);X.textAlign='left';
+    lbl('орбита · 408км · 28000км/ч · 90 мин · МКС',cx,cy-30*s,'rgba(100,180,255,0.5)',6);
+  }
+
+  // === STAGE 1: Launch ===
+  if(stage>=1){
+    // Rocket
+    var rkX=cx+60*s,rkY=cy-30*s;
+    // Body
+    X.fillStyle='rgba(200,200,210,0.05)';X.fillRect(rkX-3*s,rkY,6*s,25*s);
+    X.strokeStyle='rgba(180,180,190,0.06)';X.lineWidth=0.4;X.strokeRect(rkX-3*s,rkY,6*s,25*s);
+    // Nose cone
+    X.beginPath();X.moveTo(rkX-3*s,rkY);X.lineTo(rkX,rkY-8*s);X.lineTo(rkX+3*s,rkY);X.closePath();X.fill();
+    // Fins
+    X.fillStyle='rgba(180,180,190,0.04)';
+    X.beginPath();X.moveTo(rkX-3*s,rkY+20*s);X.lineTo(rkX-6*s,rkY+25*s);X.lineTo(rkX-3*s,rkY+25*s);X.closePath();X.fill();
+    X.beginPath();X.moveTo(rkX+3*s,rkY+20*s);X.lineTo(rkX+6*s,rkY+25*s);X.lineTo(rkX+3*s,rkY+25*s);X.closePath();X.fill();
+    // Flame
+    for(var fl=0;fl<8;fl++){
+      var flY=rkY+25*s+fl*3*s;
+      var flAlpha=0.06-fl*0.006;
+      if(flAlpha>0){
+        X.fillStyle='rgba(255,'+Math.floor(200-fl*20)+',50,'+flAlpha+')';
+        X.beginPath();X.arc(rkX+Math.sin(t*5+fl)*2,flY,2-fl*0.2,0,Math.PI*2);X.fill();
+      }
+    }
+    // Stage label
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(200,200,210,0.12)';X.textAlign='center';
+    X.fillText('Протон · 7.7 тонн · 8.5 мин',rkX,rkY+35*s);X.textAlign='left';
+    lbl('запуск · Протон · Байконур · 8.5 мин',rkX,rkY-15*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 2: Assembly ===
+  if(stage>=2){
+    // ISS main truss
+    X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=2*s;
+    X.beginPath();X.moveTo(cx-60*s,cy);X.lineTo(cx+60*s,cy);X.stroke();
+    // Modules
+    var modules=[[cx,cy,20*s,10*s,'rgba(180,180,190,0.05)'],[cx-20*s,cy-8*s,12*s,8*s,'rgba(200,200,210,0.04)'],[cx+20*s,cy-8*s,12*s,8*s,'rgba(200,200,210,0.04)'],[cx,cy+8*s,15*s,8*s,'rgba(190,190,200,0.04)']];
+    for(var m=0;m<modules.length;m++){
+      module(modules[m][0],modules[m][1],modules[m][2],modules[m][3],modules[m][4]);
+    }
+    // Solar panels
+    solarPanel(cx-50*s,cy,8*s,30*s,0.1,'rgba(50,100,200,0.05)');
+    solarPanel(cx+50*s,cy,8*s,30*s,-0.1,'rgba(50,100,200,0.05)');
+    solarPanel(cx-45*s,cy,8*s,25*s,0.2,'rgba(50,100,200,0.04)');
+    solarPanel(cx+45*s,cy,8*s,25*s,-0.2,'rgba(50,100,200,0.04)');
+    // Stats
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(200,200,210,0.12)';X.textAlign='center';
+    X.fillText('160 модулей · 420 тонн · 110м · 15 стран',cx,cy+25*s);X.textAlign='left';
+    lbl('сборка · 420 тонн · 110м · 15 стран · 1998-2011',cx,cy-25*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 3: Energy ===
+  if(stage>=3){
+    // Full ISS with solar panels
+    X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=2*s;
+    X.beginPath();X.moveTo(cx-70*s,cy);X.lineTo(cx+70*s,cy);X.stroke();
+    // Central modules
+    module(cx,cy,25*s,12*s,'rgba(180,180,190,0.05)');
+    module(cx-15*s,cy,10*s,8*s,'rgba(200,200,210,0.04)');
+    module(cx+15*s,cy,10*s,8*s,'rgba(200,200,210,0.04)');
+    // Large solar arrays
+    for(var sa=0;sa<4;sa++){
+      var saX=cx-60*s+sa*40*s;
+      var saAngle=Math.sin(t*0.3+sa)*0.1;
+      solarPanel(saX,cy,10*s,35*s,saAngle,'rgba(50,100,200,0.05)');
+    }
+    // Power flow indicators
+    for(var pf=0;pf<6;pf++){
+      var pfX=cx-50*s+pf*20*s;
+      X.fillStyle='rgba(50,200,50,'+(0.03+Math.sin(t*2+pf)*0.015)+')';
+      X.beginPath();X.arc(pfX,cy-2*s,1.5,0,Math.PI*2);X.fill();
+    }
+    // Energy label
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(50,200,50,0.12)';X.textAlign='center';
+    X.fillText('120кВт · Li-ion · вращение',cx,cy+25*s);X.textAlign='left';
+    lbl('энергия · солнечные · 120кВт · Li-ion',cx,cy-30*s,'rgba(50,200,50,0.5)',6);
+  }
+
+  // === STAGE 4: Life ===
+  if(stage>=4){
+    // Interior view
+    var ivX=cx,ivY=cy;
+    X.fillStyle='rgba(20,25,35,0.06)';X.fillRect(ivX-40*s,ivY-25*s,80*s,50*s);
+    X.strokeStyle='rgba(100,150,200,0.06)';X.lineWidth=0.5;X.strokeRect(ivX-40*s,ivY-25*s,80*s,50*s);
+    // Handrails
+    X.strokeStyle='rgba(255,200,50,0.04)';X.lineWidth=0.5;
+    X.beginPath();X.moveTo(ivX-38*s,ivY-10*s);X.lineTo(ivX+38*s,ivY-10*s);X.stroke();
+    X.beginPath();X.moveTo(ivX-38*s,ivY+10*s);X.lineTo(ivX+38*s,ivY+10*s);X.stroke();
+    // Crew quarters (sleeping bags)
+    for(var sq=0;sq<4;sq++){
+      var sqX=ivX-30*s+sq*18*s;
+      X.fillStyle='rgba(100,150,200,0.03)';X.fillRect(sqX,ivY-20*s,12*s,8*s);
+      X.strokeStyle='rgba(120,170,220,0.04)';X.lineWidth=0.3;X.strokeRect(sqX,ivY-20*s,12*s,8*s);
+    }
+    // Toilet
+    X.fillStyle='rgba(150,150,160,0.03)';X.fillRect(ivX+30*s,ivY-5*s,8*s,10*s);
+    // Kitchen
+    X.fillStyle='rgba(180,140,80,0.03)';X.fillRect(ivX-35*s,ivY+5*s,15*s,8*s);
+    // Treadmill
+    X.fillStyle='rgba(100,100,110,0.03)';X.fillRect(ivX+15*s,ivY+8*s,20*s,10*s);
+    // Floating food
+    for(var ff=0;ff<3;ff++){
+      var ffX=ivX-20*s+ff*20*s+Math.sin(t+ff)*5*s;
+      var ffY=ivY-5*s+Math.cos(t*0.7+ff)*3*s;
+      X.fillStyle='rgba(200,180,100,0.04)';X.beginPath();X.arc(ffX,ffY,2*s,0,Math.PI*2);X.fill();
+    }
+    // Floating astronaut
+    astronaut(ivX,ivY+15*s+Math.sin(t*0.5)*3*s,s*0.6,Math.sin(t*0.3)*0.2);
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(200,200,220,0.12)';X.textAlign='center';
+    X.fillText('6 человек · 16 спален · 2 туалета · спортзал',ivX,ivY+32*s);X.textAlign='left';
+    lbl('жизнь · 6 человек · кухня · спортзал',ivX,ivY-32*s,'rgba(200,200,220,0.5)',6);
+  }
+
+  // === STAGE 5: Science ===
+  if(stage>=5){
+    // Lab modules
+    var labX=cx,labY=cy;
+    X.fillStyle='rgba(15,20,30,0.06)';X.fillRect(labX-35*s,labY-20*s,70*s,40*s);
+    X.strokeStyle='rgba(0,170,255,0.06)';X.lineWidth=0.5;X.strokeRect(labX-35*s,labY-20*s,70*s,40*s);
+    // Experiment racks
+    for(var er=0;er<6;er++){
+      var erX=labX-30*s+er*11*s;
+      X.fillStyle='rgba(0,170,255,0.03)';X.fillRect(erX,labY-15*s,8*s,25*s);
+      X.strokeStyle='rgba(0,170,255,0.04)';X.lineWidth=0.3;X.strokeRect(erX,labY-15*s,8*s,25*s);
+    }
+    // Protein crystal growth
+    for(var pc=0;pc<5;pc++){
+      var pcX=labX-20*s+pc*10*s;
+      var pcY=labY-8*s+Math.sin(t+pc)*3*s;
+      X.fillStyle='rgba(100,200,255,'+(0.04+Math.sin(t*2+pc)*0.02)+')';
+      X.beginPath();X.arc(pcX,pcY,2*s,0,Math.PI*2);X.fill();
+    }
+    // Microgravity particles
+    for(var mg=0;mg<8;mg++){
+      var mgX=labX-30*s+Math.sin(t*0.5+mg*1.7)*25*s;
+      var mgY=labY-15*s+Math.cos(t*0.3+mg*2.1)*15*s;
+      X.fillStyle='rgba(200,200,220,'+(0.02+Math.sin(t+mg)*0.01)+')';
+      X.beginPath();X.arc(mgX,mgY,0.8,0,Math.PI*2);X.fill();
+    }
+    lbl('наука · 300 экспериментов · микрогравитация · белки',labX,labY+28*s,'rgba(0,170,255,0.5)',6);
+  }
+
+  // === STAGE 6: Spacewalk ===
+  if(stage>=6){
+    // Airlock
+    var alX=cx-30*s,alY=cy;
+    X.fillStyle='rgba(180,180,190,0.04)';X.fillRect(alX-8*s,alY-10*s,16*s,20*s);
+    X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.4;X.strokeRect(alX-8*s,alY-10*s,16*s,20*s);
+    // Door open
+    X.fillStyle='rgba(10,15,25,0.06)';X.fillRect(alX+8*s,alY-8*s,4*s,16*s);
+    // Astronaut outside
+    astronaut(cx+10*s,cy-5*s+Math.sin(t*0.3)*2*s,s,0.1);
+    // Tether
+    X.strokeStyle='rgba(255,200,50,0.04)';X.lineWidth=0.3;
+    X.beginPath();X.moveTo(cx+10*s,cy);X.quadraticCurveTo(cx-5*s,cy-15*s,alX,alY-5*s);X.stroke();
+    // Stars behind
+    for(var sw=0;sw<20;sw++){
+      X.fillStyle='rgba(255,255,255,'+(0.01+Math.sin(t*0.5+sw)*0.005)+')';
+      X.beginPath();X.arc(cx-50*s+Math.sin(sw*3)*40*s,cy-30*s+Math.cos(sw*2)*20*s,0.3,0,Math.PI*2);X.fill();
+    }
+    // Timer
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(255,200,50,0.12)';X.textAlign='center';
+    X.fillText('7.5 часов · Orlan · 2 атмосферы',cx+10*s,cy+15*s);X.textAlign='left';
+    lbl('выход · скафандр · Orlan · 7.5 часов · страховка',cx,cy-25*s,'rgba(255,200,50,0.5)',6);
+  }
+
+  // === STAGE 7: Communication ===
+  if(stage>=7){
+    // TDRS satellite
+    var tdX=cx+50*s,tdY=cy-30*s;
+    X.fillStyle='rgba(200,200,210,0.04)';X.fillRect(tdX-3*s,tdY-3*s,6*s,6*s);
+    solarPanel(tdX,tdY-12*s,15*s,5*s,0,'rgba(50,100,200,0.04)');
+    solarPanel(tdX,tdY+12*s,15*s,5*s,0,'rgba(50,100,200,0.04)');
+    // Laser link
+    X.strokeStyle='rgba(0,255,100,'+(0.03+Math.sin(t*3)*0.015)+')';X.lineWidth=0.5;
+    X.beginPath();X.moveTo(cx,cy);X.lineTo(tdX,tdY);X.stroke();
+    // Data packets
+    for(var dp=0;dp<5;dp++){
+      var dpFrac=((t*2+dp*0.2)%1);
+      var dpX=cx+(tdX-cx)*dpFrac;
+      var dpY=cy+(tdY-cy)*dpFrac;
+      X.fillStyle='rgba(0,255,100,'+(0.04*(1-dpFrac))+')';
+      X.beginPath();X.arc(dpX,dpY,1.5,0,Math.PI*2);X.fill();
+    }
+    // Ground station
+    X.fillStyle='rgba(100,100,110,0.04)';X.fillRect(W*0.1,H*0.8,20*s,10*s);
+    // Dish
+    X.strokeStyle='rgba(200,200,210,0.04)';X.lineWidth=0.5;
+    X.beginPath();X.arc(W*0.1+10*s,H*0.8-5*s,8*s,Math.PI,0);X.stroke();
+    // Link to ground
+    X.strokeStyle='rgba(0,170,255,0.03)';X.lineWidth=0.3;X.setLineDash([2,2]);
+    X.beginPath();X.moveTo(tdX,tdY+3*s);X.lineTo(W*0.1+10*s,H*0.8-5*s);X.stroke();
+    X.setLineDash([]);
+    lbl('связь · TDRS · лазер · 300Мбит/с · 0.5сек',cx,cy+15*s,'rgba(0,255,100,0.5)',6);
+  }
+
+  // === STAGE 8: Maneuver ===
+  if(stage>=8){
+    // Thruster firing
+    var thrX=cx+30*s,thrY=cy;
+    // Module
+    module(thrX,thrY,15*s,10*s,'rgba(180,180,190,0.05)');
+    // Thruster plumes
+    for(var tp=0;tp<4;tp++){
+      var tpAngle=[0,Math.PI/2,Math.PI,Math.PI*1.5][tp];
+      var tpX=thrX+Math.cos(tpAngle)*8*s;
+      var tpY=thrY+Math.sin(tpAngle)*5*s;
+      for(var tf=0;tf<5;tf++){
+        var tfR=2+s*3+tf*2*s;
+        X.fillStyle='rgba(100,200,255,'+(0.03-tf*0.005)+')';
+        X.beginPath();X.arc(tpX+Math.cos(tpAngle)*tfR,tpY+Math.sin(tpAngle)*tfR,1.5-tf*0.2,0,Math.PI*2);X.fill();
+      }
+    }
+    // Fuel indicator
+    var fuel=60+Math.sin(t*0.5)*10;
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(100,200,255,0.12)';X.textAlign='center';
+    X.fillText('топливо '+fuel.toFixed(0)+'%',thrX,thrY+18*s);
+    X.fillText('12 тонн · 4 двигателя · 90 мин',thrX,thrY+24*s);X.textAlign='left';
+    lbl('манёвр · прогрев · 12 тонн · 4 двигателя',thrX,thrY-15*s,'rgba(100,200,255,0.5)',6);
+  }
+
+  // === STAGE 9: Debris ===
+  if(stage>=9){
+    // Debris field
+    for(var db=0;db<15;db++){
+      var dbX=cx-60*s+Math.sin(db*2.7)*50*s;
+      var dbY=cy-20*s+Math.cos(db*3.1)*15*s;
+      var dbSize=0.5+Math.sin(db)*0.3;
+      X.fillStyle='rgba(200,200,210,'+(0.02+Math.sin(t+db)*0.01)+')';
+      X.beginPath();X.arc(dbX,dbY,dbSize*s,0,Math.PI*2);X.fill();
+    }
+    // Trash bags being deployed
+    var bagX=cx+20*s+Math.sin(t*0.3)*10*s;
+    var bagY=cy+15*s+Math.cos(t*0.2)*5*s;
+    X.fillStyle='rgba(100,100,110,0.04)';X.fillRect(bagX-3*s,bagY-2*s,6*s,4*s);
+    // Burning on reentry
+    X.fillStyle='rgba(255,100,50,'+(0.03+Math.sin(t*5)*0.02)+')';
+    X.beginPath();X.arc(bagX+15*s,bagY+10*s,3*s,0,Math.PI*2);X.fill();
+    X.fillStyle='rgba(255,200,100,'+(0.02+Math.sin(t*5)*0.01)+')';
+    X.beginPath();X.arc(bagX+15*s,bagY+10*s,5*s,0,Math.PI*2);X.fill();
+    // Height
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(255,100,50,0.12)';X.textAlign='center';
+    X.fillText('200км · сжигание · атмосфера',bagX+15*s,bagY+20*s);X.textAlign='left';
+    lbl('мусор · 200 отходов/год · сжигание · 200км',cx,cy-30*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 10: Rescue ===
+  if(stage>=10){
+    // Dragon capsule approaching
+    var drX=cx+40*s,drY=cy-20*s;
+    // Capsule
+    X.fillStyle='rgba(200,200,210,0.05)';
+    X.beginPath();X.moveTo(drX-5*s,drY+8*s);X.lineTo(drX-5*s,drY-5*s);
+    X.quadraticCurveTo(drX,drY-12*s,drX+5*s,drY-5*s);X.lineTo(drX+5*s,drY+8*s);X.closePath();X.fill();
+    X.strokeStyle='rgba(180,180,190,0.06)';X.lineWidth=0.4;X.stroke();
+    // Trunk
+    X.fillStyle='rgba(150,150,160,0.04)';X.fillRect(drX-4*s,drY+8*s,8*s,6*s);
+    // Solar panels on trunk
+    solarPanel(drX,drY+14*s,12*s,3*s,0,'rgba(50,100,200,0.04)');
+    // Docking port
+    X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=0.5;
+    X.beginPath();X.arc(drX,drY-12*s,2*s,0,Math.PI*2);X.stroke();
+    // Approach line
+    X.strokeStyle='rgba(0,170,255,0.03)';X.lineWidth=0.3;X.setLineDash([2,2]);
+    X.beginPath();X.moveTo(drX,drY-12*s);X.lineTo(cx-20*s,cy);X.stroke();
+    X.setLineDash([]);
+    // ISS nearby
+    X.strokeStyle='rgba(200,200,210,0.04)';X.lineWidth=1;
+    X.beginPath();X.moveTo(cx-30*s,cy);X.lineTo(cx+30*s,cy);X.stroke();
+    lbl('спасение · SpaceX Crew · 4 человека · 20 часов',cx,cy+15*s,'rgba(200,200,210,0.5)',6);
+  }
+
+  // === STAGE 11: Future ===
+  if(stage>=11){
+    // Gateway station around Moon
+    var gwX=cx,gwY=cy-30*s;
+    // Moon
+    X.fillStyle='rgba(180,180,190,0.04)';X.beginPath();X.arc(gwX,gwY+40*s,30*s,0,Math.PI*2);X.fill();
+    X.strokeStyle='rgba(200,200,210,0.05)';X.lineWidth=0.5;X.beginPath();X.arc(gwX,gwY+40*s,30*s,0,Math.PI*2);X.stroke();
+    // Craters
+    X.fillStyle='rgba(160,160,170,0.03)';
+    X.beginPath();X.arc(gwX-8*s,gwY+35*s,5*s,0,Math.PI*2);X.fill();
+    X.beginPath();X.arc(gwX+10*s,gwY+42*s,3*s,0,Math.PI*2);X.fill();
+    // Gateway station
+    X.strokeStyle='rgba(200,200,210,0.06)';X.lineWidth=1;
+    X.beginPath();X.moveTo(gwX-20*s,gwY);X.lineTo(gwX+20*s,gwY);X.stroke();
+    module(gwX,gwY,12*s,6*s,'rgba(180,180,190,0.05)');
+    solarPanel(gwX-18*s,gwY,6*s,15*s,0.1,'rgba(50,100,200,0.05)');
+    solarPanel(gwX+18*s,gwY,6*s,15*s,-0.1,'rgba(50,100,200,0.05)');
+    // Mars in distance
+    X.fillStyle='rgba(200,100,50,0.03)';X.beginPath();X.arc(W*0.85,H*0.2,8*s,0,Math.PI*2);X.fill();
+    // Labels
+    X.font=(3*s)+'px monospace';X.fillStyle='rgba(200,200,210,0.12)';X.textAlign='center';
+    X.fillText('Gateway · Луна · 2025',gwX,gwY+80*s);
+    X.fillText('Mars →',W*0.85,H*0.2+15*s);X.textAlign='left';
+    lbl('будущее · Gateway · Луна · Mars',gwX,gwY-15*s,'rgba(200,200,210,0.6)',7);
+  }
+
+  document.getElementById('part-label').textContent=pts[stage]||'';
+  X.fillStyle='rgba(100,180,255,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(100,180,255,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd=0;sd<=maxStage;sd++){X.fillStyle=sd<=stage?'rgba(100,180,255,0.25)':'rgba(100,180,255,0.06)';X.beginPath();X.arc(W*0.1+W*0.8*(sd/maxStage),H-6.5,2,0,Math.PI*2);X.fill()}
+  requestAnimationFrame(draw);
+}
+draw();
+</script></body></html>
