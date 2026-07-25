@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>30 — Сборка Союза — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#04060a;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #fc0;color:#fc0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(255,200,0,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fc05;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#fc0;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:450px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Сборка Союза</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">◀</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">▶</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Старт</label><button class="tog" id="launchBtn">ЗАПУСК</button></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+var stage=0;
+var autoMode=false;
+var autoTimer=0;
+var maxStage=12;
+var launching=false;
+var launchY=0;
+var flameIntensity=0;
+
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ';};
+document.getElementById('launchBtn').onclick=function(){if(stage>=maxStage){launching=!launching;launchY=0;flameIntensity=0;this.textContent=launching?'СТОП':'СТАРТ';}};
+
+var parts=[
+  'Блок «А» — центральный блок · топливные баки',
+  'Блок «Б» — 4 ускорителя · окислитель + горючее',
+  'Блок «В» — третья ступень · разгонный блок',
+  'Агрегатный отсек — тяга, связь, электрика',
+  'Обтекатель — теплозащита при входе в атмосферу',
+  'Орбитальный модуль — рабочее место экипажа',
+  'Спускаемый аппарат — возвращаемый модуль',
+  'Приборный отсек — навигация, СКД',
+  'Двигатели — блочный и корректирующий',
+  'Системы связи — антенны, передатчики',
+  'Теплозащита — экраны из фольги и керамики',
+  'Пилоты — экипаж в скафандрах «Сокол»',
+  'Готов — РН «Союз-2.1а» · Байконур'
+];
+
+var t=0;
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
+
+function label(text,x,y,color,size){
+  X.globalAlpha=0.6;X.font=(size||7)+'px monospace';X.fillStyle=color||'rgba(255,220,180,0.8)';X.textAlign='center';X.fillText(text,x,y);X.textAlign='left';X.globalAlpha=1;
+}
+
+// Launch pad
+function drawPad(cx,baseY,s){
+  // Platform
+  F([cx-60*s,baseY,cx+60*s,baseY,cx+65*s,baseY+8*s,cx-65*s,baseY+8*s],'rgba(80,80,85,0.15)');
+  S([cx-60*s,baseY,cx+60*s,baseY,cx+65*s,baseY+8*s,cx-65*s,baseY+8*s],'rgba(100,100,110,0.25)',0.7);
+  
+  // Support arms
+  S([[cx-55*s,baseY],[cx-50*s,baseY-20*s]],'rgba(90,90,95,0.15)',0.6);
+  S([[cx+55*s,baseY],[cx+50*s,baseY-20*s]],'rgba(90,90,95,0.15)',0.6);
+  S([[cx-30*s,baseY],[cx-28*s,baseY-30*s]],'rgba(90,90,95,0.12)',0.5);
+  S([[cx+30*s,baseY],[cx+28*s,baseY-30*s]],'rgba(90,90,95,0.12)',0.5);
+  
+  // Flame trench
+  F([cx-20*s,baseY+8*s,cx+20*s,baseY+8*s,cx+25*s,baseY+25*s,cx-25*s,baseY+25*s],'rgba(40,35,30,0.1)');
+  S([cx-20*s,baseY+8*s,cx+20*s,baseY+8*s,cx+25*s,baseY+25*s,cx-25*s,baseY+25*s],'rgba(80,75,65,0.15)',0.5);
+}
+
+// Rocket — builds up
+function drawRocket(cx,baseY,s,stage2,t2,launchOff){
+  var rocketH=180*s;
+  var rocketW=14*s;
+  var rocketY=baseY-rocketH-launchOff;
+  
+  // Stage 0: Core stage tank
+  if(stage2>=0){
+    var tankH=80*s;
+    var tankY=rocketY+rocketH-tankH;
+    // Tank body
+    F([cx-rocketW,tankY,cx+rocketW,tankY,cx+rocketW*0.95,tankY+tankH,cx-rocketW*0.95,tankY+tankH],'rgba(180,180,185,0.08)');
+    S([cx-rocketW,tankY,cx+rocketW,tankY,cx+rocketW*0.95,tankY+tankH,cx-rocketW*0.95,tankY+tankH],'rgba(200,200,205,0.2)',0.6);
+    // Tank rings
+    for(var tr=0;tr<4;tr++){
+      var try2=tankY+10*s+tr*18*s;
+      S([[cx-rocketW,try2],[cx+rocketW,try2]],'rgba(180,180,185,0.08)',0.3);
+    }
+    // Fill pipes
+    S([[cx-rocketW-3*s,tankY+5*s],[cx-rocketW-3*s,tankY+tankH-5*s]],'rgba(160,160,165,0.08)',0.4);
+    label('блок «А» · НДМГ + АТ',cx,tankY+tankH+12*s,'rgba(200,200,210,0.5)',6);
+  }
+  
+  // Stage 1: Boosters
+  if(stage2>=1){
+    for(var bi=0;bi<4;bi++){
+      var ba=bi*Math.PI/2;
+      var bx=cx+Math.cos(ba)*rocketW*1.5;
+      var by=rocketY+rocketH-60*s;
+      var bH=55*s;
+      var bW=6*s;
+      // Booster body
+      F([bx-bW,by,bx+bW,by,bx+bW*0.8,by+bH,bx-bW*0.8,by+bH],'rgba(170,170,175,0.06)');
+      S([bx-bW,by,bx+bW,by,bx+bW*0.8,by+bH,bx-bW*0.8,by+bH],'rgba(190,190,195,0.15)',0.4);
+      // Nose cone
+      S([[bx-bW,by],[bx,by-8*s],[bx+bW,by]],'rgba(190,190,195,0.12)',0.4);
+      // Nozzle
+      S([[bx-bW*0.5,by+bH],[bx-bW,by+bH+4*s],[bx+bW,by+bH+4*s],[bx+bW*0.5,by+bH]],'rgba(150,150,155,0.1)',0.3);
+    }
+    label('4 ускорителя · блоки «Б»',cx+rocketW*3,rocketY+rocketH-35*s,'rgba(180,180,190,0.4)',5);
+  }
+  
+  // Stage 2: Third stage
+  if(stage2>=2){
+    var ts3Y=rocketY+rocketH*0.35;
+    var ts3H=25*s;
+    F([cx-rocketW*0.8,ts3Y,cx+rocketW*0.8,ts3Y,cx+rocketW*0.7,ts3Y+ts3H,cx-rocketW*0.7,ts3Y+ts3H],'rgba(160,160,165,0.06)');
+    S([cx-rocketW*0.8,ts3Y,cx+rocketW*0.8,ts3Y,cx+rocketW*0.7,ts3Y+ts3H,cx-rocketW*0.7,ts3Y+ts3H],'rgba(180,180,185,0.15)',0.4);
+    // Interstage
+    S([[cx-rocketW*0.85,ts3Y+ts3H],[cx+rocketW*0.85,ts3Y+ts3H]],'rgba(170,170,175,0.1)',0.3);
+    label('блок «В» · разгонный',cx,ts3Y-8*s,'rgba(170,170,180,0.4)',5);
+  }
+  
+  // Stage 3: Adapter/agregatny
+  if(stage2>=3){
+    var agY=rocketY+rocketH*0.25;
+    S([[cx-rocketW*0.7,agY],[cx-rocketW*0.5,agY-8*s]],'rgba(150,150,155,0.1)',0.3);
+    S([[cx+rocketW*0.7,agY],[cx+rocketW*0.5,agY-8*s]],'rgba(150,150,155,0.1)',0.3);
+    S([[cx-rocketW*0.5,agY-8*s],[cx+rocketW*0.5,agY-8*s]],'rgba(150,150,155,0.08)',0.3);
+    label('агрегатный отсек',cx+rocketW*2,agY-4*s,'rgba(160,160,170,0.4)',5);
+  }
+  
+  // Stage 4: Fairing
+  if(stage2>=4){
+    var fairY=rocketY;
+    var fairH=35*s;
+    // Fairing halves
+    F([cx-rocketW*1.2,fairY+fairH,cx-rocketW*1.2,fairY+fairH*0.3,cx-rocketW*0.3,fairY,cx,fairY-fairH*0.1],'rgba(200,200,205,0.06)');
+    S([cx-rocketW*1.2,fairY+fairH,cx-rocketW*1.2,fairY+fairH*0.3,cx-rocketW*0.3,fairY,cx,fairY-fairH*0.1],'rgba(210,210,215,0.12)',0.4);
+    F([cx+rocketW*1.2,fairY+fairH,cx+rocketW*1.2,fairY+fairH*0.3,cx+rocketW*0.3,fairY,cx,fairY-fairH*0.1],'rgba(200,200,205,0.06)');
+    S([cx+rocketW*1.2,fairY+fairH,cx+rocketW*1.2,fairY+fairH*0.3,cx+rocketW*0.3,fairY,cx,fairY-fairH*0.1],'rgba(210,210,215,0.12)',0.4);
+    // Separation line
+    S([[cx,fairY-fairH*0.1],[cx,fairY+fairH]],'rgba(180,180,185,0.06)',0.3);
+    label('обтекатель · теплозащита',cx-rocketW*2,fairY+fairH*0.5,'rgba(200,200,210,0.4)',5);
+  }
+  
+  // Stage 5: Orbital module
+  if(stage2>=5){
+    var omY=rocketY+rocketH*0.15;
+    var omH=20*s;
+    F([cx-rocketW*0.6,omY,cx+rocketW*0.6,omY,cx+rocketW*0.6,omY+omH,cx-rocketW*0.6,omY+omH],'rgba(140,160,180,0.06)');
+    S([cx-rocketW*0.6,omY,cx+rocketW*0.6,omY,cx+rocketW*0.6,omY+omH,cx-rocketW*0.6,omY+omH],'rgba(160,180,200,0.15)',0.4);
+    // Window
+    F([cx-3*s,omY+3*s,cx+3*s,omY+3*s,cx+3*s,omY+8*s,cx-3*s,omY+8*s],'rgba(40,60,80,0.08)');
+    S([cx-3*s,omY+3*s,cx+3*s,omY+3*s,cx+3*s,omY+8*s,cx-3*s,omY+8*s],'rgba(80,120,160,0.12)',0.3);
+    label('орбитальный модуль',cx+rocketW*1.5,omY+omH*0.5,'rgba(140,160,200,0.4)',5);
+  }
+  
+  // Stage 6: Return capsule
+  if(stage2>=6){
+    var rcY=rocketY+rocketH*0.35;
+    var rcH=18*s;
+    // Bell shape
+    F([cx-rocketW*0.5,rcY+rcH,cx+rocketW*0.5,rcY+rcH,cx+rocketW*0.35,rcY+rcH*0.3,cx,rcY],'rgba(160,150,140,0.08)');
+    S([cx-rocketW*0.5,rcY+rcH,cx+rocketW*0.5,rcY+rcH,cx+rocketW*0.35,rcY+rcH*0.3,cx,rcY],'rgba(180,170,160,0.2)',0.5);
+    // Heat shield line
+    S([[cx-rocketW*0.5,rcY+rcH],[cx+rocketW*0.5,rcY+rcH]],'rgba(200,100,50,0.1)',0.4);
+    label('спускаемый аппарат',cx-rocketW*1.5,rcY+rcH*0.5,'rgba(200,170,130,0.4)',5);
+  }
+  
+  // Stage 7: Instrument compartment
+  if(stage2>=7){
+    var ipY=rocketY+rocketH*0.55;
+    var ipH=15*s;
+    F([cx-rocketW*0.55,ipY,cx+rocketW*0.55,ipY,cx+rocketW*0.55,ipY+ipH,cx-rocketW*0.55,ipY+ipH],'rgba(130,140,150,0.06)');
+    S([cx-rocketW*0.55,ipY,cx+rocketW*0.55,ipY,cx+rocketW*0.55,ipY+ipH,cx-rocketW*0.55,ipY+ipH],'rgba(150,160,170,0.12)',0.3);
+    // Electronics boxes
+    for(var eb=0;eb<3;eb++){
+      var ebx=cx-rocketW*0.3+eb*rocketW*0.3;
+      F([ebx,ipY+3*s,ebx+4*s,ipY+3*s,ebx+4*s,ipY+ipH-3*s,ebx,ipY+ipH-3*s],'rgba(80,100,80,0.05)');
+      S([ebx,ipY+3*s,ebx+4*s,ipY+3*s,ebx+4*s,ipY+ipH-3*s,ebx,ipY+ipH-3*s],'rgba(100,120,100,0.1)',0.2);
+    }
+    label('приборный отсек · навигация',cx+rocketW*1.5,ipY+ipH*0.5,'rgba(140,150,160,0.4)',5);
+  }
+  
+  // Stage 8: Engines
+  if(stage2>=8){
+    var engY=rocketY+rocketH;
+    // Main nozzle
+    S([[cx-4*s,engY],[cx-6*s,engY+10*s]],'rgba(150,150,155,0.15)',0.5);
+    S([[cx+4*s,engY],[cx+6*s,engY+10*s]],'rgba(150,150,155,0.15)',0.5);
+    S([[cx-6*s,engY+10*s],[cx+6*s,engY+10*s]],'rgba(150,150,155,0.12)',0.4);
+    // Vernier thrusters
+    for(var vt=0;vt<4;vt++){
+      var va=vt*Math.PI/2+Math.PI/4;
+      var vx=cx+Math.cos(va)*rocketW*0.8;
+      var vy=engY+5*s;
+      S([[vx,vy],[vx+Math.cos(va)*3*s,vy+3*s]],'rgba(140,140,145,0.08)',0.3);
+    }
+    label('ДУ · РД-107А · 4×vernier',cx,engY+18*s,'rgba(170,170,180,0.4)',5);
+  }
+  
+  // Stage 9: Comms antennas
+  if(stage2>=9){
+    // Whip antennas
+    S([[cx+rocketW*1.2,rocketY+rocketH*0.3],[cx+rocketW*1.8,rocketY+rocketH*0.25]],'rgba(140,140,150,0.08)',0.3);
+    S([[cx-rocketW*1.2,rocketY+rocketH*0.4],[cx-rocketW*1.6,rocketY+rocketH*0.35]],'rgba(140,140,150,0.08)',0.3);
+    // Dish
+    X.strokeStyle='rgba(150,150,160,0.1)';X.lineWidth=0.4;
+    X.beginPath();X.arc(cx+rocketW*1.5,rocketY+rocketH*0.2,3*s,Math.PI*1.2,Math.PI*1.8);X.stroke();
+    label('антенны · связь',cx+rocketW*2,rocketY+rocketH*0.25,'rgba(140,140,160,0.4)',5);
+  }
+  
+  // Stage 10: Thermal protection
+  if(stage2>=10){
+    // Multi-layer insulation hints
+    for(var ml=0;ml<6;ml++){
+      var mly=rocketY+rocketH*0.1+ml*15*s;
+      X.globalAlpha=0.02;
+      F([cx-rocketW*1.1,mly,cx+rocketW*1.1,mly,cx+rocketW*1.1,mly+3*s,cx-rocketW*1.1,mly+3*s],'rgba(220,200,100,0.5)');
+      X.globalAlpha=1;
+    }
+    // Heat shield on capsule
+    S([[cx-rocketW*0.5,rocketY+rocketH*0.35+18*s],[cx+rocketW*0.5,rocketY+rocketH*0.35+18*s]],'rgba(200,100,50,0.08)',0.3);
+    label('теплозащита · фольга + керамика',cx,rocketY-10*s,'rgba(200,180,120,0.4)',5);
+  }
+  
+  // Stage 11: Crew
+  if(stage2>=11){
+    var crewY=rocketY+rocketH*0.38;
+    // Three seats
+    for(var cr=0;cr<3;cr++){
+      var crx=cx-5*s+cr*5*s;
+      F([crx-1*s,crewY,crx+1*s,crewY,crx+1*s,crewY+6*s,crx-1*s,crewY+6*s],'rgba(100,120,100,0.06)');
+      S([crx-1*s,crewY,crx+1*s,crewY,crx+1*s,crewY+6*s,crx-1*s,crewY+6*s],'rgba(120,140,120,0.1)',0.2);
+      // Helmet
+      X.fillStyle='rgba(200,200,210,0.05)';X.beginPath();X.arc(crx,crewY-1*s,1.5*s,0,Math.PI*2);X.fill();
+    }
+    label('экипаж · 3 космонавта · «Сокол»',cx,crewY+12*s,'rgba(120,160,120,0.4)',5);
+  }
+  
+  // Stage 12: Complete
+  if(stage2>=12){
+    // Flag/emblem
+    X.fillStyle='rgba(200,50,50,0.04)';X.beginPath();X.arc(cx,rocketY+rocketH*0.45,3*s,0,Math.PI*2);X.fill();
+    
+    // Glow
+    X.globalAlpha=0.015;
+    F([cx-rocketW*1.5,rocketY,cx+rocketW*1.5,rocketY,cx+rocketW*1.5,rocketY+rocketH,cx-rocketW*1.5,rocketY+rocketH],'rgba(255,220,180,0.3)');
+    X.globalAlpha=1;
+    
+    label('РН «Союз-2.1а» · 313 тонн · Байконур',cx,baseY+35*s,'rgba(255,220,180,0.6)',7);
+    label('высота 49.3м · тяга 4136кН · орбита МКС',cx,baseY+45*s,'rgba(200,180,140,0.35)',5);
+  }
+  
+  // Launch flame
+  if(launching&&launchOff>0){
+    flameIntensity=Math.min(flameIntensity+0.02,1);
+    var flameY=rocketY+rocketH;
+    var flameH=60*s*flameIntensity;
+    
+    // Core flame
+    for(var ff=0;ff<5;ff++){
+      var ffh=flameH*(1-ff*0.15);
+      var ffw=rocketW*(1+ff*0.3);
+      var ffa=0.15-ff*0.025;
+      X.fillStyle='rgba(255,'+Math.floor(200-ff*30)+','+Math.floor(80-ff*15)+','+ffa+')';
+      X.beginPath();
+      X.moveTo(cx-ffw,flameY);
+      X.quadraticCurveTo(cx-ffw*0.5,flameY+ffh*0.6,cx,flameY+ffh);
+      X.quadraticCurveTo(cx+ffw*0.5,flameY+ffh*0.6,cx+ffw,flameY);
+      X.fill();
+    }
+    
+    // Booster flames
+    for(var bf=0;bf<4;bf++){
+      var bba=bf*Math.PI/2;
+      var bbx=cx+Math.cos(bba)*rocketW*1.5;
+      var bby=rocketY+rocketH-5*s;
+      for(var bff=0;bff<3;bff++){
+        var bfh=flameH*0.6*(1-bff*0.2);
+        var bfw=rocketW*0.4*(1+bff*0.2);
+        X.fillStyle='rgba(255,'+Math.floor(210-bff*20)+','+Math.floor(100-bff*15)+','+(0.1-bff*0.025)+')';
+        X.beginPath();
+        X.moveTo(bbbx-bfw,bby);
+        X.quadraticCurveTo(bbx,bby+bfh,bbx+bfw,bby);
+        X.fill();
+      }
+    }
+    
+    // Smoke
+    for(var sm=0;sm<8;sm++){
+      var smx=cx+Math.sin(t2*0.5+sm*1.3)*15*s*flameIntensity;
+      var smy=flameY+flameH+sm*8*s;
+      var smr=3*s+sm*1.5*s;
+      X.fillStyle='rgba(180,180,190,'+(0.03-sm*0.003)*flameIntensity+')';
+      X.beginPath();X.arc(smx,smy,smr,0,Math.PI*2);X.fill();
+    }
+  }
+}
+
+function draw(){
+  if(autoMode){
+    autoTimer+=0.016;
+    if(autoTimer>2){
+      autoTimer=0;
+      if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}
+      else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ';}
+    }
+  }
+  
+  if(launching){
+    launchY=Math.min(launchY+0.8,200);
+  }
+  
+  t+=0.016;
+  
+  X.fillStyle='#04060a';X.fillRect(0,0,W,H);
+  
+  // Stars
+  for(var st=0;st<40;st++){
+    var stx=Math.sin(st*7.3)*W*0.45+W*0.5;
+    var sty=Math.cos(st*4.7)*H*0.4+H*0.3;
+    X.fillStyle='rgba(255,255,255,'+(0.04+0.02*Math.sin(t*1.5+st))+')';
+    X.beginPath();X.arc(stx,sty,0.5,0,Math.PI*2);X.fill();
+  }
+  
+  var cx=W/2;
+  var baseY=H*0.78;
+  var s=Math.min(W,H)/600;
+  
+  drawPad(cx,baseY,s);
+  drawRocket(cx,baseY,s,stage,t,launchY);
+  
+  document.getElementById('part-label').textContent=parts[stage]||'';
+  
+  // Progress
+  X.fillStyle='rgba(255,200,100,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(255,200,100,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd=0;sd<=maxStage;sd++){
+    var sdx=W*0.1+W*0.8*(sd/maxStage);
+    X.fillStyle=sd<=stage?'rgba(255,200,100,0.25)':'rgba(255,200,100,0.06)';
+    X.beginPath();X.arc(sdx,H-6.5,2,0,Math.PI*2);X.fill();
+  }
+  
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>31 — Сборка Су-57 — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050808;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:10;flex-wrap:wrap;justify-content:center}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+button.tog{background:none;border:1px solid #fc0;color:#fc0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+button.tog:hover{background:rgba(255,200,0,0.1)}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fc05;z-index:10;opacity:0.4}
+#part-label{position:absolute;top:50px;left:50%;transform:translateX(-50%);color:#fc0;font-size:11px;letter-spacing:3px;z-index:10;opacity:0.6;text-align:center;max-width:450px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Сборка Су-57</div>
+<div id="part-label"></div>
+<div id="ui">
+<div class="ctrl"><label>Этап</label><button class="tog" id="prevBtn">◀</button><span class="val" id="stageV">0/12</span><button class="tog" id="nextBtn">▶</button></div>
+<div class="ctrl"><label>Автосборка</label><button class="tog" id="autoBtn">СТАРТ</button></div>
+<div class="ctrl"><label>Режим</label><button class="tog" id="viewBtn">ЗАВОД</button></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+var stage=0;
+var autoMode=false;
+var autoTimer=0;
+var maxStage=12;
+var viewMode=0;
+var viewNames=['ЗАВОД','ПОЛЁТ'];
+
+document.getElementById('prevBtn').onclick=function(){if(stage>0){stage--;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('nextBtn').onclick=function(){if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}};
+document.getElementById('autoBtn').onclick=function(){autoMode=!autoMode;this.textContent=autoMode?'СТОП':'СТАРТ';};
+document.getElementById('viewBtn').onclick=function(){viewMode=(viewMode+1)%2;this.textContent=viewNames[viewMode];};
+
+var parts=[
+  'Центроплан — монокок из композита',
+  'Корпус — отсек вооружения и приборов',
+  'Крыло — трапеция · карбон · 14м размах',
+  'КИЛи — два симметричных · управление по тангажу',
+  'Двигатели — 2×АЛ-41Ф1 · 147кгс · форсаж',
+  'Сопла — поворотные · вектор тяги',
+  'Шасси — трёхопорное · убираемое',
+  'Кабина пилота — фонарь · ОДС · КБТ-62',
+  'РЛС — Н036 «Белка» · АФАР · 1500 элементов',
+  'Вооружение — 4×Х-59МК2 · 2×Р-77М',
+  'Обшивка — RAM · радиопоглощающие материалы',
+  'Система ОТР — ИК-ловушки · дымовые ТГ',
+  'Готов — Су-57 «Фелон» · 5 поколение'
+];
+
+var t=0;
+var flyAngle=0;
+var flyX=0;
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
+
+function label(text,x,y,color,size){
+  X.globalAlpha=0.6;X.font=(size||7)+'px monospace';X.fillStyle=color||'rgba(255,220,180,0.8)';X.textAlign='center';X.fillText(text,x,y);X.textAlign='left';X.globalAlpha=1;
+}
+
+// Hangar background
+function drawHangar(t2){
+  // Floor
+  F([0,H*0.7,W,H*0.7,W,H,0,H],'rgba(40,40,45,0.08)');
+  
+  // Floor grid
+  for(var fg=0;fg<10;fg++){
+    var fgy=H*0.7+fg*H*0.03;
+    S([[0,fgy],[W,fgy]],'rgba(60,60,65,0.04)',0.3);
+  }
+  
+  // Overhead crane
+  S([[W*0.05,H*0.15],[W*0.95,H*0.15]],'rgba(70,70,75,0.06)',0.8);
+  var hookX=W*0.05+Math.sin(t2*0.1)*W*0.4;
+  S([[hookX,H*0.15],[hookX,H*0.25]],'rgba(90,90,95,0.04)',0.3);
+  
+  // Lights
+  for(var l=0;l<5;l++){
+    var lx=W*0.1+l*W*0.2;
+    X.fillStyle='rgba(255,240,200,'+(0.015+0.003*Math.sin(t2*0.5+l))+')';
+    X.beginPath();X.arc(lx,H*0.08,10,0,Math.PI*2);X.fill();
+  }
+}
+
+// Fighter jet — side view builds up
+function drawJet(cx,cy,s,stage2,t2,fly){
+  var jetLen=130*s;
+  var jetH=12*s;
+  var jetY=cy;
+  var flyOffset=fly?Math.sin(t2*0.3)*10*s:0;
+  var flyAngle2=fly?Math.sin(t2*0.3)*0.03:0;
+  
+  X.save();
+  X.translate(cx,jetY+flyOffset);
+  X.rotate(flyAngle2);
+  
+  // Stage 0: Centerplane/fuselage
+  if(stage2>=0){
+    F([[-jetLen*0.5,-jetH],[-jetLen*0.2,-jetH*1.5],[jetLen*0.3,-jetH*1.5],[jetLen*0.5,-jetH*0.5],[jetLen*0.6,0],[jetLen*0.5,jetH*0.5],[jetLen*0.3,jetH*1.5],[-jetLen*0.2,jetH*1.5],[-jetLen*0.5,jetH]],'rgba(80,85,90,0.08)');
+    S([[-jetLen*0.5,-jetH],[-jetLen*0.2,-jetH*1.5],[jetLen*0.3,-jetH*1.5],[jetLen*0.5,-jetH*0.5],[jetLen*0.6,0],[jetLen*0.5,jetH*0.5],[jetLen*0.3,jetH*1.5],[-jetLen*0.2,jetH*1.5],[-jetLen*0.5,jetH]],'rgba(100,105,110,0.2)',0.6);
+    label('центроплан · композит',0,jetH*2.5,'rgba(150,155,160,0.5)',6);
+  }
+  
+  // Stage 1: Fuselage body
+  if(stage2>=1){
+    F([[-jetLen*0.3,-jetH*0.8],[jetLen*0.2,-jetH*0.8],[jetLen*0.4,-jetH*0.3],[jetLen*0.4,jetH*0.3],[jetLen*0.2,jetH*0.8],[-jetLen*0.3,jetH*0.8]],'rgba(75,80,85,0.06)');
+    S([[-jetLen*0.3,-jetH*0.8],[jetLen*0.2,-jetH*0.8],[jetLen*0.4,-jetH*0.3],[jetLen*0.4,jetH*0.3],[jetLen*0.2,jetH*0.8],[-jetLen*0.3,jetH*0.8]],'rgba(95,100,105,0.15)',0.5);
+    // Panel lines
+    for(var pl=0;pl<5;pl++){
+      var plx=-jetLen*0.2+pl*jetLen*0.12;
+      S([[plx,-jetH*0.6],[plx,jetH*0.6]],'rgba(85,90,95,0.05)',0.3);
+    }
+    label('корпус · отсек вооружения',0,jetH*2,'rgba(140,145,150,0.4)',5);
+  }
+  
+  // Stage 2: Wings
+  if(stage2>=2){
+    var wingSpan=55*s;
+    var wingRoot=jetLen*0.05;
+    var wingTip=jetLen*0.35;
+    // Left wing
+    F([[wingRoot,-jetH*1.5],[wingTip,-wingSpan],[wingTip+10*s,-wingSpan*0.9],[wingRoot+15*s,-jetH*1.3]],'rgba(75,80,85,0.06)');
+    S([[wingRoot,-jetH*1.5],[wingTip,-wingSpan],[wingTip+10*s,-wingSpan*0.9],[wingRoot+15*s,-jetH*1.3]],'rgba(95,100,105,0.15)',0.5);
+    // Right wing
+    F([[wingRoot,jetH*1.5],[wingTip,wingSpan],[wingTip+10*s,wingSpan*0.9],[wingRoot+15*s,jetH*1.3]],'rgba(75,80,85,0.06)');
+    S([[wingRoot,jetH*1.5],[wingTip,wingSpan],[wingTip+10*s,wingSpan*0.9],[wingRoot+15*s,jetH*1.3]],'rgba(95,100,105,0.15)',0.5);
+    // Wing fences
+    S([[wingRoot+8*s,-jetH*1.5],[wingRoot+8*s,-wingSpan*0.7]],'rgba(85,90,95,0.06)',0.3);
+    S([[wingRoot+8*s,jetH*1.5],[wingRoot+8*s,wingSpan*0.7]],'rgba(85,90,95,0.06)',0.3);
+    label('крыло · карбон · 14м',wingTip+15*s,-wingSpan*0.5,'rgba(140,150,150,0.4)',5);
+  }
+  
+  // Stage 3: Tail fins
+  if(stage2>=3){
+    var tailX=-jetLen*0.4;
+    var tailH2=25*s;
+    // Left stabilator
+    F([[tailX,-jetH*1.2],[tailX-15*s,-tailH2],[tailX+10*s,-tailH2*0.8],[tailX+5*s,-jetH*1.1]],'rgba(70,75,80,0.06)');
+    S([[tailX,-jetH*1.2],[tailX-15*s,-tailH2],[tailX+10*s,-tailH2*0.8],[tailX+5*s,-jetH*1.1]],'rgba(90,95,100,0.12)',0.4);
+    // Right stabilator
+    F([[tailX,jetH*1.2],[tailX-15*s,tailH2],[tailX+10*s,tailH2*0.8],[tailX+5*s,jetH*1.1]],'rgba(70,75,80,0.06)');
+    S([[tailX,jetH*1.2],[tailX-15*s,tailH2],[tailX+10*s,tailH2*0.8],[tailX+5*s,jetH*1.1]],'rgba(90,95,100,0.12)',0.4);
+    // Vertical fins
+    F([[tailX,-jetH*0.5],[tailX-10*s,-jetH*0.5-tailH2*0.8],[tailX+8*s,-jetH*0.5-tailH2*0.6],[tailX+5*s,-jetH*0.5]],'rgba(70,75,80,0.05)');
+    S([[tailX,-jetH*0.5],[tailX-10*s,-jetH*0.5-tailH2*0.8],[tailX+8*s,-jetH*0.5-tailH2*0.6],[tailX+5*s,-jetH*0.5]],'rgba(90,95,100,0.1)',0.3);
+    label('КИЛи · стабилизаторы',tailX-20*s,-tailH2-10*s,'rgba(130,140,145,0.4)',5);
+  }
+  
+  // Stage 4: Engines
+  if(stage2>=4){
+    var engX=-jetLen*0.15;
+    var engGap=jetH*0.6;
+    // Left engine nacelle
+    F([[-jetLen*0.1,-engGap-4*s],[jetLen*0.15,-engGap-4*s],[jetLen*0.2,-engGap],[jetLen*0.15,engGap*0],[-jetLen*0.1,-engGap+4*s]],'rgba(75,80,80,0.06)');
+    S([[-jetLen*0.1,-engGap-4*s],[jetLen*0.15,-engGap-4*s],[jetLen*0.2,-engGap]],'rgba(95,100,100,0.12)',0.4);
+    // Right engine nacelle
+    F([[-jetLen*0.1,engGap-4*s],[jetLen*0.15,engGap-4*s],[jetLen*0.2,engGap],[jetLen*0.15,engGap*0],[-jetLen*0.1,engGap+4*s]],'rgba(75,80,80,0.06)');
+    S([[-jetLen*0.1,engGap-4*s],[jetLen*0.15,engGap-4*s],[jetLen*0.2,engGap]],'rgba(95,100,100,0.12)',0.4);
+    // Intake ramps
+    S([[-jetLen*0.15,-engGap-6*s],[-jetLen*0.15,-engGap+6*s]],'rgba(90,95,95,0.08)',0.4);
+    S([[-jetLen*0.15,engGap-6*s],[-jetLen*0.15,engGap+6*s]],'rgba(90,95,95,0.08)',0.4);
+    label('АЛ-41Ф1 · 2×147кн',0,-engGap-12*s,'rgba(160,150,120,0.4)',5);
+  }
+  
+  // Stage 5: Nozzles
+  if(stage2>=5){
+    var nozX=jetLen*0.55;
+    var nozGap=jetH*0.6;
+    // Left nozzle
+    S([[nozX-5*s,-nozGap-3*s],[nozX+3*s,-nozGap-2*s]],'rgba(120,120,125,0.15)',0.5);
+    S([[nozX-5*s,-nozGap+3*s],[nozX+3*s,-nozGap+2*s]],'rgba(120,120,125,0.15)',0.5);
+    X.strokeStyle='rgba(130,130,135,0.1)';X.lineWidth=0.4;
+    X.beginPath();X.arc(nozX,-nozGap,3*s,0,Math.PI*2);X.stroke();
+    // Right nozzle
+    S([[nozX-5*s,nozGap-3*s],[nozX+3*s,nozGap-2*s]],'rgba(120,120,125,0.15)',0.5);
+    S([[nozX-5*s,nozGap+3*s],[nozX+3*s,nozGap+2*s]],'rgba(120,120,125,0.15)',0.5);
+    X.beginPath();X.arc(nozX,nozGap,3*s,0,Math.PI*2);X.stroke();
+    // Glow when flying
+    if(fly){
+      X.globalAlpha=0.03+Math.sin(t2*3)*0.01;
+      X.fillStyle='rgba(255,150,50,0.5)';X.beginPath();X.arc(nozX+3*s,-nozGap,5*s,0,Math.PI*2);X.fill();
+      X.beginPath();X.arc(nozX+3*s,nozGap,5*s,0,Math.PI*2);X.fill();
+      X.globalAlpha=1;
+    }
+    label('поворотные сопла · ОВТ',nozX+12*s,0,'rgba(140,140,150,0.4)',5);
+  }
+  
+  // Stage 6: Landing gear
+  if(stage2>=6&&!fly){
+    // Nose gear
+    S([[-jetLen*0.35,jetH*1.5],[-jetLen*0.35,jetH*1.5+10*s]],'rgba(90,95,100,0.12)',0.4);
+    X.fillStyle='rgba(50,50,55,0.1)';X.beginPath();X.arc(-jetLen*0.35,jetH*1.5+12*s,2*s,0,Math.PI*2);X.fill();
+    // Main gear
+    S([[jetLen*0.05,jetH*1.5],[jetLen*0.05,jetH*1.5+8*s]],'rgba(90,95,100,0.12)',0.4);
+    X.fillStyle='rgba(50,50,55,0.1)';X.beginPath();X.arc(jetLen*0.05,jetH*1.5+10*s,2.5*s,0,Math.PI*2);X.fill();
+    S([[-jetLen*0.05,jetH*1.5],[-jetLen*0.05,jetH*1.5+8*s]],'rgba(90,95,100,0.12)',0.4);
+    X.fillStyle='rgba(50,50,55,0.1)';X.beginPath();X.arc(-jetLen*0.05,jetH*1.5+10*s,2.5*s,0,Math.PI*2);X.fill();
+    label('шасси · убираемое',0,jetH*1.5+20*s,'rgba(130,135,140,0.4)',5);
+  }
+  
+  // Stage 7: Cockpit
+  if(stage2>=7){
+    var cabX=-jetLen*0.25;
+    var cabY2=-jetH*1.5;
+    // Canopy
+    F([[cabX,cabY2],[cabX+15*s,cabY2-3*s],[cabX+25*s,cabY2-2*s],[cabX+20*s,cabY2+2*s],[cabX,cabY2+2*s]],'rgba(60,80,100,0.06)');
+    S([[cabX,cabY2],[cabX+15*s,cabY2-3*s],[cabX+25*s,cabY2-2*s],[cabX+20*s,cabY2+2*s],[cabX,cabY2+2*s]],'rgba(80,120,160,0.12)',0.4);
+    // HUD frame
+    S([[cabX+8*s,cabY2-1*s],[cabX+8*s,cabY2-3*s]],'rgba(100,140,180,0.08)',0.3);
+    label('кабина · ОДС · КБТ-62',cabX+12*s,cabY2-10*s,'rgba(100,140,180,0.4)',5);
+  }
+  
+  // Stage 8: Radar
+  if(stage2>=8){
+    var radX=-jetLen*0.45;
+    // Nose radome
+    F([[-jetLen*0.5,-jetH*0.8],[-jetLen*0.45,-jetH*0.4],[-jetLen*0.45,jetH*0.4],[-jetLen*0.5,jetH*0.8]],'rgba(60,65,70,0.05)');
+    S([[-jetLen*0.5,-jetH*0.8],[-jetLen*0.45,-jetH*0.4],[-jetLen*0.45,jetH*0.4],[-jetLen*0.5,jetH*0.8]],'rgba(80,85,90,0.1)',0.3);
+    // AFA elements hint
+    for(var ae=0;ae<8;ae++){
+      var aex=-jetLen*0.47;
+      var aey=-jetH*0.5+ae*jetH*0.14;
+      X.fillStyle='rgba(80,100,120,0.04)';X.beginPath();X.arc(aex,aey,1*s,0,Math.PI*2);X.fill();
+    }
+    label('Н036 «Белка» · АФАР · 1500 T/R',radX-15*s,0,'rgba(120,140,160,0.4)',5);
+  }
+  
+  // Stage 9: Weapons bays
+  if(stage2>=9){
+    var wbX=-jetLen*0.05;
+    var wbY=jetH*1.3;
+    // Bay doors
+    S([[wbX-15*s,wbY],[wbX+15*s,wbY]],'rgba(90,95,100,0.08)',0.3);
+    // Missiles inside
+    for(var ms=0;ms<3;ms++){
+      var msx=wbX-10*s+ms*10*s;
+      S([[msx,wbY+1*s],[msx+8*s,wbY+1*s]],'rgba(160,160,170,0.06)',0.3);
+    }
+    label('отсек · 4×Х-59МК2 · 2×Р-77М',0,wbY+10*s,'rgba(160,150,120,0.4)',5);
+  }
+  
+  // Stage 10: RAM coating
+  if(stage2>=10){
+    // RAM panels
+    for(var rp=0;rp<8;rp++){
+      var rpx=-jetLen*0.3+rp*jetLen*0.1;
+      X.globalAlpha=0.015;
+      F([rpx,-jetH*0.5,rpx+jetLen*0.08,-jetH*0.5,rpx+jetLen*0.08,jetH*0.5,rpx,jetH*0.5],'rgba(100,100,110,0.3)');
+      X.globalAlpha=1;
+    }
+    label('RAM · радиопоглощение',0,jetH*3,'rgba(140,140,150,0.4)',5);
+  }
+  
+  // Stage 11: Countermeasures
+  if(stage2>=11){
+    // Flare dispensers
+    var flX=jetLen*0.1;
+    var flY=-jetH*1.3;
+    for(var fd=0;fd<4;fd++){
+      var fdx=flX+fd*3*s;
+      X.fillStyle='rgba(200,180,100,0.03)';X.beginPath();X.arc(fdx,flY,1*s,0,Math.PI*2);X.fill();
+    }
+    // Chaff
+    S([[flX,flY-2*s],[flX+12*s,flY-4*s]],'rgba(140,140,150,0.06)',0.3);
+    label('ИК-ловушки · дымовые ТГ',flX+6*s,flY-8*s,'rgba(180,160,100,0.4)',5);
+  }
+  
+  // Stage 12: Complete
+  if(stage2>=12){
+    // Ghost mode panels
+    X.globalAlpha=0.01;
+    F([[-jetLen*0.3,-jetH*2],[jetLen*0.3,-jetH*2],[jetLen*0.3,jetH*2],[-jetLen*0.3,jetH*2]],'rgba(255,220,180,0.3)');
+    X.globalAlpha=1;
+    
+    label('Су-57 «Фелон» · 5 поколение',0,-jetH*3,'rgba(255,220,180,0.6)',7);
+    label('2×АЛ-41Ф1 · М=2 · 3500км · РЛС Н036',0,-jetH*4,'rgba(200,180,140,0.35)',5);
+  }
+  
+  X.restore();
+}
+
+function draw(){
+  var fly=viewMode===1;
+  
+  if(autoMode){
+    autoTimer+=0.016;
+    if(autoTimer>2){
+      autoTimer=0;
+      if(stage<maxStage){stage++;document.getElementById('stageV').textContent=stage+'/'+maxStage;}
+      else{autoMode=false;document.getElementById('autoBtn').textContent='СТАРТ';}
+    }
+  }
+  
+  t+=0.016;
+  
+  X.fillStyle='#050808';X.fillRect(0,0,W,H);
+  
+  if(fly){
+    // Sky
+    var sg=X.createRadialGradient(W*0.5,H*0.3,0,W*0.5,H*0.3,W*0.5);
+    sg.addColorStop(0,'rgba(20,30,50,0.1)');
+    sg.addColorStop(1,'rgba(10,15,25,0)');
+    X.fillStyle=sg;X.fillRect(0,0,W,H);
+    // Clouds
+    for(var cl=0;cl<5;cl++){
+      var clx=Math.sin(t*0.1+cl*2)*W*0.4+W*0.5;
+      var cly=H*0.3+cl*H*0.12;
+      X.fillStyle='rgba(200,200,210,'+(0.01+0.005*Math.sin(t*0.3+cl))+')';
+      X.beginPath();X.ellipse(clx,cly,30+cl*10,5+cl*2,0,0,Math.PI*2);X.fill();
+    }
+  }else{
+    drawHangar(t);
+  }
+  
+  var cx=W/2;
+  var cy=fly?H*0.4:H*0.5;
+  var s=Math.min(W,H)/600;
+  
+  drawJet(cx,cy,s,stage,t,fly);
+  
+  document.getElementById('part-label').textContent=parts[stage]||'';
+  
+  // Progress
+  X.fillStyle='rgba(255,200,100,0.04)';X.fillRect(W*0.1,H-8,W*0.8,3);
+  X.fillStyle='rgba(255,200,100,0.12)';X.fillRect(W*0.1,H-8,W*0.8*(stage/maxStage),3);
+  for(var sd=0;sd<=maxStage;sd++){
+    var sdx=W*0.1+W*0.8*(sd/maxStage);
+    X.fillStyle=sd<=stage?'rgba(255,200,100,0.25)':'rgba(255,200,100,0.06)';
+    X.beginPath();X.arc(sdx,H-6.5,2,0,Math.PI*2);X.fill();
+  }
+  
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
