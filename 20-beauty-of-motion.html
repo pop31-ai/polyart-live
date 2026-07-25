@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>20 — Красота Движений — PolyArt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#080612;overflow:hidden;font-family:'Segoe UI',sans-serif}
+canvas{display:block}
+#ui{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:10}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ctrl label{color:#aaa;font-size:9px;text-transform:uppercase;letter-spacing:1.5px}
+.ctrl input[type=range]{width:90px;accent-color:#fc0;cursor:pointer}
+.ctrl .val{color:#ddd;font-size:11px;font-weight:bold}
+#title{position:absolute;top:14px;left:50%;transform:translateX(-50%);color:#fff;font-size:16px;letter-spacing:5px;text-transform:uppercase;text-shadow:0 0 20px #fc05;z-index:10}
+#info{position:absolute;top:42px;left:50%;transform:translateX(-50%);color:#666;font-size:9px;letter-spacing:2px;z-index:10}
+button.tog{background:none;border:1px solid #fc0;color:#fc0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">Красота Движений</div>
+<div id="info">Полиномиальная механика — Ускорение — Инерция — Грация тела — Математика красоты</div>
+<div id="ui">
+<div class="ctrl"><label>Обводка</label><input type="range" id="lw" min="0" max="3" value="1" step="0.5"><span class="val" id="lwV">1</span></div>
+<div class="ctrl"><label>Движение</label><button class="tog" id="togM">ПЛАВНОСТЬ</button></div>
+<div class="ctrl"><label>След</label><button class="tog" id="togTr">СПИРАЛЬ</button></div>
+</div>
+<script>
+var C=document.getElementById('c'),X=C.getContext('2d'),W,H;
+function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
+resize();addEventListener('resize',resize);
+document.getElementById('lw').oninput=function(){document.getElementById('lwV').textContent=this.value;};
+
+var mov=0;var trailMode=0;
+var movNames=['ПЛАВНОСТЬ','УСКОРЕНИЕ','ПАРАБОЛА','ВОЛНА','ВРАЩЕНИЕ'];
+var trNames=['СПИРАЛЬ','СЛЕД','ОРБИТА','СЕТКА'];
+document.getElementById('togM').onclick=function(){mov=(mov+1)%5;this.textContent=movNames[mov];};
+document.getElementById('togTr').onclick=function(){trailMode=(trailMode+1)%4;this.textContent=trNames[trailMode];};
+
+var PHI=1.618033988749895;
+var t=0;
+
+function F(pts,c){X.fillStyle=c;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.fill();}
+function S(pts,c,w){if(w<=0)return;X.strokeStyle=c;X.lineWidth=w;X.beginPath();X.moveTo(pts[0][0],pts[0][1]);for(var i=1;i<pts.length;i++){var p=pts[i];if(p.length>=6)X.bezierCurveTo(p[0],p[1],p[2],p[3],p[4],p[5]);else if(p.length>=4)X.quadraticCurveTo(p[0],p[1],p[2],p[3]);else X.lineTo(p[0],p[1]);}X.closePath();X.stroke();}
+
+// Smooth easing functions
+function easeInOut(t){return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+function easeOutElastic(t){return t===0||t===1?t:Math.pow(2,-10*t)*Math.sin((t*10-0.75)*2.094)+1;}
+function easeInOutCubic(t){return t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;}
+
+// Human figure drawing — parametric
+// pos: {x,y,lean,armL,armR,legL,legR,headTilt,dressFlow}
+function drawHuman(cx,cy,s,pos,col1,col2,lw2,gender){
+  var baseY=cy+pos.legDrop*s;
+
+  // Legs
+  var legLen=pos.legLen*s||35*s;
+  S([
+    [cx+pos.x-legLen*Math.sin(pos.legL)*0.3,baseY,
+     cx+pos.x-legLen*Math.sin(pos.legL)*0.15,baseY-legLen*0.5,
+     cx+pos.x,baseY-legLen]
+  ],col1,lw2*1.5);
+  S([
+    [cx+pos.x+legLen*Math.sin(pos.legR)*0.3,baseY,
+     cx+pos.x+legLen*Math.sin(pos.legR)*0.15,baseY-legLen*0.5,
+     cx+pos.x+legLen*0.05,baseY-legLen]
+  ],col1,lw2*1.5);
+
+  // Torso
+  var torsoTop=baseY-legLen;
+  S([
+    [cx+pos.x+pos.lean*s*3,torsoTop,
+     cx+pos.x+pos.lean*s*5,torsoTop-pos.torsoH*s]
+  ],col1,lw2*1.5);
+
+  // Arms
+  var shoulderX=cx+pos.x+pos.lean*s*5;
+  var shoulderY=torsoTop-pos.torsoH*s*0.1;
+  var armLen=pos.armLen*s||28*s;
+
+  // Left arm — polynomial curve
+  S([
+    [shoulderX-s*10,shoulderY,
+     shoulderX-s*10-Math.cos(pos.armL)*armLen*0.5,shoulderY-Math.sin(pos.armL)*armLen*0.5,
+     shoulderX-s*10-Math.cos(pos.armL)*armLen,shoulderY-Math.sin(pos.armL)*armLen]
+  ],col1,lw2*1.2);
+
+  // Right arm
+  S([
+    [shoulderX+s*10,shoulderY,
+     shoulderX+s*10+Math.cos(pos.armR)*armLen*0.5,shoulderY-Math.sin(pos.armR)*armLen*0.5,
+     shoulderX+s*10+Math.cos(pos.armR)*armLen,shoulderY-Math.sin(pos.armR)*armLen]
+  ],col1,lw2*1.2);
+
+  // Hands — small circles
+  var hlX=shoulderX-s*10-Math.cos(pos.armL)*armLen;
+  var hlY=shoulderY-Math.sin(pos.armL)*armLen;
+  var hrX=shoulderX+s*10+Math.cos(pos.armR)*armLen;
+  var hrY=shoulderY-Math.sin(pos.armR)*armLen;
+  X.fillStyle=col1;X.globalAlpha=0.3;
+  X.beginPath();X.arc(hlX,hlY,2.5*s,0,Math.PI*2);X.fill();
+  X.beginPath();X.arc(hrX,hrY,2.5*s,0,Math.PI*2);X.fill();
+  X.globalAlpha=1;
+
+  // Head
+  var headR=pos.headR*s||8*s;
+  var headX=shoulderX+pos.headTilt*s*5;
+  var headY=shoulderY-pos.torsoH*s*0.3-headR*1.5;
+  X.fillStyle=col1;X.globalAlpha=0.12;X.beginPath();X.arc(headX,headY,headR,0,Math.PI*2);X.fill();X.globalAlpha=1;
+  X.strokeStyle=col1;X.lineWidth=lw2;X.beginPath();X.arc(headX,headY,headR,0,Math.PI*2);X.stroke();
+
+  // Dress / clothing hint for female
+  if(gender==='f'){
+    var dressWave=pos.dressFlow||0;
+    var dressTop=torsoTop+pos.torsoH*s*0.3;
+    F([
+      [cx+pos.x+pos.lean*s*3-8*s,dressTop,
+       cx+pos.x+pos.lean*s*5+8*s,dressTop,
+       cx+pos.x+pos.lean*s*4+12*s+dressWave*s,baseY,
+       cx+pos.x+pos.lean*s*2-12*s-dressWave*s,baseY]
+    ],col2);
+  }
+
+  // Return key points for trail
+  return {hlX:hlX,hlY:hlY,hrX:hrX,hrY:hrY,headX:headX,headY:headY,shoulderX:shoulderX,shoulderY:shoulderY};
+}
+
+function draw(){
+  var lw=parseFloat(document.getElementById('lw').value);
+  t+=0.016;
+
+  X.fillStyle='#080612';X.fillRect(0,0,W,H);
+
+  var cx=W/2, cy=H*0.5, s=Math.min(W,H)/600;
+  var floorY=cy+H*0.2;
+
+  // Floor
+  X.globalAlpha=0.06;
+  S([[0,floorY],[W,floorY]],'rgba(200,180,160,0.4)',lw*0.4);
+  X.globalAlpha=1;
+
+  // Spotlight
+  var spotGrad=X.createRadialGradient(cx,floorY-H*0.3,0,cx,floorY,W*0.3);
+  spotGrad.addColorStop(0,'rgba(255,220,150,0.04)');
+  spotGrad.addColorStop(1,'rgba(255,200,120,0)');
+  X.fillStyle=spotGrad;X.fillRect(0,0,W,H);
+
+  // ====== MOVEMENT SEQUENCES ======
+  var phase=t*0.6;
+  var poses=[];
+
+  if(mov===0){
+    // ПЛАВНОСТЬ — flowing, ballet-like grace
+    var p=phase;
+    for(var i=0;i<5;i++){
+      var pp=p+i*0.15;
+      var px=Math.sin(pp*0.8)*W*0.25;
+      var lean=Math.sin(pp)*0.15;
+      var armL=Math.sin(pp*0.7)*0.8+0.3;
+      var armR=Math.sin(pp*0.7+1)*0.8+0.3;
+      var legL=Math.sin(pp*0.5)*0.3;
+      var legR=Math.sin(pp*0.5+0.5)*0.3;
+      var dressF=Math.sin(pp*1.2)*4;
+      poses.push({
+        x:px,lean:lean,armL:armL,armR:armR,
+        legL:legL,legR:legR,headTilt:Math.sin(pp*0.3)*0.5,
+        torsoH:32,armLen:28,legLen:35,headR:8,
+        dressFlow:dressF,legDrop:0,
+        alpha:1-i*0.18,
+        col1:'rgba(200,180,220,0.5)',col2:'rgba(180,60,80,0.06)'
+      });
+    }
+  }else if(mov===1){
+    // УСКОРЕНИЕ — accelerating run then sudden stop
+    var p2=phase*1.2;
+    var runCycle=p2%2;
+    var spread=easeInOut(runCycle<1?runCycle:2-runCycle)*0.6;
+    var leanForward=0.3-spread*0.2;
+    for(var i2=0;i2<5;i2++){
+      var pp2=p2-i2*0.12;
+      var runPhase=pp2%2;
+      var sp2=easeInOut(runPhase<1?runPhase:2-runPhase)*0.6;
+      var px2=-W*0.3+i2*W*0.15+Math.sin(pp2*3)*10*s;
+      poses.push({
+        x:px2,lean:leanForward+i2*0.02,
+        armL:Math.PI*0.5-sp2*0.5,armR:Math.PI*0.5+sp2*0.5,
+        legL:Math.PI*0.5+sp2*0.8,legR:Math.PI*0.5-sp2*0.8,
+        headTilt:0.2,torsoH:30,armLen:25,legLen:38,headR:7,
+        dressFlow:0,legDrop:Math.abs(Math.sin(pp2*2))*3,
+        alpha:1-i2*0.18,
+        col1:'rgba(180,200,240,0.5)',col2:'rgba(60,80,160,0.04)'
+      });
+    }
+  }else if(mov===2){
+    // ПАРАБОЛА — parabolic jump
+    var p3=phase*0.7;
+    var jumpPhase=(p3%3)/3; // 0-1 jump cycle
+    var jumpH=Math.sin(jumpPhase*Math.PI); // parabolic arc
+    var jumpX=(jumpPhase-0.5)*W*0.5;
+    for(var i3=0;i3<5;i3++){
+      var jp=(p3-i3*0.15)%3/3;
+      var jH=Math.sin(jp*Math.PI);
+      var jX=(jp-0.5)*W*0.5;
+      var armUp=jH*0.8;
+      poses.push({
+        x:jX,lean:Math.cos(jp*Math.PI)*0.1,
+        armL:Math.PI*0.5+armUp,armR:Math.PI*0.5+armUp,
+        legL:Math.PI*0.5-jH*0.5,legR:Math.PI*0.5-jH*0.3,
+        headTilt:0,torsoH:30,armLen:25,legLen:35,headR:7,
+        dressFlow:jH*3,legDrop:-jH*50,
+        alpha:1-i3*0.18,
+        col1:'rgba(220,200,180,0.5)',col2:'rgba(200,150,100,0.05)'
+      });
+    }
+  }else if(mov===3){
+    // ВОЛНА — wave-like body undulation
+    var p4=phase*0.8;
+    for(var i4=0;i4<5;i4++){
+      var wp=p4+i4*0.2;
+      var wave=Math.sin(wp)*0.3;
+      var px4=Math.sin(wp*0.3)*W*0.15;
+      poses.push({
+        x:px4,lean:wave*0.5,
+        armL:Math.PI*0.5+Math.sin(wp+1)*0.6,armR:Math.PI*0.5+Math.sin(wp-1)*0.6,
+        legL:Math.PI*0.5+Math.sin(wp+0.5)*0.2,legR:Math.PI*0.5-Math.sin(wp+0.5)*0.2,
+        headTilt:Math.sin(wp+0.8)*0.4,
+        torsoH:32+Math.sin(wp)*3,armLen:28,legLen:35,headR:8,
+        dressFlow:Math.sin(wp+1)*5,legDrop:0,
+        alpha:1-i4*0.18,
+        col1:'rgba(180,220,200,0.5)',col2:'rgba(60,140,100,0.05)'
+      });
+    }
+  }else{
+    // ВРАЩЕНИЕ — rotation in space
+    var p5=phase*0.5;
+    var rotCount=4;
+    for(var i5=0;i5<rotCount;i5++){
+      var rp=p5+i5*0.3;
+      var rotA=rp*Math.PI*2;
+      var rotX=Math.sin(rotA)*W*0.2;
+      var rotScale=Math.cos(rotA)*0.3+0.7; // perspective scale
+      var armPhase=rp*2;
+      poses.push({
+        x:rotX,lean:Math.sin(rotA)*0.2,
+        armL:Math.PI*0.5+Math.sin(armPhase)*0.7*rotScale,
+        armR:Math.PI*0.5-Math.sin(armPhase)*0.7*rotScale,
+        legL:Math.PI*0.5+Math.sin(armPhase+1)*0.4*rotScale,
+        legR:Math.PI*0.5-Math.sin(armPhase+1)*0.4*rotScale,
+        headTilt:Math.sin(rotA)*0.3,
+        torsoH:32*rotScale,armLen:28*rotScale,legLen:35*rotScale,headR:8*rotScale,
+        dressFlow:Math.sin(armPhase)*6*rotScale,legDrop:0,
+        alpha:rotScale*0.6,
+        col1:'rgba(220,180,200,0.5)',col2:'rgba(160,60,100,0.05)'
+      });
+    }
+  }
+
+  // Draw all poses — oldest first
+  var trails=[];
+  for(var di=poses.length-1;di>=0;di--){
+    var pos=poses[di];
+    X.globalAlpha=pos.alpha;
+    var pts=drawHuman(cx,floorY-H*0.12,s,pos,pos.col1,pos.col2,lw,di%2===0?'m':'f');
+    trails.push(pts);
+  }
+  X.globalAlpha=1;
+
+  // ====== TRAIL MODES ======
+  if(trails.length>1){
+    // Reverse for oldest-first trail drawing
+    var trPts=[];
+    for(var ti=trails.length-1;ti>=0;ti--){
+      trPts.push(trails[ti]);
+    }
+
+    if(trailMode===0){
+      // SPIRAL — polynomial spiral through hand positions
+      X.globalAlpha=0.08;
+      for(var si=1;si<trPts.length;si++){
+        var s0=trPts[si-1],s1=trPts[si];
+        S([
+          [s0.hrX,s0.hrY,s1.hlX,s1.hlY]
+        ],'rgba(255,200,100,0.4)',lw*0.6);
+      }
+      // Second spiral through heads
+      for(var si2=1;si2<trPts.length;si2++){
+        var s02=trPts[si2-1],s12=trPts[si2];
+        S([
+          [s02.headX,s02.headY,s12.headX,s12.headY]
+        ],'rgba(200,150,255,0.3)',lw*0.5);
+      }
+      X.globalAlpha=1;
+    }else if(trailMode===1){
+      // TRAIL — fading trail of hand positions
+      for(var ti2=1;ti2<trPts.length;ti2++){
+        var ta=ti2/trPts.length;
+        X.globalAlpha=ta*0.15;
+        S([
+          [trPts[ti2-1].hrX,trPts[ti2-1].hrY,
+           trPts[ti2].hrX,trPts[ti2].hrY]
+        ],'rgba(255,180,80,0.5)',lw*ta*2);
+        S([
+          [trPts[ti2-1].hlX,trPts[ti2-1].hlY,
+           trPts[ti2].hlX,trPts[ti2].hlY]
+        ],'rgba(180,200,255,0.5)',lw*ta*1.5);
+      }
+      X.globalAlpha=1;
+    }else if(trailMode===2){
+      // ORBIT — ellipses connecting equivalent points
+      X.globalAlpha=0.06;
+      // Hand orbits
+      var orbPts=trPts.map(function(p){return[p.hrX,p.hrY];});
+      if(orbPts.length>2){
+        S(orbPts,'rgba(255,200,100,0.4)',lw*0.8);
+      }
+      var orbPts2=trPts.map(function(p){return[p.hlX,p.hlY];});
+      if(orbPts2.length>2){
+        S(orbPts2,'rgba(180,200,255,0.4)',lw*0.8);
+      }
+      // Head orbit
+      var orbPts3=trPts.map(function(p){return[p.headX,p.headY];});
+      if(orbPts3.length>2){
+        S(orbPts3,'rgba(200,150,255,0.4)',lw*0.8);
+      }
+      X.globalAlpha=1;
+    }else{
+      // GRID — connecting lines between all poses
+      X.globalAlpha=0.04;
+      for(var gi=0;gi<trPts.length;gi++){
+        for(var gj=gi+1;gj<trPts.length;gj++){
+          S([
+            [trPts[gi].headX,trPts[gi].headY,trPts[gj].headX,trPts[gj].headY]
+          ],'rgba(200,180,160,0.3)',lw*0.2);
+        }
+      }
+      X.globalAlpha=1;
+    }
+  }
+
+  // ====== POLYNOMIAL EQUATION DISPLAY ======
+  X.globalAlpha=0.06;X.font=(9*s)+'px monospace';X.fillStyle='rgba(255,220,180,0.5)';X.textAlign='left';
+  var eqs=[
+    'f(t) = Σ aᵢ·tⁱ',
+    'v(t) = f\'(t) = Σ i·aᵢ·tⁱ⁻¹',
+    'a(t) = f\'\'(t) = Σ i(i-1)·aᵢ·tⁱ⁻²',
+    'E = ½mv² + ½kx²',
+    'L = r × p',
+    'S = ∫ v(t) dt'
+  ];
+  var eqX=W*0.04;
+  for(var eqi=0;eqi<eqs.length;eqi++){
+    X.fillText(eqs[eqi],eqX,40*s+eqi*14*s);
+  }
+  X.textAlign='left';
+  X.globalAlpha=1;
+
+  // ====== ACCELERATION VISUALIZATION (bottom) ======
+  X.globalAlpha=0.05;
+  var graphY=floorY+20*s;
+  var graphW=W*0.3;
+  var graphH=30*s;
+  // Axes
+  S([[cx-graphW,graphY],[cx+graphW,graphY]],'rgba(200,180,160,0.3)',lw*0.3);
+  S([[cx,graphY-graphH],[cx,graphY+graphH*0.3]],'rgba(200,180,160,0.3)',lw*0.3);
+  // Curve
+  var graphPts=[];
+  for(var gi2=0;gi2<40;gi2++){
+    var gx=cx-graphW+gi2*graphW*2/40;
+    var gy2=graphY;
+    if(mov===0)gy2=graphY-Math.sin(t+gi2*0.15)*graphH*0.6; // sin
+    else if(mov===1)gy2=graphY-Math.pow((gi2/20-1),2)*graphH*0.8+graphH*0.2; // parabola accel
+    else if(mov===2)gy2=graphY-Math.sin(gi2/40*Math.PI)*graphH*0.8; // parabolic arc
+    else if(mov===3)gy2=graphY-Math.sin(t*2+gi2*0.3)*graphH*0.5*Math.sin(gi2/40*Math.PI); // wave envelope
+    else gy2=graphY-Math.sin(t+gi2*0.2)*graphH*0.5*Math.cos(gi2/40*Math.PI); // rotating projection
+    graphPts.push([gx,gy2]);
+  }
+  S(graphPts,'rgba(255,200,100,0.4)',lw*0.6);
+  X.globalAlpha=1;
+
+  // Movement name — center bottom
+  X.globalAlpha=0.06;X.font=(12*s)+'px serif';X.fillStyle='rgba(255,220,180,0.5)';X.textAlign='center';
+  X.fillText(movNames[mov],cx,H-20*s);
+  X.textAlign='left';X.globalAlpha=1;
+
+  // Floating particles
+  for(var fp=0;fp<12;fp++){
+    var fpx=cx+Math.sin(t*0.12+fp*2.7)*W*0.35;
+    var fpy=cy+Math.cos(t*0.1+fp*2.1)*H*0.3;
+    X.fillStyle='rgba(255,220,160,'+(0.015+0.01*Math.sin(t*1.3+fp))+')';
+    X.beginPath();X.arc(fpx,fpy,0.4*s,0,Math.PI*2);X.fill();
+  }
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
